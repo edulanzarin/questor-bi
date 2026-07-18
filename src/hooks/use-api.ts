@@ -189,6 +189,12 @@ export const useFrete = (qs: string, tipo: "ent" | "sai", metrica: Metrica) =>
     `/api/fiscal/frete?${qs}&tipo=${tipo}&metrica=${metrica}`
   );
 
+export const useFaixasValor = (qs: string, tipo: "ent" | "sai", metrica: Metrica) =>
+  useApiQuery<TopItem[]>(
+    ["faixas-valor", qs, tipo, metrica],
+    `/api/fiscal/faixas-valor?${qs}&tipo=${tipo}&metrica=${metrica}`
+  );
+
 export const useDevolucoesResumo = (qs: string, enabled = true) =>
   useApiQuery<DevolucoesResumo>(
     ["devolucoes-resumo", qs],

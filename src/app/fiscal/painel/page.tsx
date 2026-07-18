@@ -68,7 +68,7 @@ export default function PainelPage() {
       <StatTiles
         stats={resumoStats}
         carregando={devol.isLoading || cancel.isLoading}
-        colunas={3}
+        colunas={2}
       />
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <div className="xl:col-span-2">

@@ -16,9 +16,14 @@ export function StatTiles({
 }: {
   stats: Stat[] | undefined;
   carregando: boolean;
-  colunas?: 3 | 4;
+  colunas?: 2 | 3 | 4;
 }) {
-  const cols = colunas === 3 ? "sm:grid-cols-3" : "sm:grid-cols-2 xl:grid-cols-4";
+  const cols =
+    colunas === 2
+      ? "sm:grid-cols-2"
+      : colunas === 3
+        ? "sm:grid-cols-3"
+        : "sm:grid-cols-2 xl:grid-cols-4";
   if (carregando || !stats) {
     return (
       <div className={clsx("grid grid-cols-1 gap-4", cols)}>

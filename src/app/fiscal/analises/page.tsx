@@ -7,6 +7,7 @@ import { useFiltros } from "@/hooks/use-filters";
 import {
   useCfops,
   useEstados,
+  useFaixasValor,
   useFrete,
   useMunicipios,
   useProdutos,
@@ -26,6 +27,7 @@ export default function AnalisesPage() {
   const [tipoEstados, setTipoEstados] = useState<Tipo>("sai");
   const [tipoMunic, setTipoMunic] = useState<Tipo>("sai");
   const [tipoFrete, setTipoFrete] = useState<Tipo>("sai");
+  const [tipoFaixa, setTipoFaixa] = useState<Tipo>("sai");
 
   const topEmpresas = useTopEmpresas(qs, tipoEmpresas, filtros.metrica);
   const topPessoas = useTopPessoas(qs, tipoPessoas, filtros.metrica);
@@ -34,6 +36,7 @@ export default function AnalisesPage() {
   const estados = useEstados(qs, tipoEstados);
   const municipios = useMunicipios(qs, tipoMunic, filtros.metrica);
   const frete = useFrete(qs, tipoFrete, filtros.metrica);
+  const faixas = useFaixasValor(qs, tipoFaixa, filtros.metrica);
 
   const mostraTopEmpresas = filtros.empresas.length !== 1;
 
@@ -139,18 +142,32 @@ export default function AnalisesPage() {
           metrica={filtros.metrica}
         />
       </div>
-      <TopBarChart
-        titulo="Modalidade de frete"
-        subtituloEnt="Quem responde pelo frete (entradas)"
-        subtituloSai="Quem responde pelo frete (saídas)"
-        dados={frete.data}
-        carregando={frete.isLoading}
-        recarregando={frete.isFetching && !frete.isLoading}
-        tipo={tipoFrete}
-        onTipo={setTipoFrete}
-        metrica={filtros.metrica}
-        rotuloQtd="Notas"
-      />
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <TopBarChart
+          titulo="Modalidade de frete"
+          subtituloEnt="Quem responde pelo frete (entradas)"
+          subtituloSai="Quem responde pelo frete (saídas)"
+          dados={frete.data}
+          carregando={frete.isLoading}
+          recarregando={frete.isFetching && !frete.isLoading}
+          tipo={tipoFrete}
+          onTipo={setTipoFrete}
+          metrica={filtros.metrica}
+          rotuloQtd="Notas"
+        />
+        <TopBarChart
+          titulo="Notas por faixa de valor"
+          subtituloEnt="Distribuição das entradas por valor"
+          subtituloSai="Distribuição das saídas por valor"
+          dados={faixas.data}
+          carregando={faixas.isLoading}
+          recarregando={faixas.isFetching && !faixas.isLoading}
+          tipo={tipoFaixa}
+          onTipo={setTipoFaixa}
+          metrica={filtros.metrica}
+          rotuloQtd="Notas"
+        />
+      </div>
     </>
   );
 }
