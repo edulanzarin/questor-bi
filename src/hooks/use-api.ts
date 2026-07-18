@@ -210,6 +210,18 @@ export const useFaixasValor = (qs: string, tipo: "ent" | "sai", metrica: Metrica
     `/api/fiscal/faixas-valor?${qs}&tipo=${tipo}&metrica=${metrica}`
   );
 
+export const useUsuarios = (qs: string, tipo: "ent" | "sai", metrica: Metrica) =>
+  useApiQuery<TopItem[]>(
+    ["usuarios", qs, tipo, metrica],
+    `/api/fiscal/usuarios?${qs}&tipo=${tipo}&metrica=${metrica}`
+  );
+
+export const useOrigem = (qs: string, tipo: "ent" | "sai", metrica: Metrica) =>
+  useApiQuery<TopItem[]>(
+    ["origem", qs, tipo, metrica],
+    `/api/fiscal/origem?${qs}&tipo=${tipo}&metrica=${metrica}`
+  );
+
 export const useDevolucoesResumo = (qs: string, enabled = true) =>
   useApiQuery<DevolucoesResumo>(
     ["devolucoes-resumo", qs],
