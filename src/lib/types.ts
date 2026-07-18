@@ -150,6 +150,12 @@ export interface ContraparteBusca {
   qtd: number;
 }
 
+export interface ContrapartesResp {
+  rows: ContraparteBusca[];
+  page: number;
+  temMais: boolean;
+}
+
 /** Uma nota fiscal na listagem bruta (explorador de dados). */
 export interface NotaLista {
   empresa: number;

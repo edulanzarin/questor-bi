@@ -17,7 +17,7 @@ import type {
   ImpostosSerie,
   NotasListaResp,
   NotaItem,
-  ContraparteBusca,
+  ContrapartesResp,
   DevolucoesResumo,
   CancelamentosResumo,
   PontoValorSerie,
@@ -161,11 +161,17 @@ export const useNotasLista = (
     enabled
   );
 
-export const useContrapartes = (qs: string, tipo: "ent" | "sai", q: string) =>
-  useApiQuery<ContraparteBusca[]>(
-    ["contrapartes", qs, tipo, q],
-    `/api/fiscal/contrapartes?${qs}&tipo=${tipo}&q=${encodeURIComponent(q)}`,
-    q.trim().length >= 2
+export const useContrapartes = (
+  qs: string,
+  tipo: "ent" | "sai",
+  q: string,
+  page: number,
+  enabled = true
+) =>
+  useApiQuery<ContrapartesResp>(
+    ["contrapartes", qs, tipo, q, page],
+    `/api/fiscal/contrapartes?${qs}&tipo=${tipo}&q=${encodeURIComponent(q)}&page=${page}`,
+    enabled
   );
 
 export const useNotaItens = (

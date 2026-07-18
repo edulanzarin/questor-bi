@@ -1,107 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Building2, ChevronDown, ChevronRight, Loader2, Search, Table2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Filter, Loader2, Search, Table2 } from "lucide-react";
 import clsx from "clsx";
 import { SeletorTipo } from "@/components/charts/top-bar-chart";
-import { Dropdown, ItemLista } from "@/components/ui/dropdown";
-import { useContrapartes, useNotaItens, useNotasLista } from "@/hooks/use-api";
-import { brl, dataBR, num } from "@/lib/format";
+import { ContraparteModal, type PessoaSel } from "@/components/filters/contraparte-modal";
+import { useNotaItens, useNotasLista } from "@/hooks/use-api";
+import { brl, dataBR, documento, num } from "@/lib/format";
 import type { NotaLista } from "@/lib/types";
-
-interface PessoaSel {
-  codigo: number;
-  nome: string;
-}
-
-function ContraparteFiltro({
-  qs,
-  tipo,
-  valor,
-  onChange,
-}: {
-  qs: string;
-  tipo: Tipo;
-  valor: PessoaSel | null;
-  onChange: (v: PessoaSel | null) => void;
-}) {
-  const [q, setQ] = useState("");
-  const [qDeb, setQDeb] = useState("");
-  useEffect(() => {
-    const t = setTimeout(() => setQDeb(q.trim()), 300);
-    return () => clearTimeout(t);
-  }, [q]);
-  const { data, isFetching } = useContrapartes(qs, tipo, qDeb);
-  const curto = qDeb.length < 2;
-
-  return (
-    <Dropdown
-      icone={<Building2 className="size-4" />}
-      rotulo={valor ? valor.nome : "Contraparte"}
-      ativo={!!valor}
-      largura="w-80"
-    >
-      {(fechar) => (
-        <div>
-          <div className="flex items-center gap-2 border-b border-hairline px-3 py-2">
-            <Search className="size-4 text-muted" />
-            <input
-              autoFocus
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Buscar contraparte…"
-              className="w-full bg-transparent text-sm text-ink outline-none placeholder:text-muted"
-            />
-            {valor && (
-              <button
-                onClick={() => {
-                  onChange(null);
-                  fechar();
-                }}
-                className="shrink-0 text-xs text-ent hover:underline"
-              >
-                Limpar
-              </button>
-            )}
-          </div>
-          <div className="max-h-72 overflow-y-auto py-1">
-            {curto && (
-              <p className="px-3 py-3 text-sm text-muted">Digite ao menos 2 letras…</p>
-            )}
-            {!curto && isFetching && (
-              <p className="flex items-center gap-2 px-3 py-3 text-sm text-muted">
-                <Loader2 className="size-3.5 animate-spin" /> Buscando…
-              </p>
-            )}
-            {!curto && !isFetching && data && data.length === 0 && (
-              <p className="px-3 py-2 text-sm text-muted">Nenhuma contraparte encontrada</p>
-            )}
-            {!curto &&
-              data?.map((c) => (
-                <ItemLista
-                  key={c.codigo}
-                  selecionado={valor?.codigo === c.codigo}
-                  onClick={() => {
-                    onChange({ codigo: c.codigo, nome: c.nome });
-                    fechar();
-                  }}
-                >
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate">{c.nome}</span>
-                    <span className="tnum block text-xs text-muted">
-                      {doc(c.doc)}
-                      {c.uf ? ` · ${c.uf}` : ""}
-                    </span>
-                  </span>
-                  <span className="tnum shrink-0 text-xs text-muted">{num(c.qtd)}</span>
-                </ItemLista>
-              ))}
-          </div>
-        </div>
-      )}
-    </Dropdown>
-  );
-}
 
 type Tipo = "ent" | "sai";
 type Situacao = "todas" | "normais" | "canceladas";
@@ -111,16 +17,6 @@ const SITUACOES: { id: Situacao; rotulo: string }[] = [
   { id: "normais", rotulo: "Normais" },
   { id: "canceladas", rotulo: "Canceladas" },
 ];
-
-/** Formata CNPJ (14) / CPF (11); senão devolve como veio. */
-function doc(v: string | null): string {
-  if (!v) return "";
-  const d = v.replace(/\D/g, "");
-  if (d.length === 14)
-    return d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
-  if (d.length === 11) return d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
-  return v;
-}
 
 function ItensNota({ tipo, empresa, chave }: { tipo: Tipo; empresa: number; chave: string }) {
   const { data, isLoading } = useNotaItens(tipo, empresa, chave);
@@ -179,6 +75,7 @@ export function NotasTabela({ qs, enabled, mostraEmpresa }: {
   const [buscaDeb, setBuscaDeb] = useState("");
   const [situacao, setSituacao] = useState<Situacao>("todas");
   const [pessoa, setPessoa] = useState<PessoaSel | null>(null);
+  const [modalContra, setModalContra] = useState(false);
   const [page, setPage] = useState(1);
   const [aberta, setAberta] = useState<string | null>(null);
 
@@ -230,7 +127,6 @@ export function NotasTabela({ qs, enabled, mostraEmpresa }: {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <ContraparteFiltro qs={qs} tipo={tipo} valor={pessoa} onChange={setPessoa} />
           <div className="flex items-center gap-2 rounded-lg border border-hairline bg-surface-2 px-2.5 py-1.5">
             <Search className="size-3.5 text-muted" />
             <input
@@ -238,9 +134,21 @@ export function NotasTabela({ qs, enabled, mostraEmpresa }: {
               onChange={(e) => setBusca(e.target.value)}
               inputMode="numeric"
               placeholder="Nº da nota…"
-              className="w-32 bg-transparent text-xs text-ink outline-none placeholder:text-muted"
+              className="w-28 bg-transparent text-xs text-ink outline-none placeholder:text-muted"
             />
           </div>
+          <button
+            onClick={() => setModalContra(true)}
+            className={clsx(
+              "flex h-[34px] items-center gap-2 rounded-lg border px-3 text-xs transition-colors",
+              pessoa
+                ? "border-ent/40 bg-ent/10 text-ink"
+                : "border-hairline bg-surface-2 text-ink-2 hover:text-ink"
+            )}
+          >
+            <Filter className="size-3.5" />
+            <span className="max-w-40 truncate">{pessoa ? pessoa.nome : "Contraparte"}</span>
+          </button>
           <div className="flex rounded-lg border border-hairline bg-surface-2 p-0.5 text-xs">
             {SITUACOES.map((s) => (
               <button
@@ -338,6 +246,14 @@ export function NotasTabela({ qs, enabled, mostraEmpresa }: {
           </button>
         </div>
       </footer>
+      <ContraparteModal
+        aberto={modalContra}
+        onFechar={() => setModalContra(false)}
+        qs={qs}
+        tipo={tipo}
+        selecionado={pessoa}
+        onSelecionar={setPessoa}
+      />
     </section>
   );
 }
@@ -382,7 +298,7 @@ function FragmentRow({ n, aberto, mostraEmpresa, tipo, colSpan, onToggle }: {
         <td className="max-w-[280px] py-2.5 pr-3">
           <div className="truncate" title={n.contraparte ?? ""}>{n.contraparte ?? "—"}</div>
           {n.contraparteDoc && (
-            <div className="tnum text-xs text-muted">{doc(n.contraparteDoc)}</div>
+            <div className="tnum text-xs text-muted">{documento(n.contraparteDoc)}</div>
           )}
         </td>
         <td className="py-2.5 pr-3 text-muted">{n.uf ?? "—"}</td>
