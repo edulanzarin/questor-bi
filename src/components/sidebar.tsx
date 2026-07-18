@@ -12,6 +12,7 @@ import {
   LayoutDashboard,
   Receipt,
   Table2,
+  TrendingUp,
   Sun,
   Moon,
   type LucideIcon,
@@ -21,7 +22,8 @@ import { SECOES_FISCAL, type SecaoFiscal } from "@/lib/fiscal-secoes";
 
 const ICONE_SECAO: Record<string, LucideIcon> = {
   painel: LayoutDashboard,
-  analises: Table2,
+  analises: TrendingUp,
+  dados: Table2,
 };
 
 interface Modulo {
