@@ -141,19 +141,6 @@ export interface PontoValorSerie {
   pontos: { bucket: string; valor: number }[];
 }
 
-/** Apuração gerencial: débito (saídas) − crédito (entradas) de um imposto. */
-export interface ApuracaoLinha {
-  imposto: string;
-  debito: number;
-  credito: number;
-  saldo: number;
-}
-
-export interface ApuracaoSerie {
-  granularidade: "dia" | "mes";
-  pontos: { bucket: string; debito: number; credito: number }[];
-}
-
 /** Uma nota fiscal na listagem bruta (explorador de dados). */
 export interface NotaLista {
   empresa: number;

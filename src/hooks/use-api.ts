@@ -20,8 +20,6 @@ import type {
   DevolucoesResumo,
   CancelamentosResumo,
   PontoValorSerie,
-  ApuracaoLinha,
-  ApuracaoSerie,
 } from "@/lib/types";
 
 async function fetchJson<T>(url: string): Promise<T> {
@@ -152,11 +150,12 @@ export const useNotasLista = (
   tipo: "ent" | "sai",
   page: number,
   busca: string,
+  situacao: "todas" | "normais" | "canceladas",
   enabled = true
 ) =>
   useApiQuery<NotasListaResp>(
-    ["notas-lista", qs, tipo, page, busca],
-    `/api/fiscal/notas-lista?${qs}&tipo=${tipo}&page=${page}&busca=${encodeURIComponent(busca)}`,
+    ["notas-lista", qs, tipo, page, busca, situacao],
+    `/api/fiscal/notas-lista?${qs}&tipo=${tipo}&page=${page}&busca=${encodeURIComponent(busca)}&situacao=${situacao}`,
     enabled
   );
 
@@ -241,12 +240,3 @@ export const useCancelamentosRanking = (
     `/api/fiscal/cancelamentos-ranking?${qs}&tipo=${tipo}&por=${por}`,
     enabled
   );
-
-export const useApuracao = (qs: string) =>
-  useApiQuery<ApuracaoLinha[]>(["apuracao", qs], `/api/fiscal/apuracao?${qs}`);
-
-export const useApuracaoSerie = (qs: string) =>
-  useApiQuery<ApuracaoSerie>(["apuracao-serie", qs], `/api/fiscal/apuracao-serie?${qs}`);
-
-export const useApuracaoEmpresas = (qs: string) =>
-  useApiQuery<TopItem[]>(["apuracao-empresas", qs], `/api/fiscal/apuracao-empresas?${qs}`);

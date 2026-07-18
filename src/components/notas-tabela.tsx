@@ -9,6 +9,13 @@ import { brl, dataBR, num } from "@/lib/format";
 import type { NotaLista } from "@/lib/types";
 
 type Tipo = "ent" | "sai";
+type Situacao = "todas" | "normais" | "canceladas";
+
+const SITUACOES: { id: Situacao; rotulo: string }[] = [
+  { id: "todas", rotulo: "Todas" },
+  { id: "normais", rotulo: "Normais" },
+  { id: "canceladas", rotulo: "Canceladas" },
+];
 
 /** Formata CNPJ (14) / CPF (11); senão devolve como veio. */
 function doc(v: string | null): string {
@@ -75,6 +82,7 @@ export function NotasTabela({ qs, enabled, mostraEmpresa }: {
   const [tipo, setTipo] = useState<Tipo>("sai");
   const [busca, setBusca] = useState("");
   const [buscaDeb, setBuscaDeb] = useState("");
+  const [situacao, setSituacao] = useState<Situacao>("todas");
   const [page, setPage] = useState(1);
   const [aberta, setAberta] = useState<string | null>(null);
 
@@ -84,13 +92,20 @@ export function NotasTabela({ qs, enabled, mostraEmpresa }: {
     return () => clearTimeout(t);
   }, [busca]);
 
-  // volta pra página 1 quando muda filtro/busca/tipo
+  // volta pra página 1 quando muda filtro/busca/tipo/situação
   useEffect(() => {
     setPage(1);
     setAberta(null);
-  }, [qs, tipo, buscaDeb]);
+  }, [qs, tipo, buscaDeb, situacao]);
 
-  const { data, isLoading, isFetching } = useNotasLista(qs, tipo, page, buscaDeb, enabled);
+  const { data, isLoading, isFetching } = useNotasLista(
+    qs,
+    tipo,
+    page,
+    buscaDeb,
+    situacao,
+    enabled
+  );
   const total = data?.total ?? 0;
   const pageSize = data?.pageSize ?? 50;
   const totalPaginas = Math.max(1, Math.ceil(total / pageSize));
@@ -117,7 +132,7 @@ export function NotasTabela({ qs, enabled, mostraEmpresa }: {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-2 rounded-lg border border-hairline bg-surface-2 px-2.5 py-1.5">
             <Search className="size-3.5 text-muted" />
             <input
@@ -126,6 +141,22 @@ export function NotasTabela({ qs, enabled, mostraEmpresa }: {
               placeholder="Nº da nota ou contraparte…"
               className="w-52 bg-transparent text-xs text-ink outline-none placeholder:text-muted"
             />
+          </div>
+          <div className="flex rounded-lg border border-hairline bg-surface-2 p-0.5 text-xs">
+            {SITUACOES.map((s) => (
+              <button
+                key={s.id}
+                onClick={() => setSituacao(s.id)}
+                className={clsx(
+                  "rounded-md px-2.5 py-1 transition-colors",
+                  situacao === s.id
+                    ? "bg-surface font-medium text-ink shadow-sm"
+                    : "text-muted hover:text-ink"
+                )}
+              >
+                {s.rotulo}
+              </button>
+            ))}
           </div>
           <SeletorTipo tipo={tipo} onTipo={setTipo} />
         </div>

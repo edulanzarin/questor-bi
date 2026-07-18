@@ -12,10 +12,6 @@ import {
   LayoutDashboard,
   Receipt,
   Table2,
-  TrendingUp,
-  Undo2,
-  Ban,
-  Scale,
   Sun,
   Moon,
   type LucideIcon,
@@ -25,12 +21,7 @@ import { SECOES_FISCAL, type SecaoFiscal } from "@/lib/fiscal-secoes";
 
 const ICONE_SECAO: Record<string, LucideIcon> = {
   painel: LayoutDashboard,
-  impostos: Landmark,
-  analises: TrendingUp,
-  devolucoes: Undo2,
-  cancelamentos: Ban,
-  apuracao: Scale,
-  notas: Table2,
+  analises: Table2,
 };
 
 interface Modulo {
