@@ -152,19 +152,30 @@ export function FilterBar({ mostrarMetrica = true }: { mostrarMetrica?: boolean 
             <div className="border-t border-hairline p-3">
               <p className="mb-2 text-xs text-muted">Período personalizado</p>
               <div className="flex items-center gap-2">
+                {/* não-controlado (defaultValue) + commit no blur: deixa digitar o
+                    ano de 4 dígitos sem a URL sobrescrever a cada tecla. O `key`
+                    remonta o campo quando um preset muda a data por fora. */}
                 <input
+                  key={filtros.inicio}
                   type="date"
-                  value={filtros.inicio}
+                  defaultValue={filtros.inicio}
                   max={filtros.fim}
-                  onChange={(e) => e.target.value && atualizar({ inicio: e.target.value })}
+                  onBlur={(e) => {
+                    const v = e.target.value;
+                    if (v && v >= "2000-01-01" && v !== filtros.inicio) atualizar({ inicio: v });
+                  }}
                   className="h-8 w-full rounded-md border border-hairline bg-surface-2 px-2 text-xs text-ink"
                 />
                 <span className="text-muted">–</span>
                 <input
+                  key={filtros.fim}
                   type="date"
-                  value={filtros.fim}
+                  defaultValue={filtros.fim}
                   min={filtros.inicio}
-                  onChange={(e) => e.target.value && atualizar({ fim: e.target.value })}
+                  onBlur={(e) => {
+                    const v = e.target.value;
+                    if (v && v >= "2000-01-01" && v !== filtros.fim) atualizar({ fim: v });
+                  }}
                   className="h-8 w-full rounded-md border border-hairline bg-surface-2 px-2 text-xs text-ink"
                 />
               </div>
