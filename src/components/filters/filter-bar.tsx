@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   Building2,
   CalendarRange,
@@ -42,6 +42,11 @@ function presets() {
     { nome: "Este mês", inicio: inicioDoMesISO(), fim: hojeISO() },
     { nome: "Mês passado", inicio: iso(mesPassadoIni), fim: iso(mesPassadoFim) },
     { nome: "Este ano", inicio: `${hoje.getFullYear()}-01-01`, fim: hojeISO() },
+    {
+      nome: "Ano anterior",
+      inicio: `${hoje.getFullYear() - 1}-01-01`,
+      fim: `${hoje.getFullYear() - 1}-12-31`,
+    },
   ];
 }
 
@@ -51,6 +56,8 @@ export function FilterBar({ mostrarMetrica = true }: { mostrarMetrica?: boolean 
   const { grupos } = useGruposLocais();
   const [buscaEmpresa, setBuscaEmpresa] = useState("");
   const [buscaGrupo, setBuscaGrupo] = useState("");
+  const iniRef = useRef<HTMLInputElement>(null);
+  const fimRef = useRef<HTMLInputElement>(null);
   const [modalGrupos, setModalGrupos] = useState(false);
 
   const listaPresets = useMemo(presets, []);
@@ -151,33 +158,43 @@ export function FilterBar({ mostrarMetrica = true }: { mostrarMetrica?: boolean 
             </div>
             <div className="border-t border-hairline p-3">
               <p className="mb-2 text-xs text-muted">Período personalizado</p>
-              <div className="flex items-center gap-2">
-                {/* não-controlado (defaultValue) + commit no blur: deixa digitar o
-                    ano de 4 dígitos sem a URL sobrescrever a cada tecla. O `key`
-                    remonta o campo quando um preset muda a data por fora. */}
-                <input
-                  key={filtros.inicio}
-                  type="date"
-                  defaultValue={filtros.inicio}
-                  max={filtros.fim}
-                  onBlur={(e) => {
-                    const v = e.target.value;
-                    if (v && v >= "2000-01-01" && v !== filtros.inicio) atualizar({ inicio: v });
+              {/* Campos não-controlados (defaultValue + ref) e commit só no
+                  "Aplicar": nada vai pra URL enquanto digita, então dá pra
+                  escrever o ano de 4 dígitos sem sobrescrever. O `key` remonta
+                  os campos quando um preset muda as datas por fora. */}
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-xs text-muted">
+                  <span className="w-8 shrink-0">De</span>
+                  <input
+                    key={`ini-${filtros.inicio}`}
+                    ref={iniRef}
+                    type="date"
+                    defaultValue={filtros.inicio}
+                    className="h-8 w-full rounded-md border border-hairline bg-surface-2 px-2 text-xs text-ink"
+                  />
+                </label>
+                <label className="flex items-center gap-2 text-xs text-muted">
+                  <span className="w-8 shrink-0">Até</span>
+                  <input
+                    key={`fim-${filtros.fim}`}
+                    ref={fimRef}
+                    type="date"
+                    defaultValue={filtros.fim}
+                    className="h-8 w-full rounded-md border border-hairline bg-surface-2 px-2 text-xs text-ink"
+                  />
+                </label>
+                <button
+                  onClick={() => {
+                    const ini = iniRef.current?.value;
+                    const fim = fimRef.current?.value;
+                    if (!ini || !fim || ini < "2000-01-01" || fim < "2000-01-01") return;
+                    atualizar(ini <= fim ? { inicio: ini, fim } : { inicio: fim, fim: ini });
+                    fechar();
                   }}
-                  className="h-8 w-full rounded-md border border-hairline bg-surface-2 px-2 text-xs text-ink"
-                />
-                <span className="text-muted">–</span>
-                <input
-                  key={filtros.fim}
-                  type="date"
-                  defaultValue={filtros.fim}
-                  min={filtros.inicio}
-                  onBlur={(e) => {
-                    const v = e.target.value;
-                    if (v && v >= "2000-01-01" && v !== filtros.fim) atualizar({ fim: v });
-                  }}
-                  className="h-8 w-full rounded-md border border-hairline bg-surface-2 px-2 text-xs text-ink"
-                />
+                  className="h-8 w-full rounded-md bg-ent text-xs font-medium text-white transition-opacity hover:opacity-90"
+                >
+                  Aplicar
+                </button>
               </div>
             </div>
           </div>
