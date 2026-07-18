@@ -1,26 +1,171 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* Tokens de tema — paleta validada do guia de dataviz */
+:root,
+:root[data-theme="light"] {
+  color-scheme: light;
+  --page: #f9f9f7;
+  --surface: #fcfcfb;
+  --surface-2: #f0efec;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --muted: #898781;
+  --grid: #e1e0d9;
+  --baseline: #c3c2b7;
+  --hairline: rgba(11, 11, 11, 0.1);
+  --ent: #2a78d6;
+  --sai: #008300;
+  --esp-1: #e87ba4;
+  --esp-2: #eda100;
+  --esp-3: #1baf7a;
+  --esp-4: #eb6834;
+  --esp-5: #4a3aa7;
+  --esp-outras: #898781;
+  --good: #006300;
+  --critical: #d03b3b;
+  --warning: #fab219;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d;
+  --surface: #1a1a19;
+  --surface-2: #242422;
+  --ink: #ffffff;
+  --ink-2: #c3c2b7;
+  --muted: #898781;
+  --grid: #2c2c2a;
+  --baseline: #383835;
+  --hairline: rgba(255, 255, 255, 0.1);
+  --ent: #3987e5;
+  --sai: #00a300;
+  --esp-1: #d55181;
+  --esp-2: #c98500;
+  --esp-3: #199e70;
+  --esp-4: #d95926;
+  --esp-5: #9085e9;
+  --esp-outras: #898781;
+  --good: #0ca30c;
+  --critical: #e66767;
+  --warning: #fab219;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-page: var(--page);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-muted: var(--muted);
+  --color-grid: var(--grid);
+  --color-baseline: var(--baseline);
+  --color-hairline: var(--hairline);
+  --color-ent: var(--ent);
+  --color-sai: var(--sai);
+  --color-good: var(--good);
+  --color-critical: var(--critical);
+  --color-warning: var(--warning);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+html,
+body {
+  background: var(--page);
+  color: var(--ink);
+  font-family: var(--font-geist-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+::selection {
+  background: color-mix(in oklab, var(--ent) 30%, transparent);
+}
+
+/* Scrollbar discreta */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--baseline) transparent;
+}
+
+/* Animações */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.anim-fade-up {
+  animation: fade-up 0.35s cubic-bezier(0.21, 0.61, 0.35, 1) both;
+}
+
+.anim-fade-in {
+  animation: fade-in 0.2s ease both;
+}
+
+.anim-scale-in {
+  animation: scale-in 0.22s cubic-bezier(0.21, 0.61, 0.35, 1) both;
+}
+
+.skeleton {
+  border-radius: 6px;
+  background: linear-gradient(
+    100deg,
+    var(--surface-2) 40%,
+    color-mix(in oklab, var(--surface-2) 55%, var(--surface)) 50%,
+    var(--surface-2) 60%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
+}
+
+/* Cartão padrão */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+}
+
+/* Dados em recarregamento mantêm o quadro anterior esmaecido */
+.refetching {
+  opacity: 0.45;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+}
+
+/* Números tabulares apenas em colunas */
+.tnum {
+  font-variant-numeric: tabular-nums;
 }

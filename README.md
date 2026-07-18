@@ -1,36 +1,53 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Questor BI
 
-## Getting Started
+Dashboard de Business Intelligence sobre a base PostgreSQL do Questor (Navecon).
+Next.js 16 + React Query + Recharts + Tailwind v4, lendo o banco **em modo somente leitura**.
 
-First, run the development server:
+## Rodando
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev        # desenvolvimento (porta 3000; use -- -p 3210 se ocupada)
+npm run build && npm run start -- -p 3210   # produção
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+A conexão com o banco fica em `.env.local` (modelo em `.env.example`).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## O que já existe
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **Módulo Fiscal → Notas Fiscais** (`/fiscal/notas`) — trabalha com agregados (valores e quantidades), sem listagem de notas individuais:
+  - KPIs de entradas, saídas, empresas com movimento e canceladas, com variação vs período anterior e ticket médio; a métrica escolhida (valor ou quantidade) vira o número principal
+  - Evolução diária/mensal (granularidade automática acima de 92 dias)
+  - Distribuição por espécie de documento (NFE, CTE, NFSE…)
+  - Impostos: ICMS, ICMS-ST, IPI, ISS, PIS, COFINS + retenções (IRRF, INSS, CSLL, ISSQN) — de várias tabelas do Questor
+  - Top 10 empresas, fornecedores/clientes, produtos e CFOPs
+  - Distribuição por estado (UF) da contraparte e **devoluções** por CFOP (compra/venda)
+  - **Notas fiscais** (explorador bruto): tabela de notas nota a nota, paginada, com busca por número/contraparte e drill-down dos itens de cada nota
+  - Navegação pela **sidebar em acordeão** — o módulo Fiscal tem 6 seções em rotas próprias: **Painel · Impostos · Análises · Devoluções · Cancelamentos · Notas fiscais** (cada uma carrega só seus dados; filtros compartilhados e preservados ao navegar)
+  - **Impostos** completos: ICMS/ST/IPI/ISS/PIS/COFINS + retenções + DIFAL/FCP/FUNRURAL, série temporal e ranking por empresa
+  - **Análises**: rankings de empresas, contrapartes, produtos, CFOPs, UF, municípios e modalidade de frete
+  - **Devoluções** e **Cancelamentos** com KPIs, séries e rankings próprios
+  - Alternância **Valor | Quantidade** onde faz sentido
+- Filtros por período (presets + personalizado), empresas (multi-seleção com busca) e espécies — tudo na URL, compartilhável
+- **Grupos de empresas criados no próprio app** (localStorage): criar/editar/excluir, e **multi-seleção** (somar vários grupos, desmarcar individualmente)
+- Tema claro/escuro, skeletons, toasts (sonner), animações
+- Sidebar preparada para módulos futuros (Contábil, Folha, Patrimônio)
 
-## Learn More
+## Estrutura
 
-To learn more about Next.js, take a look at the following resources:
+- `src/lib/db.ts` — pool pg (somente leitura, `statement_timeout` 60s)
+- `src/lib/fiscal-filters.ts` — parse dos filtros e montagem do WHERE compartilhado
+- `src/app/api/**` — endpoints REST consultando cabeçalhos (`lctofisent`/`lctofissai`) e itens (`lctofis*produto`)
+- `src/app/fiscal/notas/` — página do dashboard
+- `src/components/` — filtros, gráficos e cards
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Notas sobre o banco
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Cabeçalho da nota em `lctofis{ent,sai}`; **itens** (produtos, CFOP, ICMS/IPI/ST/ISS) em `lctofis{ent,sai}produto` — tabelas grandes (saídas ~47M linhas)
+- Impostos espalhados: PIS/COFINS em `lctofis{ent,sai}piscofins`, retenções (IRRF/INSS/CSLL/ISSQN) em `lctofis{ent,sai}retido`, DIFAL em `lctofis{ent,sai}difal`. Documentação completa do banco no cérebro `~/Documentos/Questor`
+- Top produtos/CFOP: agrega num CTE e só junta `produto`/`empresa` nos vencedores (ver `api/fiscal/produtos`) — evita join sobre milhões de linhas; ~2,6s no mês inteiro de todas as empresas
+- Canceladas (`cancelada = '1'`) ficam **fora** dos totais e gráficos; contam só no KPI próprio. As tabelas de item não têm `cancelada`, então impostos/produtos/CFOP incluem canceladas
+- UF: colunas do cabeçalho vêm mal preenchidas; usamos `pessoa.siglaestado` via join (cobertura maior)
+- Índice usado: `(codigoempresa, codigoestab, datalctofis)` — consultas sem filtro de empresa varrem por data (600k notas/mês ≈ 0,5s)
+- `codigopessoa` → `pessoa` é a contraparte da nota. Verificado: em notas de entrada com `emitentenf = 'T'` (terceiros), 97% dos CNPJs embutidos na chave NFe batem com `pessoa.inscrfederal` — é o fornecedor mesmo. Com `emitentenf = 'P'` a nota foi emitida pela própria empresa (devoluções) e a pessoa é o cliente
+- `grupoprocessam`/`grupoempresa` **não** são grupos de empresas para BI (são grupos de processamento internos do Questor) — por isso os grupos aqui são criados no app

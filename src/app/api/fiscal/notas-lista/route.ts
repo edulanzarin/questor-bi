@@ -1,0 +1,79 @@
+import { query } from "@/lib/db";
+import { apiRoute } from "@/lib/api-route";
+import { parseFilters, buildWhere } from "@/lib/fiscal-filters";
+import type { NotaLista, NotasListaResp } from "@/lib/types";
+
+const PAGE_SIZE = 50;
+
+/**
+ * Listagem bruta de notas fiscais (explorador de dados). Paginada e com busca
+ * por número da nota (se for só dígitos) ou nome da contraparte.
+ * Inclui canceladas (marcadas). Escopo vem dos filtros compartilhados.
+ */
+export const GET = apiRoute(async (req) => {
+  const sp = req.nextUrl.searchParams;
+  const filters = parseFilters(sp);
+  const tipo = sp.get("tipo") === "ent" ? "ent" : "sai";
+  const tabela = `lctofis${tipo}`;
+  const chaveCol = tipo === "ent" ? "chavelctofisent" : "chavelctofissai";
+  const chaveNfeCol = tipo === "ent" ? "chavenfeent" : "chavenfesai";
+  const page = Math.max(1, Number.parseInt(sp.get("page") ?? "1", 10) || 1);
+  const busca = (sp.get("busca") ?? "").trim();
+  const buscaNumero = /^\d+$/.test(busca);
+
+  const w = buildWhere(filters, { incluirCanceladas: true, alias: "f" });
+  const conds = [w.sql];
+  const params = [...w.params];
+
+  if (busca) {
+    if (buscaNumero) {
+      params.push(Number(busca));
+      conds.push(`f.numeronf = $${params.length}`);
+    } else {
+      params.push(`%${busca}%`);
+      conds.push(`p.nomepessoa ilike $${params.length}`);
+    }
+  }
+  const where = conds.join(" and ");
+  // só precisa juntar pessoa no count quando a busca é por nome
+  const joinPessoaCount = busca && !buscaNumero
+    ? "left join pessoa p on p.codigopessoa = f.codigopessoa"
+    : "";
+
+  const [totalRes, rows] = await Promise.all([
+    query<{ total: number }>(
+      `select count(*)::int as total from ${tabela} f ${joinPessoaCount} where ${where}`,
+      params
+    ),
+    query<NotaLista>(
+      `select f.codigoempresa as empresa,
+              e.nomeempresa as "empresaNome",
+              f.${chaveCol}::text as chave,
+              f.numeronf as numero,
+              nullif(btrim(f.serienf), '') as serie,
+              upper(btrim(f.especienf)) as especie,
+              nullif(btrim(f.cdmodelo), '') as modelo,
+              to_char(f.datalctofis, 'YYYY-MM-DD') as data,
+              p.nomepessoa as contraparte,
+              p.inscrfederal as "contraparteDoc",
+              p.siglaestado as uf,
+              f.valorcontabil::float as valor,
+              (f.cancelada = '1') as cancelada,
+              nullif(btrim(f.${chaveNfeCol}), '') as "chaveNfe"
+         from ${tabela} f
+         left join pessoa p on p.codigopessoa = f.codigopessoa
+         left join empresa e on e.codigoempresa = f.codigoempresa
+        where ${where}
+        order by f.datalctofis desc, f.numeronf desc
+        limit ${PAGE_SIZE} offset ${(page - 1) * PAGE_SIZE}`,
+      params
+    ),
+  ]);
+
+  return {
+    rows,
+    total: totalRes[0].total,
+    page,
+    pageSize: PAGE_SIZE,
+  } satisfies NotasListaResp;
+});
