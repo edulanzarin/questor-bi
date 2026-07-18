@@ -21,6 +21,7 @@ export const GET = apiRoute(async (req) => {
   const busca = (sp.get("busca") ?? "").trim();
   const buscaNumero = /^\d+$/.test(busca);
   const situacao = sp.get("situacao"); // "canceladas" | "normais" | null (todas)
+  const pessoa = Number.parseInt(sp.get("pessoa") ?? "", 10);
 
   const w = buildWhere(filters, { incluirCanceladas: true, alias: "f" });
   const conds = [w.sql];
@@ -28,6 +29,11 @@ export const GET = apiRoute(async (req) => {
 
   if (situacao === "canceladas") conds.push(`f.cancelada = '1'`);
   else if (situacao === "normais") conds.push(`f.cancelada <> '1'`);
+
+  if (Number.isInteger(pessoa)) {
+    params.push(pessoa);
+    conds.push(`f.codigopessoa = $${params.length}`);
+  }
 
   if (busca) {
     if (buscaNumero) {

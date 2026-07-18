@@ -141,6 +141,15 @@ export interface PontoValorSerie {
   pontos: { bucket: string; valor: number }[];
 }
 
+/** Contraparte no filtro de busca (server-side) do explorador. */
+export interface ContraparteBusca {
+  codigo: number;
+  nome: string;
+  doc: string | null;
+  uf: string | null;
+  qtd: number;
+}
+
 /** Uma nota fiscal na listagem bruta (explorador de dados). */
 export interface NotaLista {
   empresa: number;

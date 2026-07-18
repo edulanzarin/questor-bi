@@ -17,6 +17,7 @@ import type {
   ImpostosSerie,
   NotasListaResp,
   NotaItem,
+  ContraparteBusca,
   DevolucoesResumo,
   CancelamentosResumo,
   PontoValorSerie,
@@ -151,12 +152,20 @@ export const useNotasLista = (
   page: number,
   busca: string,
   situacao: "todas" | "normais" | "canceladas",
+  pessoa: number | null,
   enabled = true
 ) =>
   useApiQuery<NotasListaResp>(
-    ["notas-lista", qs, tipo, page, busca, situacao],
-    `/api/fiscal/notas-lista?${qs}&tipo=${tipo}&page=${page}&busca=${encodeURIComponent(busca)}&situacao=${situacao}`,
+    ["notas-lista", qs, tipo, page, busca, situacao, pessoa],
+    `/api/fiscal/notas-lista?${qs}&tipo=${tipo}&page=${page}&busca=${encodeURIComponent(busca)}&situacao=${situacao}${pessoa != null ? `&pessoa=${pessoa}` : ""}`,
     enabled
+  );
+
+export const useContrapartes = (qs: string, tipo: "ent" | "sai", q: string) =>
+  useApiQuery<ContraparteBusca[]>(
+    ["contrapartes", qs, tipo, q],
+    `/api/fiscal/contrapartes?${qs}&tipo=${tipo}&q=${encodeURIComponent(q)}`,
+    q.trim().length >= 2
   );
 
 export const useNotaItens = (

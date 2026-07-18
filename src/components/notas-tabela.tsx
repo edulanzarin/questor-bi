@@ -1,12 +1,107 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, ChevronRight, Loader2, Search, Table2 } from "lucide-react";
+import { Building2, ChevronDown, ChevronRight, Loader2, Search, Table2 } from "lucide-react";
 import clsx from "clsx";
 import { SeletorTipo } from "@/components/charts/top-bar-chart";
-import { useNotaItens, useNotasLista } from "@/hooks/use-api";
+import { Dropdown, ItemLista } from "@/components/ui/dropdown";
+import { useContrapartes, useNotaItens, useNotasLista } from "@/hooks/use-api";
 import { brl, dataBR, num } from "@/lib/format";
 import type { NotaLista } from "@/lib/types";
+
+interface PessoaSel {
+  codigo: number;
+  nome: string;
+}
+
+function ContraparteFiltro({
+  qs,
+  tipo,
+  valor,
+  onChange,
+}: {
+  qs: string;
+  tipo: Tipo;
+  valor: PessoaSel | null;
+  onChange: (v: PessoaSel | null) => void;
+}) {
+  const [q, setQ] = useState("");
+  const [qDeb, setQDeb] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setQDeb(q.trim()), 300);
+    return () => clearTimeout(t);
+  }, [q]);
+  const { data, isFetching } = useContrapartes(qs, tipo, qDeb);
+  const curto = qDeb.length < 2;
+
+  return (
+    <Dropdown
+      icone={<Building2 className="size-4" />}
+      rotulo={valor ? valor.nome : "Contraparte"}
+      ativo={!!valor}
+      largura="w-80"
+    >
+      {(fechar) => (
+        <div>
+          <div className="flex items-center gap-2 border-b border-hairline px-3 py-2">
+            <Search className="size-4 text-muted" />
+            <input
+              autoFocus
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Buscar contraparte…"
+              className="w-full bg-transparent text-sm text-ink outline-none placeholder:text-muted"
+            />
+            {valor && (
+              <button
+                onClick={() => {
+                  onChange(null);
+                  fechar();
+                }}
+                className="shrink-0 text-xs text-ent hover:underline"
+              >
+                Limpar
+              </button>
+            )}
+          </div>
+          <div className="max-h-72 overflow-y-auto py-1">
+            {curto && (
+              <p className="px-3 py-3 text-sm text-muted">Digite ao menos 2 letras…</p>
+            )}
+            {!curto && isFetching && (
+              <p className="flex items-center gap-2 px-3 py-3 text-sm text-muted">
+                <Loader2 className="size-3.5 animate-spin" /> Buscando…
+              </p>
+            )}
+            {!curto && !isFetching && data && data.length === 0 && (
+              <p className="px-3 py-2 text-sm text-muted">Nenhuma contraparte encontrada</p>
+            )}
+            {!curto &&
+              data?.map((c) => (
+                <ItemLista
+                  key={c.codigo}
+                  selecionado={valor?.codigo === c.codigo}
+                  onClick={() => {
+                    onChange({ codigo: c.codigo, nome: c.nome });
+                    fechar();
+                  }}
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate">{c.nome}</span>
+                    <span className="tnum block text-xs text-muted">
+                      {doc(c.doc)}
+                      {c.uf ? ` · ${c.uf}` : ""}
+                    </span>
+                  </span>
+                  <span className="tnum shrink-0 text-xs text-muted">{num(c.qtd)}</span>
+                </ItemLista>
+              ))}
+          </div>
+        </div>
+      )}
+    </Dropdown>
+  );
+}
 
 type Tipo = "ent" | "sai";
 type Situacao = "todas" | "normais" | "canceladas";
@@ -83,6 +178,7 @@ export function NotasTabela({ qs, enabled, mostraEmpresa }: {
   const [busca, setBusca] = useState("");
   const [buscaDeb, setBuscaDeb] = useState("");
   const [situacao, setSituacao] = useState<Situacao>("todas");
+  const [pessoa, setPessoa] = useState<PessoaSel | null>(null);
   const [page, setPage] = useState(1);
   const [aberta, setAberta] = useState<string | null>(null);
 
@@ -92,11 +188,11 @@ export function NotasTabela({ qs, enabled, mostraEmpresa }: {
     return () => clearTimeout(t);
   }, [busca]);
 
-  // volta pra página 1 quando muda filtro/busca/tipo/situação
+  // volta pra página 1 quando muda filtro/busca/tipo/situação/contraparte
   useEffect(() => {
     setPage(1);
     setAberta(null);
-  }, [qs, tipo, buscaDeb, situacao]);
+  }, [qs, tipo, buscaDeb, situacao, pessoa]);
 
   const { data, isLoading, isFetching } = useNotasLista(
     qs,
@@ -104,6 +200,7 @@ export function NotasTabela({ qs, enabled, mostraEmpresa }: {
     page,
     buscaDeb,
     situacao,
+    pessoa?.codigo ?? null,
     enabled
   );
   const total = data?.total ?? 0;
@@ -133,13 +230,15 @@ export function NotasTabela({ qs, enabled, mostraEmpresa }: {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <ContraparteFiltro qs={qs} tipo={tipo} valor={pessoa} onChange={setPessoa} />
           <div className="flex items-center gap-2 rounded-lg border border-hairline bg-surface-2 px-2.5 py-1.5">
             <Search className="size-3.5 text-muted" />
             <input
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
-              placeholder="Nº da nota ou contraparte…"
-              className="w-52 bg-transparent text-xs text-ink outline-none placeholder:text-muted"
+              inputMode="numeric"
+              placeholder="Nº da nota…"
+              className="w-32 bg-transparent text-xs text-ink outline-none placeholder:text-muted"
             />
           </div>
           <div className="flex rounded-lg border border-hairline bg-surface-2 p-0.5 text-xs">
