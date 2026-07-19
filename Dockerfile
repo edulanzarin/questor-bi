@@ -24,6 +24,9 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 
+# pdftotext: extrai o texto dos extratos em PDF preservando as colunas.
+RUN apk add --no-cache poppler-utils
+
 RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001
 
 # O standalone já traz o node_modules mínimo (inclusive o pg).

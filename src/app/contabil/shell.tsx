@@ -8,8 +8,8 @@ import clsx from "clsx";
 import { ConfFilterBar } from "@/components/filters/conf-filter-bar";
 import { useFiltros } from "@/hooks/use-filters";
 import {
-  ABAS_CONFERENCIA,
   abaConferenciaAtual,
+  abasDaSecao,
   abaUsaPeriodo,
   secaoContabilAtual,
 } from "@/lib/contabil-secoes";
@@ -21,6 +21,7 @@ export function ContabilShell({ children }: { children: React.ReactNode }) {
   const { filtros } = useFiltros();
   const secao = secaoContabilAtual(pathname);
   const aba = abaConferenciaAtual(pathname);
+  const abas = abasDaSecao(pathname);
   const carregando = useIsFetching() > 0;
   const usaPeriodo = abaUsaPeriodo(pathname);
 
@@ -56,9 +57,9 @@ export function ContabilShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      {aba && (
-        <nav className="mb-4 flex gap-1 border-b border-hairline" aria-label="Conferência Fiscal">
-          {ABAS_CONFERENCIA.map((a) => {
+      {aba && abas.length > 1 && (
+        <nav className="mb-4 flex gap-1 border-b border-hairline" aria-label={secao?.rotulo}>
+          {abas.map((a) => {
             const ativa = a.id === aba.id;
             return (
               <Link

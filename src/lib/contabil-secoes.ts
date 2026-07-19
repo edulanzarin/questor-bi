@@ -56,8 +56,34 @@ export function abaUsaPeriodo(pathname: string): boolean {
   return !SEM_PERIODO.some((p) => pathname === p || pathname.startsWith(p + "/"));
 }
 
+export const ABAS_EXTRATOS: AbaConferencia[] = [
+  {
+    id: "regras",
+    rotulo: "Regras",
+    path: "/contabil/extratos",
+    descricao: "Contrapartida de cada descrição do extrato",
+  },
+  {
+    id: "importar",
+    rotulo: "Importar",
+    path: "/contabil/extratos/importar",
+    descricao: "Ler OFX ou PDF e gerar os lançamentos",
+  },
+];
+
+/** Abas da seção a que o caminho pertence — vazio quando a seção não tem. */
+export function abasDaSecao(pathname: string): AbaConferencia[] {
+  if (pathname.startsWith("/contabil/extratos")) return ABAS_EXTRATOS;
+  if (ABAS_CONFERENCIA.some((a) => pathname === a.path)) return ABAS_CONFERENCIA;
+  return [];
+}
+
 export function abaConferenciaAtual(pathname: string): AbaConferencia | undefined {
-  return ABAS_CONFERENCIA.find((a) => pathname === a.path || pathname.startsWith(a.path + "/"));
+  // A mais específica primeiro: /extratos/importar antes de /extratos.
+  return [...ABAS_CONFERENCIA, ...ABAS_EXTRATOS]
+    .slice()
+    .sort((a, b) => b.path.length - a.path.length)
+    .find((a) => pathname === a.path || pathname.startsWith(a.path + "/"));
 }
 
 export function secaoContabilAtual(pathname: string): SecaoFiscal | undefined {

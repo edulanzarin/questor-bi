@@ -1,0 +1,127 @@
+import { spawn } from "node:child_process";
+import { apiRoute } from "@/lib/api-route";
+import { FilterError } from "@/lib/fiscal-filters";
+import { lerOfx, type ExtratoLido } from "@/lib/extrato-ofx";
+import { lerPdf, PdfNaoReconhecido } from "@/lib/extrato-pdf";
+import { listarContasBanco } from "@/lib/extrato-store";
+import { gerarLancamentos, type RegraExtrato } from "@/lib/regras-extrato";
+
+const MAX_BYTES = 15 * 1024 * 1024;
+
+/**
+ * Extrai o texto do PDF com `pdftotext -layout`, que preserva as colunas —
+ * sem o `-layout` o texto vira uma sopa e não dá para separar valor de
+ * descrição. Entra e sai por stdin/stdout, sem arquivo temporário.
+ */
+function textoDoPdf(bytes: Buffer): Promise<string> {
+  return new Promise((resolve, reject) => {
+    // spawn e não execFile: só o spawn deixa escrever no stdin do processo, e
+    // sem isso o pdftotext fica esperando entrada para sempre.
+    const p = spawn("pdftotext", ["-layout", "-", "-"]);
+    const saida: Buffer[] = [];
+    let erro = "";
+
+    // Rede de segurança: PDF corrompido não pode segurar a requisição.
+    const limite = setTimeout(() => {
+      p.kill("SIGKILL");
+      reject(new FilterError("A leitura do PDF demorou demais — o arquivo pode estar corrompido"));
+    }, 30_000);
+
+    p.stdout.on("data", (d: Buffer) => saida.push(d));
+    p.stderr.on("data", (d: Buffer) => (erro += d.toString()));
+    p.on("error", () => {
+      clearTimeout(limite);
+      reject(new FilterError("pdftotext não está disponível no servidor"));
+    });
+    p.on("close", (code) => {
+      clearTimeout(limite);
+      if (code !== 0) {
+        return reject(
+          new FilterError(
+            `Não consegui ler o PDF${erro ? `: ${erro.trim().split("\n")[0]}` : ""}. Se ele for digitalizado (imagem), não há texto para extrair — use o OFX.`
+          )
+        );
+      }
+      resolve(Buffer.concat(saida).toString("utf8"));
+    });
+
+    p.stdin.on("error", () => {});
+    p.stdin.end(bytes);
+  });
+}
+
+/**
+ * Lê um extrato (OFX ou PDF), aplica as regras cadastradas da conta de banco e
+ * devolve os lançamentos que seriam gerados. Não grava nada: é prévia, para
+ * conferir antes de exportar.
+ */
+export const POST = apiRoute(async (req) => {
+  const form = await req.formData();
+  const arquivo = form.get("arquivo");
+  const empresa = Number(form.get("empresa"));
+  const contaBancoId = Number(form.get("contaBancoId"));
+
+  if (!(arquivo instanceof File)) throw new FilterError("Envie o arquivo do extrato");
+  if (!Number.isInteger(empresa)) throw new FilterError("Selecione uma empresa");
+  if (!Number.isInteger(contaBancoId)) throw new FilterError("Selecione a conta de banco");
+  if (arquivo.size > MAX_BYTES) throw new FilterError("Arquivo muito grande (máx. 15 MB)");
+
+  const contas = await listarContasBanco(empresa);
+  const banco = contas.find((c) => c.id === contaBancoId);
+  if (!banco) throw new FilterError("Conta de banco não encontrada nesta empresa");
+
+  const bytes = Buffer.from(await arquivo.arrayBuffer());
+  const nome = arquivo.name.toLowerCase();
+
+  let extrato: ExtratoLido;
+  try {
+    if (nome.endsWith(".pdf")) {
+      extrato = lerPdf(await textoDoPdf(bytes));
+    } else {
+      // OFX e variantes (.ofx, .qfx, .sta) são texto.
+      extrato = lerOfx(bytes.toString("utf8"));
+    }
+  } catch (err) {
+    if (err instanceof PdfNaoReconhecido) throw new FilterError(err.message);
+    throw err;
+  }
+
+  if (!extrato.transacoes.length) {
+    throw new FilterError("Nenhuma transação encontrada no arquivo");
+  }
+
+  const regras: RegraExtrato[] = banco.regras.map((r) => ({
+    id: r.id,
+    termo: r.termo,
+    termoOriginal: r.termoOriginal,
+    tipo: r.tipo,
+    contaPagamento: r.contaPagamento,
+    contaRecebimento: r.contaRecebimento,
+    historico: r.historico,
+    ativo: r.ativo,
+  }));
+
+  const lancamentos = gerarLancamentos(extrato.transacoes, banco.conta, regras);
+
+  const resumo = {
+    total: lancamentos.length,
+    prontos: lancamentos.filter((l) => !l.pendencia).length,
+    semRegra: lancamentos.filter((l) => l.pendencia === "sem_regra").length,
+    semConta: lancamentos.filter((l) => l.pendencia === "sem_conta").length,
+    ambiguos: lancamentos.filter((l) => l.ambiguo).length,
+    entradas: extrato.transacoes.filter((t) => t.valor > 0).reduce((a, b) => a + b.valor, 0),
+    saidas: extrato.transacoes.filter((t) => t.valor < 0).reduce((a, b) => a + b.valor, 0),
+  };
+
+  return {
+    arquivo: arquivo.name,
+    banco: extrato.banco,
+    agencia: extrato.agencia,
+    conta: extrato.conta,
+    inicio: extrato.inicio,
+    fim: extrato.fim,
+    contaBanco: { conta: banco.conta, descricao: banco.descricao, apelido: banco.apelido },
+    resumo,
+    lancamentos,
+  };
+});
