@@ -3,15 +3,48 @@
 Dashboard de Business Intelligence sobre a base PostgreSQL do Questor (Navecon).
 Next.js 16 + React Query + Recharts + Tailwind v4, lendo o banco **em modo somente leitura**.
 
-## Rodando
+## Os dois bancos
+
+- **Questor** (`Navecon`) — produção, **somente leitura**. O BI nunca escreve nele.
+- **Banco do BI** — Postgres próprio, gravável, sobe junto no Docker. Guarda os
+  overrides do plano de contabilização (e, adiante, usuários e permissões).
+  Migrations em `migrations/`, aplicadas automaticamente no boot do container.
+
+As credenciais do Questor ficam em `.env.local` (modelo em `.env.example`).
+
+## Rodando em produção (rede local)
+
+No computador que vai hospedar, com Docker instalado:
+
+```bash
+cp .env.example .env.local   # preencher as credenciais do Questor
+docker compose up -d --build
+```
+
+Pronto — o app fica em **`http://<ip-do-computador>:4022`**, acessível por
+qualquer máquina da rede. O container aplica as migrations sozinho antes de
+subir o servidor, e ambos os serviços têm `restart: unless-stopped` (voltam
+depois de reboot).
+
+Comandos úteis:
+
+```bash
+docker compose logs -f app     # acompanhar
+docker compose down            # parar (dados do BI ficam no volume)
+docker compose up -d --build   # atualizar depois de mudar o código
+```
+
+O Postgres do BI é publicado só em `127.0.0.1:5433` — não fica exposto à rede.
+O volume `app-db-data` guarda os dados; `docker compose down -v` apaga tudo.
+
+## Rodando em desenvolvimento
 
 ```bash
 npm install
-npm run dev        # desenvolvimento (porta 3000; use -- -p 3210 se ocupada)
-npm run build && npm run start -- -p 3210   # produção
+npm run db:up      # sobe só o Postgres do BI (porta 5433)
+npm run migrate    # aplica as migrations
+npm run dev        # porta 3000
 ```
-
-A conexão com o banco fica em `.env.local` (modelo em `.env.example`).
 
 ## O que já existe
 

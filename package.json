@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "migrate": "node scripts/migrate.mjs",
-    "db:up": "docker compose up -d"
+    "db:up": "docker compose up -d app-db"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.101.2",
