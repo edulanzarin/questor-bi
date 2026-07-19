@@ -27,6 +27,7 @@ import type {
   ConformidadeResumo,
   ConformidadeEmpresa,
   TributosCargaEmpresa,
+  ConferenciaResp,
 } from "@/lib/types";
 
 async function fetchJson<T>(url: string): Promise<T> {
@@ -280,6 +281,13 @@ export const useProdutividadeCalendario = (qs: string, enabled = true) =>
   useApiQuery<ProdutividadeCalendario>(
     ["produtividade-calendario", qs],
     `/api/fiscal/produtividade-calendario?${qs}`,
+    enabled
+  );
+
+export const useConferencia = (qs: string, enabled = true) =>
+  useApiQuery<ConferenciaResp>(
+    ["conferencia", qs],
+    `/api/contabil/conferencia?${qs}`,
     enabled
   );
 

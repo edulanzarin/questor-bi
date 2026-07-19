@@ -7,6 +7,7 @@ import {
   BarChart3,
   BookOpen,
   ChevronDown,
+  ClipboardCheck,
   Users,
   Coins,
   Gauge,
@@ -22,6 +23,7 @@ import {
 } from "lucide-react";
 import clsx from "clsx";
 import { SECOES_FISCAL, type SecaoFiscal } from "@/lib/fiscal-secoes";
+import { SECOES_CONTABIL } from "@/lib/contabil-secoes";
 
 const ICONE_SECAO: Record<string, LucideIcon> = {
   painel: LayoutDashboard,
@@ -30,6 +32,7 @@ const ICONE_SECAO: Record<string, LucideIcon> = {
   produtividade: Gauge,
   conformidade: ShieldCheck,
   dados: Table2,
+  conferencia: ClipboardCheck,
 };
 
 interface Modulo {
@@ -42,7 +45,7 @@ interface Modulo {
 
 const MODULOS: Modulo[] = [
   { id: "fiscal", titulo: "Fiscal", icone: Receipt, ativo: true, secoes: SECOES_FISCAL },
-  { id: "contabil", titulo: "Contábil", icone: BookOpen, ativo: false, secoes: [] },
+  { id: "contabil", titulo: "Contábil", icone: BookOpen, ativo: true, secoes: SECOES_CONTABIL },
   { id: "folha", titulo: "Folha", icone: Users, ativo: false, secoes: [] },
   { id: "patrimonio", titulo: "Patrimônio", icone: Landmark, ativo: false, secoes: [] },
 ];

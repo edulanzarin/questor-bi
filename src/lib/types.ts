@@ -244,6 +244,37 @@ export interface ConformidadeEmpresa {
   pendencias: number;
 }
 
+/** Conferência Fiscal (contábil): uma nota fiscal pendente de contabilização. */
+export interface ConfNotaPendente {
+  chave: string;
+  numero: number;
+  serie: string | null;
+  especie: string;
+  data: string;
+  contraparte: string | null;
+  doc: string | null;
+  uf: string | null;
+  valor: number;
+  cfops: string | null;
+}
+
+export interface ConfLado {
+  total: number;
+  contabilizadas: number;
+  pendentes: number;
+  /** Notas que não exigem contabilização (remessas/retornos etc.). */
+  ignoradas: number;
+  canceladas: number;
+  valorPendente: number;
+  notas: ConfNotaPendente[];
+  truncado: boolean;
+}
+
+export interface ConferenciaResp {
+  ent: ConfLado;
+  sai: ConfLado;
+}
+
 /** Carga tributária efetiva por empresa (ICMS+IPI+ST+ISS ÷ faturamento). */
 export interface TributosCargaEmpresa {
   codigo: number;
