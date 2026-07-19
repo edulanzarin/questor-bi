@@ -10,14 +10,20 @@ Next.js 16 + React Query + Recharts + Tailwind v4, lendo o banco **em modo somen
   overrides do plano de contabilização (e, adiante, usuários e permissões).
   Migrations em `migrations/`, aplicadas automaticamente no boot do container.
 
-As credenciais do Questor ficam em `.env.local` (modelo em `.env.example`).
+Toda a configuração fica em **`.env`** (modelo em `.env.example`), que é
+gitignored — nenhuma senha vai para o repositório. É o arquivo que o Docker
+Compose lê nativamente e que o Next também usa em desenvolvimento.
+
+> A senha do banco do BI (`APP_DB_PASSWORD`) só é aplicada na **primeira**
+> subida, quando o volume é criado. Para trocar depois: `docker compose down -v`
+> (apaga os dados do BI) ou um `ALTER USER` no banco.
 
 ## Rodando em produção (rede local)
 
 No computador que vai hospedar, com Docker instalado:
 
 ```bash
-cp .env.example .env.local   # preencher as credenciais do Questor
+cp .env.example .env   # preencher credenciais do Questor e APP_DB_PASSWORD
 docker compose up -d --build
 ```
 
@@ -34,8 +40,9 @@ docker compose down            # parar (dados do BI ficam no volume)
 docker compose up -d --build   # atualizar depois de mudar o código
 ```
 
-O Postgres do BI é publicado só em `127.0.0.1:5433` — não fica exposto à rede.
-O volume `app-db-data` guarda os dados; `docker compose down -v` apaga tudo.
+Em produção o Postgres do BI **não publica porta nenhuma** — o app fala com ele
+pela rede interna do compose, então nada além da 4022 é exposto. O volume
+`app-db-data` guarda os dados; `docker compose down -v` apaga tudo.
 
 ## Rodando em desenvolvimento
 
