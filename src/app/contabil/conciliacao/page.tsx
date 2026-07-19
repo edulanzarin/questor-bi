@@ -11,8 +11,8 @@ import {
   Landmark,
 } from "lucide-react";
 import clsx from "clsx";
-import { Dropdown, ItemLista } from "@/components/ui/dropdown";
 import { DropzoneArquivo } from "@/components/dropzone-arquivo";
+import { ContaDropdown } from "@/components/conta-dropdown";
 import { Kpi } from "@/components/kpi-conf";
 import { useFiltros } from "@/hooks/use-filters";
 import { brl, dataBR, num } from "@/lib/format";
@@ -46,29 +46,31 @@ export default function ImportarPage() {
   const empresa = filtros.empresas[0];
   const temEmpresa = filtros.empresas.length === 1;
 
-  const [contaBanco, setContaBanco] = useState<ContaBanco | null>(null);
+  const [conta, setConta] = useState<number | null>(null);
   const [previa, setPrevia] = useState<Previa | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [filtro, setFiltro] = useState<Filtro>("todos");
 
-  const { data: contas } = useQuery({
-    queryKey: ["extrato-regras", empresa],
+  // Quantas regras a conta escolhida tem — para avisar antes de importar sem
+  // cadastro nenhum, em vez de o usuário descobrir na lista de pendências.
+  const { data: cadastro } = useQuery({
+    queryKey: ["extrato-regras", empresa, conta],
     queryFn: async () => {
-      const res = await fetch(`/api/contabil/extrato-regras?empresa=${empresa}`);
-      if (!res.ok) throw new Error("Falha ao carregar contas");
-      return (await res.json()) as ContaBanco[];
+      const res = await fetch(`/api/contabil/extrato-regras?empresa=${empresa}&conta=${conta}`);
+      if (!res.ok) throw new Error("Falha ao carregar regras");
+      return (await res.json()) as ContaBanco;
     },
-    enabled: temEmpresa,
+    enabled: temEmpresa && conta != null,
   });
 
   async function enviar(arquivo: File) {
-    if (!contaBanco) return toast.error("Escolha a conta de banco antes");
+    if (conta == null) return toast.error("Escolha a conta de banco antes");
     setEnviando(true);
     try {
       const fd = new FormData();
       fd.set("arquivo", arquivo);
       fd.set("empresa", String(empresa));
-      fd.set("contaBancoId", String(contaBanco.id));
+      fd.set("conta", String(conta));
       const res = await fetch("/api/contabil/extrato-importar", { method: "POST", body: fd });
       const corpo = await res.json();
       if (!res.ok) throw new Error(corpo?.error ?? "Falha ao ler o extrato");
@@ -105,43 +107,23 @@ export default function ImportarPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-medium text-ink-2">Conta de banco</label>
-            <Dropdown
-              icone={<Landmark className="size-4" />}
-              rotulo={
-                contaBanco
-                  ? `${contaBanco.conta} · ${contaBanco.apelido || contaBanco.descricao}`
-                  : "Escolher conta"
-              }
-              ativo={!!contaBanco}
-              largura="w-80"
-            >
-              {(fechar) => (
-                <div className="max-h-72 overflow-y-auto py-1">
-                  {!contas?.length && (
-                    <p className="px-3 py-2 text-sm text-muted">
-                      Nenhuma conta cadastrada — cadastre na aba Regras.
-                    </p>
-                  )}
-                  {contas?.map((c) => (
-                    <ItemLista
-                      key={c.id}
-                      selecionado={c.id === contaBanco?.id}
-                      onClick={() => {
-                        setContaBanco(c);
-                        setPrevia(null);
-                        fechar();
-                      }}
-                    >
-                      <span className="tnum w-14 shrink-0 text-xs text-muted">{c.conta}</span>
-                      <span className="flex-1 truncate">{c.apelido || c.descricao}</span>
-                      <span className="shrink-0 text-[11px] text-muted">
-                        {c.regras.length} regras
-                      </span>
-                    </ItemLista>
-                  ))}
-                </div>
-              )}
-            </Dropdown>
+            <ContaDropdown
+              empresa={empresa}
+              valor={conta}
+              onMudar={(c) => {
+                setConta(c);
+                setPrevia(null);
+              }}
+              soBanco
+              placeholder="Escolher no plano de contas"
+            />
+            {conta != null && cadastro && (
+              <p className="text-[11px] text-muted">
+                {cadastro.regras.length > 0
+                  ? `${cadastro.regras.length} ${cadastro.regras.length === 1 ? "regra cadastrada" : "regras cadastradas"}`
+                  : "Sem regras — tudo vai sair como pendente"}
+              </p>
+            )}
           </div>
           <p className="max-w-sm text-[11px] text-muted">
             OFX de qualquer banco. PDF só do Nubank por enquanto — e precisa ser o arquivo
@@ -152,9 +134,9 @@ export default function ImportarPage() {
         <DropzoneArquivo
           aceita={[".ofx", ".qfx", ".pdf"]}
           onArquivo={enviar}
-          desabilitado={!contaBanco}
+          desabilitado={conta == null}
           carregando={enviando}
-          motivo={!contaBanco ? "Escolha a conta de banco para enviar o extrato" : undefined}
+          motivo={conta == null ? "Escolha a conta de banco para enviar o extrato" : undefined}
         />
       </section>
 

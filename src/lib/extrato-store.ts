@@ -24,14 +24,19 @@ interface RegraRow {
 }
 
 /**
- * Contas de banco cadastradas da empresa com as suas regras. As descrições das
- * contas vêm do plano do Questor — aqui só guardamos os números, então é
- * preciso ir buscar lá para a tela mostrar nome em vez de código.
+ * Contas que JÁ têm regra cadastrada, com as regras. Serve para a tela mostrar
+ * onde há cadastro — não é pré-requisito para importar: qualquer conta de
+ * banco do plano pode receber extrato, e o cadastro nasce na primeira regra.
  */
 export async function listarContasBanco(empresa: number): Promise<ContaBanco[]> {
+  // Só contas que têm regra: um cadastro vazio não é informação, e sem este
+  // filtro sobrariam órfãos de contas escolhidas e nunca preenchidas.
   const contas = await appQuery<ContaRow>(
-    `select id, codigo_empresa, conta, apelido from conf_conta_banco
-      where codigo_empresa = $1 order by conta`,
+    `select b.id, b.codigo_empresa, b.conta, b.apelido
+       from conf_conta_banco b
+      where b.codigo_empresa = $1
+        and exists (select 1 from conf_regra_extrato r where r.conta_banco_id = b.id)
+      order by b.conta`,
     [empresa]
   );
   if (!contas.length) return [];
@@ -95,18 +100,37 @@ async function descreverContas(empresa: number, contas: number[]): Promise<Map<n
   return new Map(rows.map((r) => [r.contactb, r.descrconta]));
 }
 
-export async function criarContaBanco(
-  empresa: number,
-  conta: number,
-  apelido: string | null
-): Promise<number> {
+/**
+ * Id do cadastro da conta, criando se ainda não existir. Chamado ao salvar a
+ * primeira regra — assim não existe um passo "adicionar conta" antes de ter o
+ * que cadastrar nela.
+ */
+export async function garantirContaBanco(empresa: number, conta: number): Promise<number> {
   const rows = await appQuery<{ id: number }>(
-    `insert into conf_conta_banco (codigo_empresa, conta, apelido) values ($1, $2, $3)
-     on conflict (codigo_empresa, conta) do update set apelido = excluded.apelido
+    `insert into conf_conta_banco (codigo_empresa, conta) values ($1, $2)
+     on conflict (codigo_empresa, conta) do update set conta = excluded.conta
      returning id`,
-    [empresa, conta, apelido]
+    [empresa, conta]
   );
   return rows[0].id;
+}
+
+/** Regras de uma conta específica; lista vazia quando ainda não há cadastro. */
+export async function regrasDaConta(empresa: number, conta: number): Promise<ContaBanco> {
+  const contas = await listarContasBanco(empresa);
+  const achada = contas.find((c) => c.conta === conta);
+  if (achada) return achada;
+
+  const descr = await descreverContas(empresa, [conta]);
+  return {
+    id: 0,
+    empresa,
+    conta,
+    apelido: null,
+    descricao: descr.get(conta) ?? null,
+    classificacao: null,
+    regras: [],
+  };
 }
 
 export async function removerContaBanco(id: number): Promise<boolean> {
@@ -119,7 +143,8 @@ export async function removerContaBanco(id: number): Promise<boolean> {
 
 export interface SalvarRegra {
   id?: number;
-  contaBancoId: number;
+  empresa: number;
+  conta: number;
   termo: string;
   tipo: TipoRegra;
   contaPagamento: number | null;
@@ -133,20 +158,14 @@ export interface SalvarRegra {
  * isto, um dígito errado passa batido e só aparece quando o Questor recusar o
  * arquivo de importação — longe demais da causa.
  */
-async function validarContas(contaBancoId: number, contas: (number | null)[]): Promise<void> {
+async function validarContas(empresa: number, contas: (number | null)[]): Promise<void> {
   const alvo = contas.filter((c): c is number => c != null);
   if (!alvo.length) return;
-
-  const dono = await appQuery<{ codigo_empresa: number }>(
-    "select codigo_empresa from conf_conta_banco where id = $1",
-    [contaBancoId]
-  );
-  if (!dono.length) throw new FilterError("Conta de banco não encontrada");
 
   const { rows } = await pool.query<{ contactb: number }>(
     `select contactb from planoespec
       where codigoempresa = $1 and tipoconta = 2 and contactb = any($2::bigint[])`,
-    [dono[0].codigo_empresa, alvo]
+    [empresa, alvo]
   );
   const existem = new Set(rows.map((x) => x.contactb));
   const faltando = alvo.filter((c) => !existem.has(c));
@@ -158,10 +177,13 @@ async function validarContas(contaBancoId: number, contas: (number | null)[]): P
 }
 
 export async function salvarRegra(r: SalvarRegra): Promise<number> {
-  await validarContas(r.contaBancoId, [r.contaPagamento, r.contaRecebimento]);
+  // A conta do banco também é validada: nada de regra pendurada num número
+  // que não existe no plano.
+  await validarContas(r.empresa, [r.conta, r.contaPagamento, r.contaRecebimento]);
+  const contaBancoId = await garantirContaBanco(r.empresa, r.conta);
   const termo = normalizar(r.termo);
   const params = [
-    r.contaBancoId,
+    contaBancoId,
     termo,
     r.termo.trim(),
     r.tipo,
@@ -228,7 +250,7 @@ export interface ResultadoReplica {
  * avisa disso e mostra quais contas não existem no destino.
  */
 export async function replicarRegras(
-  origemId: number,
+  origem: Destino,
   destinos: Destino[]
 ): Promise<ResultadoReplica[]> {
   const client = await appPool.connect().catch((err) => {
@@ -237,10 +259,14 @@ export async function replicarRegras(
   try {
     await client.query("begin");
     const { rows: regras } = await client.query<RegraRow>(
-      `select termo, termo_original, tipo, conta_pagamento, conta_recebimento, historico, ativo
-         from conf_regra_extrato where conta_banco_id = $1`,
-      [origemId]
+      `select r.termo, r.termo_original, r.tipo, r.conta_pagamento, r.conta_recebimento,
+              r.historico, r.ativo
+         from conf_regra_extrato r
+         join conf_conta_banco b on b.id = r.conta_banco_id
+        where b.codigo_empresa = $1 and b.conta = $2`,
+      [origem.empresa, origem.conta]
     );
+    if (!regras.length) throw new FilterError("Esta conta não tem regras para replicar");
 
     const resultado: ResultadoReplica[] = [];
     for (const d of destinos) {
@@ -294,12 +320,15 @@ export async function replicarRegras(
 
 /** Contas de contrapartida das regras que NÃO existem no plano do destino. */
 export async function contasFaltantes(
-  origemId: number,
+  origem: Destino,
   empresaDestino: number
 ): Promise<number[]> {
   const regras = await appQuery<{ conta_pagamento: number | null; conta_recebimento: number | null }>(
-    "select conta_pagamento, conta_recebimento from conf_regra_extrato where conta_banco_id = $1",
-    [origemId]
+    `select r.conta_pagamento, r.conta_recebimento
+       from conf_regra_extrato r
+       join conf_conta_banco b on b.id = r.conta_banco_id
+      where b.codigo_empresa = $1 and b.conta = $2`,
+    [origem.empresa, origem.conta]
   );
   const usadas = new Set<number>();
   for (const r of regras) {

@@ -23,12 +23,12 @@ interface Props {
 }
 
 /** Avisa quais contrapartidas não existem no plano da empresa de destino. */
-function Faltantes({ origemId, empresa }: { origemId: number; empresa: number }) {
+function Faltantes({ origem, empresa }: { origem: ContaBanco; empresa: number }) {
   const { data } = useQuery({
-    queryKey: ["faltantes", origemId, empresa],
+    queryKey: ["faltantes", origem.empresa, origem.conta, empresa],
     queryFn: async () => {
       const res = await fetch(
-        `/api/contabil/extrato-regras?empresa=${empresa}&faltantesDe=${origemId}&faltantesEm=${empresa}`
+        `/api/contabil/extrato-regras?empresa=${origem.empresa}&faltantesDe=${origem.conta}&faltantesEm=${empresa}`
       );
       if (!res.ok) return { faltantes: [] as number[] };
       return (await res.json()) as { faltantes: number[] };
@@ -74,7 +74,8 @@ export function ReplicarModal({ origem, onFechar, onReplicado }: Props) {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           acao: "replicar",
-          origemId: origem.id,
+          empresa: origem.empresa,
+          conta: origem.conta,
           destinos: validos.map((d) => ({ empresa: d.empresa, conta: d.conta })),
         }),
       });
@@ -166,7 +167,7 @@ export function ReplicarModal({ origem, onFechar, onReplicado }: Props) {
                   <Trash2 className="size-3.5" />
                 </button>
               </div>
-              <Faltantes origemId={origem.id} empresa={d.empresa} />
+              <Faltantes origem={origem} empresa={d.empresa} />
             </div>
           ))}
 

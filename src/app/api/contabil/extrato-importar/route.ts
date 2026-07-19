@@ -3,7 +3,7 @@ import { apiRoute } from "@/lib/api-route";
 import { FilterError } from "@/lib/fiscal-filters";
 import { lerOfx, type ExtratoLido } from "@/lib/extrato-ofx";
 import { lerPdf, PdfNaoReconhecido } from "@/lib/extrato-pdf";
-import { listarContasBanco } from "@/lib/extrato-store";
+import { regrasDaConta } from "@/lib/extrato-store";
 import { gerarLancamentos, type RegraExtrato } from "@/lib/regras-extrato";
 
 const MAX_BYTES = 15 * 1024 * 1024;
@@ -59,16 +59,16 @@ export const POST = apiRoute(async (req) => {
   const form = await req.formData();
   const arquivo = form.get("arquivo");
   const empresa = Number(form.get("empresa"));
-  const contaBancoId = Number(form.get("contaBancoId"));
+  const conta = Number(form.get("conta"));
 
   if (!(arquivo instanceof File)) throw new FilterError("Envie o arquivo do extrato");
   if (!Number.isInteger(empresa)) throw new FilterError("Selecione uma empresa");
-  if (!Number.isInteger(contaBancoId)) throw new FilterError("Selecione a conta de banco");
+  if (!Number.isInteger(conta)) throw new FilterError("Selecione a conta de banco");
   if (arquivo.size > MAX_BYTES) throw new FilterError("Arquivo muito grande (máx. 15 MB)");
 
-  const contas = await listarContasBanco(empresa);
-  const banco = contas.find((c) => c.id === contaBancoId);
-  if (!banco) throw new FilterError("Conta de banco não encontrada nesta empresa");
+  // Não exige cadastro prévio: qualquer conta de banco do plano serve, e sem
+  // regra o extrato ainda é lido — as transações saem como pendentes.
+  const banco = await regrasDaConta(empresa, conta);
 
   const bytes = Buffer.from(await arquivo.arrayBuffer());
   const nome = arquivo.name.toLowerCase();

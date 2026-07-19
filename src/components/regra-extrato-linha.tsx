@@ -9,7 +9,8 @@ import type { RegraExtratoDTO } from "@/lib/types";
 
 interface Props {
   empresa: number;
-  contaBancoId: number;
+  /** Conta do banco no plano; o cadastro é criado no primeiro salvamento. */
+  conta: number;
   /** `null` = linha em branco no fim da tabela, para cadastrar uma nova. */
   regra: RegraExtratoDTO | null;
   onSalvo: () => void;
@@ -19,7 +20,7 @@ interface Props {
  * Uma regra na tabela. A linha vazia do fim vira uma regra nova ao salvar, o
  * que evita um modal só para acrescentar uma linha.
  */
-export function RegraExtratoLinha({ empresa, contaBancoId, regra, onSalvo }: Props) {
+export function RegraExtratoLinha({ empresa, conta, regra, onSalvo }: Props) {
   const nova = regra == null;
   const [termo, setTermo] = useState(regra?.termoOriginal ?? "");
   const [tipo, setTipo] = useState<"exato" | "parcial">(regra?.tipo ?? "parcial");
@@ -48,7 +49,8 @@ export function RegraExtratoLinha({ empresa, contaBancoId, regra, onSalvo }: Pro
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           id: regra?.id,
-          contaBancoId,
+          empresa,
+          conta,
           termo,
           tipo,
           contaPagamento: pagamento,
