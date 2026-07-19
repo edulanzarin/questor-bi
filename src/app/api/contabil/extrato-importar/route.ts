@@ -1,8 +1,8 @@
 import { spawn } from "node:child_process";
 import { apiRoute } from "@/lib/api-route";
 import { FilterError } from "@/lib/fiscal-filters";
-import { lerOfx, type ExtratoLido } from "@/lib/extrato-ofx";
-import { lerPdf, PdfNaoReconhecido } from "@/lib/extrato-pdf";
+import { lerOfx } from "@/lib/extrato-ofx";
+import { lerPdf, PdfNaoReconhecido, type PdfLido } from "@/lib/extrato-pdf";
 import { regrasDaConta } from "@/lib/extrato-store";
 import { gerarLancamentos, type RegraExtrato } from "@/lib/regras-extrato";
 
@@ -13,11 +13,12 @@ const MAX_BYTES = 15 * 1024 * 1024;
  * sem o `-layout` o texto vira uma sopa e não dá para separar valor de
  * descrição. Entra e sai por stdin/stdout, sem arquivo temporário.
  */
-function textoDoPdf(bytes: Buffer): Promise<string> {
+function textoDoPdf(bytes: Buffer, senha?: string): Promise<string> {
   return new Promise((resolve, reject) => {
     // spawn e não execFile: só o spawn deixa escrever no stdin do processo, e
     // sem isso o pdftotext fica esperando entrada para sempre.
-    const p = spawn("pdftotext", ["-layout", "-", "-"]);
+    const args = senha ? ["-layout", "-upw", senha, "-", "-"] : ["-layout", "-", "-"];
+    const p = spawn("pdftotext", args);
     const saida: Buffer[] = [];
     let erro = "";
 
@@ -36,6 +37,16 @@ function textoDoPdf(bytes: Buffer): Promise<string> {
     p.on("close", (code) => {
       clearTimeout(limite);
       if (code !== 0) {
+        // Protegido: a mensagem precisa dizer o que fazer, não só que falhou.
+        if (/password/i.test(erro)) {
+          return reject(
+            new FilterError(
+              senha
+                ? "Senha incorreta para este PDF"
+                : "Este PDF está protegido por senha — informe a senha para abrir"
+            )
+          );
+        }
         return reject(
           new FilterError(
             `Não consegui ler o PDF${erro ? `: ${erro.trim().split("\n")[0]}` : ""}. Se ele for digitalizado (imagem), não há texto para extrair — use o OFX.`
@@ -60,6 +71,7 @@ export const POST = apiRoute(async (req) => {
   const arquivo = form.get("arquivo");
   const empresa = Number(form.get("empresa"));
   const conta = Number(form.get("conta"));
+  const senha = (form.get("senha") as string | null)?.trim() || undefined;
 
   if (!(arquivo instanceof File)) throw new FilterError("Envie o arquivo do extrato");
   if (!Number.isInteger(empresa)) throw new FilterError("Selecione uma empresa");
@@ -73,10 +85,10 @@ export const POST = apiRoute(async (req) => {
   const bytes = Buffer.from(await arquivo.arrayBuffer());
   const nome = arquivo.name.toLowerCase();
 
-  let extrato: ExtratoLido;
+  let extrato: PdfLido;
   try {
     if (nome.endsWith(".pdf")) {
-      extrato = lerPdf(await textoDoPdf(bytes));
+      extrato = lerPdf(await textoDoPdf(bytes, senha));
     } else {
       // OFX e variantes (.ofx, .qfx, .sta) são texto.
       extrato = lerOfx(bytes.toString("utf8"));
@@ -120,6 +132,8 @@ export const POST = apiRoute(async (req) => {
     conta: extrato.conta,
     inicio: extrato.inicio,
     fim: extrato.fim,
+    // null = o extrato não traz saldo corrente, então não há o que conferir.
+    saldoConfere: extrato.saldoConfere ?? null,
     contaBanco: { conta: banco.conta, descricao: banco.descricao, apelido: banco.apelido },
     resumo,
     lancamentos,

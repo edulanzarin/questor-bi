@@ -1,5 +1,6 @@
 import type { Transacao } from "./regras-extrato";
 import type { ExtratoLido } from "./extrato-ofx";
+import { acharConfig, lerTabular, type ResultadoTabular } from "./extrato-tabular";
 
 /**
  * Leitor de extrato em PDF. Cada banco tem um layout próprio, então isto é um
@@ -118,16 +119,36 @@ export const nubank: LeitorPdf = {
   },
 };
 
+/** Leitores de layout próprio, que não cabem no motor tabular. */
 export const LEITORES: LeitorPdf[] = [nubank];
 
 export class PdfNaoReconhecido extends Error {}
 
-export function lerPdf(texto: string): ExtratoLido {
-  const leitor = LEITORES.find((l) => l.reconhece(texto));
-  if (!leitor) {
-    throw new PdfNaoReconhecido(
-      "Não reconheci o banco deste PDF. Por enquanto só o Nubank tem leitor — use o OFX, que é padrão."
-    );
+export interface PdfLido extends ExtratoLido {
+  /** Cadeia de saldos fechou — só quando o extrato traz saldo corrente. */
+  saldoConfere?: boolean | null;
+}
+
+/**
+ * Escolhe o leitor: primeiro os de layout próprio, depois o motor tabular, que
+ * cobre a maioria dos bancos por configuração em vez de código.
+ */
+export function lerPdf(texto: string): PdfLido {
+  const proprio = LEITORES.find((l) => l.reconhece(texto));
+  if (proprio) return proprio.ler(texto);
+
+  const cfg = acharConfig(texto);
+  if (cfg) {
+    const r: ResultadoTabular = lerTabular(texto, cfg);
+    return r;
   }
-  return leitor.ler(texto);
+
+  throw new PdfNaoReconhecido(
+    "Não reconheci o banco deste PDF. Se o extrato tiver OFX, use o OFX — é padrão e funciona com qualquer banco."
+  );
+}
+
+/** O PDF está protegido por senha? A tela usa isto para pedir a senha. */
+export function exigeSenha(texto: string): boolean {
+  return acharConfig(texto)?.exigeSenha ?? false;
 }

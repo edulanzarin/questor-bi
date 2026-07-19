@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   FileUp,
   Landmark,
+  ShieldCheck,
 } from "lucide-react";
 import clsx from "clsx";
 import { DropzoneArquivo } from "@/components/dropzone-arquivo";
@@ -26,6 +27,7 @@ interface Previa {
   conta: string | null;
   inicio: string | null;
   fim: string | null;
+  saldoConfere: boolean | null;
   contaBanco: { conta: number; descricao: string | null; apelido: string | null };
   resumo: {
     total: number;
@@ -49,6 +51,7 @@ export default function ImportarPage() {
   const [conta, setConta] = useState<number | null>(null);
   const [previa, setPrevia] = useState<Previa | null>(null);
   const [enviando, setEnviando] = useState(false);
+  const [senha, setSenha] = useState("");
   const [filtro, setFiltro] = useState<Filtro>("todos");
 
   // Quantas regras a conta escolhida tem — para avisar antes de importar sem
@@ -71,6 +74,7 @@ export default function ImportarPage() {
       fd.set("arquivo", arquivo);
       fd.set("empresa", String(empresa));
       fd.set("conta", String(conta));
+      if (senha) fd.set("senha", senha);
       const res = await fetch("/api/contabil/extrato-importar", { method: "POST", body: fd });
       const corpo = await res.json();
       if (!res.ok) throw new Error(corpo?.error ?? "Falha ao ler o extrato");
@@ -126,6 +130,17 @@ export default function ImportarPage() {
             desabilitado={conta == null}
             carregando={enviando}
             motivo={conta == null ? "Escolha a conta primeiro" : undefined}
+          />
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-medium text-ink-2">Senha do PDF</label>
+          <input
+            type="password"
+            value={senha}
+            onChange={(e) => setSenha(e.target.value)}
+            placeholder="só se for protegido"
+            className="h-9 w-40 rounded-lg border border-hairline bg-surface px-2.5 text-sm text-ink outline-none placeholder:text-muted"
           />
         </div>
 
@@ -190,6 +205,26 @@ export default function ImportarPage() {
               secundario={`${brl(previa.resumo.entradas)} entradas · ${brl(Math.abs(previa.resumo.saidas))} saídas`}
             />
           </div>
+
+          {previa.saldoConfere !== null && (
+            <p
+              className={clsx(
+                "flex items-start gap-2 rounded-lg px-3 py-2 text-xs",
+                previa.saldoConfere ? "bg-good/10 text-good" : "bg-warn/10 text-warn"
+              )}
+            >
+              {previa.saldoConfere ? (
+                <ShieldCheck className="mt-px size-4 shrink-0" />
+              ) : (
+                <AlertTriangle className="mt-px size-4 shrink-0" />
+              )}
+              <span>
+                {previa.saldoConfere
+                  ? "Cadeia de saldos do extrato fecha do início ao fim — a leitura está consistente."
+                  : "A cadeia de saldos do extrato não fecha. Pode haver linha não lida — confira antes de usar."}
+              </span>
+            </p>
+          )}
 
           <section className="card anim-fade-up p-5">
             <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
