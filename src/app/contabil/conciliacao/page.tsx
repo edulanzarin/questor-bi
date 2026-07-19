@@ -103,41 +103,39 @@ export default function ImportarPage() {
 
   return (
     <>
-      <section className="card anim-fade-up flex flex-col gap-4 p-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-medium text-ink-2">Conta de banco</label>
-            <ContaDropdown
-              empresa={empresa}
-              valor={conta}
-              onMudar={(c) => {
-                setConta(c);
-                setPrevia(null);
-              }}
-              soBanco
-              placeholder="Escolher no plano de contas"
-            />
-            {conta != null && cadastro && (
-              <p className="text-[11px] text-muted">
-                {cadastro.regras.length > 0
-                  ? `${cadastro.regras.length} ${cadastro.regras.length === 1 ? "regra cadastrada" : "regras cadastradas"}`
-                  : "Sem regras — tudo vai sair como pendente"}
-              </p>
-            )}
-          </div>
-          <p className="max-w-sm text-[11px] text-muted">
-            OFX de qualquer banco. PDF só do Nubank por enquanto — e precisa ser o arquivo
-            original, não digitalizado.
-          </p>
+      <section className="card anim-fade-up flex flex-wrap items-end gap-x-4 gap-y-3 p-4">
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-medium text-ink-2">Conta de banco</label>
+          <ContaDropdown
+            empresa={empresa}
+            valor={conta}
+            onMudar={(c) => {
+              setConta(c);
+              setPrevia(null);
+            }}
+            soBanco
+            placeholder="Escolher no plano de contas"
+          />
         </div>
 
-        <DropzoneArquivo
-          aceita={[".ofx", ".qfx", ".pdf"]}
-          onArquivo={enviar}
-          desabilitado={conta == null}
-          carregando={enviando}
-          motivo={conta == null ? "Escolha a conta de banco para enviar o extrato" : undefined}
-        />
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-medium text-ink-2">Extrato</label>
+          <DropzoneArquivo
+            aceita={[".ofx", ".qfx", ".pdf"]}
+            onArquivo={enviar}
+            desabilitado={conta == null}
+            carregando={enviando}
+            motivo={conta == null ? "Escolha a conta primeiro" : undefined}
+          />
+        </div>
+
+        <p className="pb-2 text-[11px] text-muted">
+          {conta != null && cadastro
+            ? cadastro.regras.length > 0
+              ? `${cadastro.regras.length} ${cadastro.regras.length === 1 ? "regra cadastrada" : "regras cadastradas"} nesta conta`
+              : "Sem regras nesta conta — tudo vai sair como pendente"
+            : "OFX de qualquer banco · PDF só do Nubank por enquanto"}
+        </p>
       </section>
 
       {!previa ? (

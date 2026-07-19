@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { FileText, Loader2, Upload } from "lucide-react";
+import { FileCheck2, Loader2, Paperclip } from "lucide-react";
 import clsx from "clsx";
 
 interface Props {
@@ -15,9 +15,12 @@ interface Props {
 }
 
 /**
- * Área de envio de arquivo. Substitui o `<input type="file">` nativo, que
- * aparece com a caixa crua do sistema operacional e destoa do resto do app —
- * o input continua existindo, escondido, para acessibilidade e para o clique.
+ * Envio de arquivo em uma linha só, na mesma altura dos outros controles.
+ * Ocupar meia tela com uma área de soltar tira espaço do resultado, que é o
+ * que interessa depois do primeiro envio — mas continua aceitando arrastar.
+ *
+ * O `<input type="file">` segue existindo, escondido: é ele que abre o
+ * seletor no clique e o que leitores de tela anunciam.
  */
 export function DropzoneArquivo({
   onArquivo,
@@ -59,40 +62,37 @@ export function DropzoneArquivo({
         }
       }}
       aria-disabled={bloqueado}
+      title={motivo}
       className={clsx(
-        "flex cursor-pointer flex-col items-center gap-2 rounded-xl border border-dashed px-6 py-8 text-center transition-colors",
+        "flex h-9 cursor-pointer items-center gap-2 rounded-lg border border-dashed px-3 text-sm transition-colors",
         bloqueado && "cursor-not-allowed opacity-60",
         sobre
-          ? "border-ent bg-ent/8"
-          : "border-hairline bg-surface-2/40 hover:border-ent/40 hover:bg-surface-2"
+          ? "border-ent bg-ent/10 text-ink"
+          : "border-hairline bg-surface text-ink-2 hover:border-ent/40 hover:bg-surface-2 hover:text-ink"
       )}
     >
-      <span
-        className={clsx(
-          "grid size-10 place-items-center rounded-xl transition-colors",
-          sobre ? "bg-ent/15 text-ent" : "bg-surface-2 text-muted"
-        )}
-      >
-        {carregando ? (
-          <Loader2 className="size-5 animate-spin" />
-        ) : sobre ? (
-          <FileText className="size-5" />
-        ) : (
-          <Upload className="size-5" />
-        )}
+      {carregando ? (
+        <Loader2 className="size-4 shrink-0 animate-spin text-muted" />
+      ) : sobre ? (
+        <FileCheck2 className="size-4 shrink-0 text-ent" />
+      ) : (
+        <Paperclip className="size-4 shrink-0 text-muted" />
+      )}
+
+      <span className="truncate">
+        {carregando
+          ? "Lendo o extrato…"
+          : motivo
+            ? motivo
+            : sobre
+              ? "Solte para enviar"
+              : "Arraste ou escolha o extrato"}
       </span>
 
-      {carregando ? (
-        <p className="text-sm text-ink">Lendo o extrato…</p>
-      ) : motivo ? (
-        <p className="text-sm text-muted">{motivo}</p>
-      ) : (
-        <>
-          <p className="text-sm text-ink">
-            Arraste o arquivo aqui ou <span className="text-ent">clique para escolher</span>
-          </p>
-          <p className="text-xs text-muted">{aceita.join(" · ").toUpperCase()}</p>
-        </>
+      {!carregando && !motivo && (
+        <span className="ml-1 shrink-0 text-[11px] text-muted">
+          {aceita.map((e) => e.replace(".", "").toUpperCase()).join(" · ")}
+        </span>
       )}
 
       <input
