@@ -9,6 +9,13 @@ export const SECOES_CONTABIL: SecaoFiscal[] = [
     metrica: false,
     descricao: "Notas fiscais × contabilidade",
   },
+  {
+    id: "extratos",
+    rotulo: "Extratos",
+    path: "/contabil/extratos",
+    metrica: false,
+    descricao: "Extrato bancário → lançamentos",
+  },
 ];
 
 /**
@@ -39,9 +46,14 @@ export const ABAS_CONFERENCIA: AbaConferencia[] = [
   },
 ];
 
-/** A Configuração é fixa por empresa: não depende do período selecionado. */
+/**
+ * Telas de cadastro são fixas por empresa e não têm recorte de tempo — mostrar
+ * um seletor de período nelas sugeriria que a regra vale só naquele mês.
+ */
+const SEM_PERIODO = ["/contabil/configuracao", "/contabil/extratos"];
+
 export function abaUsaPeriodo(pathname: string): boolean {
-  return abaConferenciaAtual(pathname)?.id !== "configuracao";
+  return !SEM_PERIODO.some((p) => pathname === p || pathname.startsWith(p + "/"));
 }
 
 export function abaConferenciaAtual(pathname: string): AbaConferencia | undefined {

@@ -307,6 +307,37 @@ export interface ConferenciaResp {
   facetas: { especies: Faceta[]; cfops: Faceta[] };
 }
 
+/** Conta analítica do plano de contas da empresa (vem do Questor). */
+export interface ContaPlano {
+  conta: number;
+  descricao: string;
+  classificacao: string | null;
+}
+
+/** Conta de banco da empresa, com as regras de contrapartida do extrato. */
+export interface ContaBanco {
+  id: number;
+  empresa: number;
+  conta: number;
+  apelido: string | null;
+  descricao: string | null;
+  classificacao: string | null;
+  regras: RegraExtratoDTO[];
+}
+
+export interface RegraExtratoDTO {
+  id: number;
+  termo: string;
+  termoOriginal: string;
+  tipo: "exato" | "parcial";
+  contaPagamento: number | null;
+  contaRecebimento: number | null;
+  descrPagamento: string | null;
+  descrRecebimento: string | null;
+  historico: string | null;
+  ativo: boolean;
+}
+
 /** Um lançamento contábil que a nota deveria gerar, segundo o plano. */
 export interface LinhaPlano {
   seq: number;

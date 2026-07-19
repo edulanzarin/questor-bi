@@ -7,13 +7,16 @@ import pg from "pg";
 
 const raiz = join(dirname(fileURLToPath(import.meta.url)), "..");
 
-// .env.local sem dependência extra: só as chaves que interessam aqui
-try {
-  for (const linha of readFileSync(join(raiz, ".env.local"), "utf8").split("\n")) {
-    const m = linha.match(/^\s*([A-Z_]+)\s*=\s*(.*?)\s*$/);
-    if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["']|["']$/g, "");
-  }
-} catch {}
+// .env sem dependência extra. Mesma precedência do Next: .env.local ganha do
+// .env, e variável já exportada no shell ganha das duas.
+for (const arquivo of [".env.local", ".env"]) {
+  try {
+    for (const linha of readFileSync(join(raiz, arquivo), "utf8").split("\n")) {
+      const m = linha.match(/^\s*([A-Z_]+)\s*=\s*(.*?)\s*$/);
+      if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["']|["']$/g, "");
+    }
+  } catch {}
+}
 
 const client = new pg.Client({
   connectionString:
