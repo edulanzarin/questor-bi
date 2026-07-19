@@ -40,9 +40,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# Extratos reais para teste: contêm dados pessoais (CPF, conta, nomes de
-# terceiros) e não devem ir para o repositório.
-knowledge/*.ofx
-knowledge/*.pdf
-knowledge/*.OFX
-knowledge/*.PDF
+# Material de referência local: extratos reais (com CPF, conta e nomes de
+# terceiros) e dumps de schema do Questor. Nada daqui vai para o repositório.
+knowledge/
