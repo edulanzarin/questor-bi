@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   AlertTriangle,
@@ -9,7 +9,9 @@ import {
   CheckCircle2,
   FileUp,
   Landmark,
+  RefreshCw,
   ShieldCheck,
+  X,
 } from "lucide-react";
 import clsx from "clsx";
 import { DropzoneArquivo } from "@/components/dropzone-arquivo";
@@ -18,7 +20,17 @@ import { Kpi } from "@/components/kpi-conf";
 import { useFiltros } from "@/hooks/use-filters";
 import { brl, dataBR, num } from "@/lib/format";
 import type { ContaBanco } from "@/lib/types";
-import type { LancamentoGerado } from "@/lib/regras-extrato";
+import { gerarLancamentos, type LancamentoGerado, type RegraExtrato } from "@/lib/regras-extrato";
+
+interface Resumo {
+  total: number;
+  prontos: number;
+  semRegra: number;
+  semConta: number;
+  ambiguos: number;
+  entradas: number;
+  saidas: number;
+}
 
 interface Previa {
   arquivo: string;
@@ -29,33 +41,69 @@ interface Previa {
   fim: string | null;
   saldoConfere: boolean | null;
   contaBanco: { conta: number; descricao: string | null; apelido: string | null };
-  resumo: {
-    total: number;
-    prontos: number;
-    semRegra: number;
-    semConta: number;
-    ambiguos: number;
-    entradas: number;
-    saidas: number;
-  };
+  resumo: Resumo;
   lancamentos: LancamentoGerado[];
 }
 
+/**
+ * O extrato carregado fica no cache do React Query, que é de nível de app —
+ * assim ir até a aba Regras cadastrar o que faltou e voltar não perde o
+ * trabalho. O arquivo em si não é guardado; o que se guarda são as transações
+ * já lidas, que bastam para reaplicar as regras.
+ */
+const CHAVE_EXTRATO = ["conciliacao-extrato"] as const;
+const CHAVE_CONTA = ["conciliacao-conta"] as const;
+const CHAVE_AJUSTES = ["conciliacao-ajustes"] as const;
+
 type Filtro = "todos" | "prontos" | "pendentes";
+/** Conta escolhida à mão para uma linha, só nesta importação. */
+type Ajustes = Record<number, number>;
+
+function resumir(lancamentos: LancamentoGerado[], ajustes: Ajustes): Resumo {
+  const resolvido = (l: LancamentoGerado, i: number) => !l.pendencia || ajustes[i] != null;
+  return {
+    total: lancamentos.length,
+    prontos: lancamentos.filter(resolvido).length,
+    semRegra: lancamentos.filter((l, i) => l.pendencia === "sem_regra" && ajustes[i] == null).length,
+    semConta: lancamentos.filter((l, i) => l.pendencia === "sem_conta" && ajustes[i] == null).length,
+    ambiguos: lancamentos.filter((l) => l.ambiguo).length,
+    entradas: lancamentos
+      .filter((l) => l.sentido === "recebimento")
+      .reduce((a, b) => a + b.valor, 0),
+    saidas: -lancamentos.filter((l) => l.sentido === "pagamento").reduce((a, b) => a + b.valor, 0),
+  };
+}
 
 export default function ImportarPage() {
   const { filtros } = useFiltros();
+  const queryClient = useQueryClient();
   const empresa = filtros.empresas[0];
   const temEmpresa = filtros.empresas.length === 1;
 
-  const [conta, setConta] = useState<number | null>(null);
-  const [previa, setPrevia] = useState<Previa | null>(null);
+  // Estado restaurado do cache ao remontar (volta da aba Regras, por exemplo).
+  const [conta, setConta] = useState<number | null>(
+    () => queryClient.getQueryData<number>(CHAVE_CONTA) ?? null
+  );
+  const [previa, setPrevia] = useState<Previa | null>(
+    () => queryClient.getQueryData<Previa>(CHAVE_EXTRATO) ?? null
+  );
+  const [ajustes, setAjustes] = useState<Ajustes>(
+    () => queryClient.getQueryData<Ajustes>(CHAVE_AJUSTES) ?? {}
+  );
   const [enviando, setEnviando] = useState(false);
+  const [atualizando, setAtualizando] = useState(false);
   const [senha, setSenha] = useState("");
   const [filtro, setFiltro] = useState<Filtro>("todos");
 
-  // Quantas regras a conta escolhida tem — para avisar antes de importar sem
-  // cadastro nenhum, em vez de o usuário descobrir na lista de pendências.
+  function guardar(p: Previa | null, c: number | null, a: Ajustes) {
+    queryClient.setQueryData(CHAVE_EXTRATO, p);
+    queryClient.setQueryData(CHAVE_CONTA, c);
+    queryClient.setQueryData(CHAVE_AJUSTES, a);
+    setPrevia(p);
+    setConta(c);
+    setAjustes(a);
+  }
+
   const { data: cadastro } = useQuery({
     queryKey: ["extrato-regras", empresa, conta],
     queryFn: async () => {
@@ -78,7 +126,7 @@ export default function ImportarPage() {
       const res = await fetch("/api/contabil/extrato-importar", { method: "POST", body: fd });
       const corpo = await res.json();
       if (!res.ok) throw new Error(corpo?.error ?? "Falha ao ler o extrato");
-      setPrevia(corpo as Previa);
+      guardar(corpo as Previa, conta, {});
       toast.success(`${corpo.resumo.total} transações lidas`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Falha ao ler o extrato");
@@ -86,6 +134,66 @@ export default function ImportarPage() {
       setEnviando(false);
     }
   }
+
+  /**
+   * Reaplica as regras nas transações já lidas, sem precisar do arquivo de
+   * novo — é o caminho depois de cadastrar o que faltava na aba Regras.
+   */
+  async function atualizar() {
+    if (!previa) return;
+    setAtualizando(true);
+    try {
+      const res = await fetch(
+        `/api/contabil/extrato-regras?empresa=${empresa}&conta=${previa.contaBanco.conta}`
+      );
+      const corpo = await res.json();
+      if (!res.ok) throw new Error(corpo?.error ?? "Falha ao buscar as regras");
+
+      const regras: RegraExtrato[] = (corpo as ContaBanco).regras.map((r) => ({
+        id: r.id,
+        termo: r.termo,
+        termoOriginal: r.termoOriginal,
+        tipo: r.tipo,
+        contaPagamento: r.contaPagamento,
+        contaRecebimento: r.contaRecebimento,
+        historico: r.historico,
+        ativo: r.ativo,
+      }));
+
+      // O sinal foi perdido no `valor` absoluto; volta a partir do sentido.
+      const transacoes = previa.lancamentos.map((l) => ({
+        data: l.data,
+        descricao: l.descricao,
+        valor: l.sentido === "recebimento" ? l.valor : -l.valor,
+      }));
+
+      const lancamentos = gerarLancamentos(transacoes, previa.contaBanco.conta, regras);
+      const atualizada: Previa = { ...previa, lancamentos, resumo: resumir(lancamentos, ajustes) };
+      guardar(atualizada, conta, ajustes);
+      toast.success(`Regras reaplicadas · ${atualizada.resumo.prontos} prontas`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Falha ao atualizar");
+    } finally {
+      setAtualizando(false);
+    }
+  }
+
+  function ajustar(indice: number, contaEscolhida: number | null) {
+    const novos = { ...ajustes };
+    if (contaEscolhida == null) delete novos[indice];
+    else novos[indice] = contaEscolhida;
+    guardar(previa ? { ...previa, resumo: resumir(previa.lancamentos, novos) } : null, conta, novos);
+  }
+
+  const visiveis = useMemo(() => {
+    if (!previa) return [];
+    return previa.lancamentos
+      .map((l, i) => ({ l, i }))
+      .filter(({ l, i }) => {
+        const resolvido = !l.pendencia || ajustes[i] != null;
+        return filtro === "todos" ? true : filtro === "prontos" ? resolvido : !resolvido;
+      });
+  }, [previa, ajustes, filtro]);
 
   if (!temEmpresa) {
     return (
@@ -101,9 +209,7 @@ export default function ImportarPage() {
     );
   }
 
-  const visiveis = (previa?.lancamentos ?? []).filter((l) =>
-    filtro === "todos" ? true : filtro === "prontos" ? !l.pendencia : !!l.pendencia
-  );
+  const r = previa?.resumo;
 
   return (
     <>
@@ -113,10 +219,7 @@ export default function ImportarPage() {
           <ContaDropdown
             empresa={empresa}
             valor={conta}
-            onMudar={(c) => {
-              setConta(c);
-              setPrevia(null);
-            }}
+            onMudar={(c) => guardar(null, c, {})}
             soBanco
             placeholder="Escolher no plano de contas"
           />
@@ -144,6 +247,18 @@ export default function ImportarPage() {
           />
         </div>
 
+        {previa && (
+          <button
+            onClick={atualizar}
+            disabled={atualizando}
+            title="Reaplica as regras cadastradas nas transações já lidas"
+            className="flex h-9 items-center gap-1.5 rounded-lg border border-hairline px-3 text-xs text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink disabled:opacity-50"
+          >
+            <RefreshCw className={clsx("size-3.5", atualizando && "animate-spin")} />
+            Reaplicar regras
+          </button>
+        )}
+
         <p className="pb-2 text-[11px] text-muted">
           {conta != null && cadastro
             ? cadastro.regras.length > 0
@@ -153,7 +268,7 @@ export default function ImportarPage() {
         </p>
       </section>
 
-      {!previa ? (
+      {!previa || !r ? (
         <section className="card grid place-items-center gap-3 px-6 py-14 text-center">
           <span className="grid size-12 place-items-center rounded-2xl bg-surface-2 text-muted">
             <FileUp className="size-6" />
@@ -171,7 +286,7 @@ export default function ImportarPage() {
               rotulo="Transações lidas"
               icone={<FileUp className="size-4 text-ent" />}
               corIcone="bg-ent/12"
-              valor={num(previa.resumo.total)}
+              valor={num(r.total)}
               secundario={
                 previa.inicio && previa.fim
                   ? `${dataBR(previa.inicio)} – ${dataBR(previa.fim)}`
@@ -182,27 +297,27 @@ export default function ImportarPage() {
               rotulo="Prontas para lançar"
               icone={<CheckCircle2 className="size-4 text-good" />}
               corIcone="bg-good/12"
-              valor={num(previa.resumo.prontos)}
-              secundario={`${((previa.resumo.prontos / previa.resumo.total) * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% do extrato`}
+              valor={num(r.prontos)}
+              secundario={`${((r.prontos / r.total) * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% do extrato`}
             />
             <Kpi
-              rotulo="Sem regra"
+              rotulo="Sem conta"
               icone={<AlertTriangle className="size-4 text-warn" />}
               corIcone="bg-warn/12"
-              valor={num(previa.resumo.semRegra + previa.resumo.semConta)}
+              valor={num(r.semRegra + r.semConta)}
               secundario={
-                previa.resumo.semConta > 0
-                  ? `${num(previa.resumo.semConta)} com regra mas sem conta no sentido`
+                r.semConta > 0
+                  ? `${num(r.semConta)} com regra mas sem conta no sentido`
                   : "descrições ainda não cadastradas"
               }
-              alerta={previa.resumo.semRegra + previa.resumo.semConta > 0}
+              alerta={r.semRegra + r.semConta > 0}
             />
             <Kpi
               rotulo="Movimento"
               icone={<Landmark className="size-4 text-ink-2" />}
               corIcone="bg-surface-2"
-              valor={brl(previa.resumo.entradas + previa.resumo.saidas)}
-              secundario={`${brl(previa.resumo.entradas)} entradas · ${brl(Math.abs(previa.resumo.saidas))} saídas`}
+              valor={brl(r.entradas + r.saidas)}
+              secundario={`${brl(r.entradas)} entradas · ${brl(Math.abs(r.saidas))} saídas`}
             />
           </div>
 
@@ -255,7 +370,7 @@ export default function ImportarPage() {
             </header>
 
             <div className="max-h-[32rem] overflow-auto">
-              <table className="w-full min-w-[820px] border-collapse text-sm">
+              <table className="w-full min-w-[880px] border-collapse text-sm">
                 <thead className="sticky top-0 z-10 bg-surface">
                   <tr className="border-b border-hairline text-xs text-muted">
                     <th className="py-2 pr-3 text-left font-medium">Data</th>
@@ -266,47 +381,86 @@ export default function ImportarPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {visiveis.map((l, i) => (
-                    <tr
-                      key={i}
-                      className="border-b border-hairline/60 align-top last:border-0 hover:bg-surface-2/50"
-                    >
-                      <td className="whitespace-nowrap py-2.5 pr-3 tabular-nums text-ink-2">
-                        {dataBR(l.data)}
-                      </td>
-                      <td className="max-w-[380px] py-2.5 pr-3">
-                        <span className="block truncate text-ink" title={l.descricao}>
-                          {l.descricao}
-                        </span>
-                        {l.pendencia && (
-                          <span className="mt-0.5 inline-block rounded bg-warn/12 px-1.5 py-0.5 text-[10px] font-medium text-warn">
-                            {l.pendencia === "sem_regra"
-                              ? "Sem regra cadastrada"
-                              : `Regra não define conta para ${l.sentido}`}
-                          </span>
-                        )}
-                        {l.ambiguo && (
-                          <span className="ml-1 mt-0.5 inline-block rounded bg-sai/12 px-1.5 py-0.5 text-[10px] font-medium text-sai">
-                            Duas regras empataram
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-2.5 pr-3 tabular-nums">
-                        {l.contaDebito ?? <span className="text-muted">—</span>}
-                      </td>
-                      <td className="py-2.5 pr-3 tabular-nums">
-                        {l.contaCredito ?? <span className="text-muted">—</span>}
-                      </td>
-                      <td
-                        className={clsx(
-                          "py-2.5 pl-3 text-right font-semibold tabular-nums",
-                          l.sentido === "recebimento" ? "text-good" : "text-ink"
-                        )}
+                  {visiveis.map(({ l, i }) => {
+                    const ajuste = ajustes[i] ?? null;
+                    const pendente = !!l.pendencia && ajuste == null;
+                    // O ajuste entra no lado que a contrapartida ocupa.
+                    const debito =
+                      l.contaDebito ?? (l.sentido === "pagamento" ? ajuste : l.contaDebito);
+                    const credito =
+                      l.contaCredito ?? (l.sentido === "recebimento" ? ajuste : l.contaCredito);
+
+                    return (
+                      <tr
+                        key={i}
+                        className="border-b border-hairline/60 align-top last:border-0 hover:bg-surface-2/50"
                       >
-                        {l.sentido === "recebimento" ? "+" : "−"} {brl(l.valor)}
-                      </td>
-                    </tr>
-                  ))}
+                        <td className="whitespace-nowrap py-2.5 pr-3 tabular-nums text-ink-2">
+                          {dataBR(l.data)}
+                        </td>
+                        <td className="max-w-[340px] py-2.5 pr-3">
+                          <span className="block truncate text-ink" title={l.descricao}>
+                            {l.descricao}
+                          </span>
+                          {pendente && (
+                            <span className="mt-0.5 inline-block rounded bg-warn/12 px-1.5 py-0.5 text-[10px] font-medium text-warn">
+                              {l.pendencia === "sem_regra"
+                                ? "Sem regra cadastrada"
+                                : `Regra não define conta para ${l.sentido}`}
+                            </span>
+                          )}
+                          {ajuste != null && (
+                            <span className="mt-0.5 inline-flex items-center gap-1 rounded bg-ent/12 px-1.5 py-0.5 text-[10px] font-medium text-ent">
+                              Conta escolhida à mão
+                              <button
+                                onClick={() => ajustar(i, null)}
+                                title="Desfazer"
+                                className="hover:text-ink"
+                              >
+                                <X className="size-3" />
+                              </button>
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-2.5 pr-3 tabular-nums">
+                          {l.sentido === "pagamento" && l.contaDebito == null ? (
+                            <ContaDropdown
+                              empresa={empresa}
+                              valor={ajuste}
+                              onMudar={(c) => ajustar(i, c)}
+                              placeholder="escolher"
+                              limpavel
+                              largura="w-96"
+                            />
+                          ) : (
+                            (debito ?? <span className="text-muted">—</span>)
+                          )}
+                        </td>
+                        <td className="py-2.5 pr-3 tabular-nums">
+                          {l.sentido === "recebimento" && l.contaCredito == null ? (
+                            <ContaDropdown
+                              empresa={empresa}
+                              valor={ajuste}
+                              onMudar={(c) => ajustar(i, c)}
+                              placeholder="escolher"
+                              limpavel
+                              largura="w-96"
+                            />
+                          ) : (
+                            (credito ?? <span className="text-muted">—</span>)
+                          )}
+                        </td>
+                        <td
+                          className={clsx(
+                            "py-2.5 pl-3 text-right font-semibold tabular-nums",
+                            l.sentido === "recebimento" ? "text-good" : "text-ink"
+                          )}
+                        >
+                          {l.sentido === "recebimento" ? "+" : "−"} {brl(l.valor)}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -314,9 +468,10 @@ export default function ImportarPage() {
 
           <p className="px-1 text-[11px] text-muted">
             Recebimento debita a conta do banco e credita a contrapartida; pagamento faz o inverso.
-            As pendentes ficam de fora do arquivo final — cadastre a descrição na aba Regras e
-            envie o extrato de novo. A exportação para o Questor entra quando o formato do arquivo
-            estiver confirmado.
+            A conta escolhida à mão vale só para esta importação e não vira regra — para não
+            precisar escolher de novo no mês que vem, cadastre na aba Regras e use “Reaplicar
+            regras”. A exportação para o Questor entra quando o formato do arquivo estiver
+            confirmado.
           </p>
         </>
       )}
