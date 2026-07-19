@@ -28,7 +28,6 @@ import type {
   ConformidadeEmpresa,
   TributosCargaEmpresa,
   ConferenciaResp,
-  DivergenciasResp,
   PlanoResp,
 } from "@/lib/types";
 
@@ -329,13 +328,6 @@ export const useCancelamentosRanking = (
   useApiQuery<TopItem[]>(
     ["cancelamentos-ranking", qs, tipo, por],
     `/api/fiscal/cancelamentos-ranking?${qs}&tipo=${tipo}&por=${por}`,
-    enabled
-  );
-
-export const useDivergencias = (qs: string, enabled = true) =>
-  useApiQuery<DivergenciasResp>(
-    ["divergencias", qs],
-    `/api/contabil/divergencias?${qs}`,
     enabled
   );
 

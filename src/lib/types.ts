@@ -244,35 +244,58 @@ export interface ConformidadeEmpresa {
   pendencias: number;
 }
 
-/** Conferência Fiscal (contábil): uma nota fiscal pendente de contabilização. */
-export interface ConfNotaPendente {
+/**
+ * Situação de uma nota na conferência.
+ * - `ok`: contabilizada e de acordo com o plano
+ * - `divergente`: contabilizada, mas fora do plano
+ * - `pendente`: deveria ter lançamento e não tem
+ * - `nao_exige`: CFOP que não gera lançamento (remessa, retorno…)
+ * - `cancelada`: fora da conferência
+ */
+export type SituacaoNota = "ok" | "divergente" | "pendente" | "nao_exige" | "cancelada";
+
+export interface NotaConferida {
   chave: string;
   numero: number;
   serie: string | null;
   especie: string;
   data: string;
+  valor: number;
   contraparte: string | null;
   doc: string | null;
   uf: string | null;
-  valor: number;
-  cfops: string | null;
+  cfops: number[];
+  situacao: SituacaoNota;
+  /** Quantos lançamentos contábeis a nota gerou. */
+  lancamentos: number;
+  divergencias: Divergencia[];
 }
 
-export interface ConfLado {
+export interface ConfResumo {
   total: number;
   contabilizadas: number;
+  conformes: number;
+  divergentes: number;
   pendentes: number;
-  /** Notas que não exigem contabilização (remessas/retornos etc.). */
-  ignoradas: number;
+  naoExigem: number;
   canceladas: number;
+  /** Contabilizadas cujo CFOP não tem plano — não dá para conferir a conta. */
+  semPlano: number;
+  valorTotal: number;
   valorPendente: number;
-  notas: ConfNotaPendente[];
-  truncado: boolean;
+  valorDivergente: number;
 }
 
 export interface ConferenciaResp {
-  ent: ConfLado;
-  sai: ConfLado;
+  resumo: ConfResumo;
+  /** Página atual, já filtrada e ordenada. */
+  notas: NotaConferida[];
+  /** Quantas notas passam no filtro. */
+  total: number;
+  pagina: number;
+  porPagina: number;
+  /** Período grande demais: nem todas as notas foram analisadas. */
+  truncado: boolean;
 }
 
 /** Um lançamento contábil que a nota deveria gerar, segundo o plano. */
@@ -348,36 +371,6 @@ export interface Divergencia {
   contaLancada: number | null;
   valorEsperado: number | null;
   valorLancado: number | null;
-}
-
-/** Nota contabilizada que não bate com o plano de contabilização. */
-export interface NotaDivergente {
-  chave: string;
-  numero: number;
-  serie: string | null;
-  especie: string;
-  data: string;
-  valor: number;
-  contraparte: string | null;
-  cfops: number[];
-  divergencias: Divergencia[];
-}
-
-export interface DivergenciasLado {
-  analisadas: number;
-  conformes: number;
-  divergentes: number;
-  /** Contabilizadas cujo CFOP não tem plano — não dá para conferir. */
-  semPlano: number;
-  valorDivergente: number;
-  porTipo: Record<TipoDivergencia, number>;
-  notas: NotaDivergente[];
-  truncado: boolean;
-}
-
-export interface DivergenciasResp {
-  ent: DivergenciasLado;
-  sai: DivergenciasLado;
 }
 
 /** Carga tributária efetiva por empresa (ICMS+IPI+ST+ISS ÷ faturamento). */
