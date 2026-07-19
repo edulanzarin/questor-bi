@@ -1,16 +1,34 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Building2, PencilLine, Search, Settings2 } from "lucide-react";
+import { Building2, ChevronLeft, ChevronRight, PencilLine, Search, Settings2 } from "lucide-react";
 import clsx from "clsx";
 import { PlanoEditor } from "@/components/plano-editor";
 import { useFiltros } from "@/hooks/use-filters";
 import { usePlano } from "@/hooks/use-api";
 import { num } from "@/lib/format";
-import type { PlanoCfop } from "@/lib/types";
+import type { EstabInfo, PlanoCfop } from "@/lib/types";
 
-type FiltroLado = "todos" | "ent" | "sai";
+type Filtro = "todos" | "ent" | "sai" | "override" | "naocontabiliza";
+
+const FILTROS: { id: Filtro; rotulo: string }[] = [
+  { id: "todos", rotulo: "Todos" },
+  { id: "ent", rotulo: "Entradas" },
+  { id: "sai", rotulo: "Saídas" },
+  { id: "override", rotulo: "Só overrides" },
+  { id: "naocontabiliza", rotulo: "Não contabiliza" },
+];
+
+/**
+ * Rótulo curto do estabelecimento: o sufixo do CNPJ (0001 = matriz, demais são
+ * filiais). "estab 2" sozinho não diz nada para quem usa.
+ */
+function rotuloEstab(e: EstabInfo | undefined, codigo: number): string {
+  const ordem = e?.cnpj?.match(/\/(\d{4})-/)?.[1];
+  if (!ordem) return `estab ${codigo}`;
+  return ordem === "0001" ? "matriz" : `filial ${ordem}`;
+}
 
 /** Resumo de uma linha do plano: "D 25204 Resíduo de Madeira". */
 function Lancamento({
@@ -36,32 +54,40 @@ function Lancamento({
 }
 
 export default function ConfiguracaoPage() {
-  const { filtros, qs } = useFiltros();
+  const { filtros } = useFiltros();
   const queryClient = useQueryClient();
   const [busca, setBusca] = useState("");
-  const [lado, setLado] = useState<FiltroLado>("todos");
-  const [soOverride, setSoOverride] = useState(false);
+  const [buscaAplicada, setBuscaAplicada] = useState("");
+  const [filtro, setFiltro] = useState<Filtro>("todos");
+  const [pagina, setPagina] = useState(1);
   const [editando, setEditando] = useState<PlanoCfop | null>(null);
+  const empresa = filtros.empresas[0];
   const temEmpresa = filtros.empresas.length === 1;
 
+  // Digitar não dispara consulta a cada tecla.
+  useEffect(() => {
+    const t = setTimeout(() => setBuscaAplicada(busca), 350);
+    return () => clearTimeout(t);
+  }, [busca]);
+
+  // Trocar de busca/filtro recomeça na primeira página.
+  useEffect(() => setPagina(1), [buscaAplicada, filtro]);
+
+  // Sem período: o plano é configuração fixa da empresa.
+  const qs = new URLSearchParams({
+    empresa: String(empresa ?? ""),
+    filtro,
+    pagina: String(pagina),
+    ...(buscaAplicada ? { busca: buscaAplicada } : {}),
+  }).toString();
+
   const plano = usePlano(qs, temEmpresa);
+  const dados = plano.data;
 
-  const cfops = useMemo(() => {
-    if (!plano.data) return undefined;
-    const q = busca.trim().toLowerCase();
-    return plano.data.cfops.filter((c) => {
-      if (lado !== "todos" && c.lado !== lado) return false;
-      if (soOverride && c.origem !== "override") return false;
-      if (!q) return true;
-      return (
-        String(c.cfop).includes(q) ||
-        String(c.cfopBase).includes(q) ||
-        (c.descricao ?? "").toLowerCase().includes(q)
-      );
-    });
-  }, [plano.data, busca, lado, soOverride]);
-
-  const totalOverrides = plano.data?.cfops.filter((c) => c.origem === "override").length ?? 0;
+  const estabs = useMemo(
+    () => new Map((dados?.estabs ?? []).map((e) => [e.codigo, e])),
+    [dados]
+  );
 
   if (!temEmpresa) {
     return (
@@ -71,23 +97,26 @@ export default function ConfiguracaoPage() {
         </span>
         <p className="text-sm font-medium text-ink">Selecione uma empresa</p>
         <p className="max-w-md text-xs text-muted">
-          O plano de contabilização é por empresa. Escolha a empresa e o período no filtro acima
-          para ver os CFOPs movimentados e as contas que cada um deve usar.
+          O plano de contabilização é por empresa e não depende de período. Escolha a empresa no
+          filtro acima para ver em quais contas cada CFOP deve lançar.
         </p>
       </section>
     );
   }
 
+  const totalPaginas = dados ? Math.max(1, Math.ceil(dados.total / dados.porPagina)) : 1;
+
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="max-w-2xl text-sm text-muted">
-          O plano vem pronto do Questor: cada CFOP já sabe em quais contas lançar. Edite um CFOP
-          para sobrescrever essa regra — a partir daí a conferência cobra a sua versão.
+          O plano vem pronto do Questor: cada CFOP já sabe em quais contas lançar. Editar um CFOP
+          grava uma regra fixa da empresa, que passa a valer no lugar da do Questor até você
+          alterar de novo.
         </p>
-        {totalOverrides > 0 && (
+        {!!dados?.overrides && (
           <span className="rounded-lg bg-ent/12 px-2.5 py-1.5 text-xs font-medium text-ent">
-            {num(totalOverrides)} {totalOverrides === 1 ? "override ativo" : "overrides ativos"}
+            {num(dados.overrides)} {dados.overrides === 1 ? "override ativo" : "overrides ativos"}
           </span>
         )}
       </div>
@@ -95,37 +124,30 @@ export default function ConfiguracaoPage() {
       <section className="card anim-fade-up p-5">
         <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-sm font-semibold">CFOPs movimentados no período</h2>
+            <h2 className="text-sm font-semibold">CFOPs da empresa</h2>
             <p className="mt-0.5 text-xs text-muted">
-              {plano.data ? `${num(plano.data.cfops.length)} CFOPs · ordenados por uso` : "…"}
+              {dados
+                ? `${num(dados.total)} ${dados.total === 1 ? "CFOP" : "CFOPs"}${
+                    dados.total !== dados.totalGeral ? ` de ${num(dados.totalGeral)}` : ""
+                  } · configuração fixa, sem período`
+                : "…"}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {(["todos", "ent", "sai"] as const).map((l) => (
+            {FILTROS.map((f) => (
               <button
-                key={l}
-                onClick={() => setLado(l)}
+                key={f.id}
+                onClick={() => setFiltro(f.id)}
                 className={clsx(
                   "rounded-lg px-2.5 py-1.5 text-xs transition-colors",
-                  lado === l
+                  filtro === f.id
                     ? "bg-ent/12 font-medium text-ent"
                     : "text-muted hover:bg-surface-2 hover:text-ink"
                 )}
               >
-                {l === "todos" ? "Todos" : l === "ent" ? "Entradas" : "Saídas"}
+                {f.rotulo}
               </button>
             ))}
-            <button
-              onClick={() => setSoOverride((v) => !v)}
-              className={clsx(
-                "rounded-lg px-2.5 py-1.5 text-xs transition-colors",
-                soOverride
-                  ? "bg-ent/12 font-medium text-ent"
-                  : "text-muted hover:bg-surface-2 hover:text-ink"
-              )}
-            >
-              Só overrides
-            </button>
             <div className="flex items-center gap-2 rounded-lg border border-hairline bg-surface-2 px-2.5 py-1.5">
               <Search className="size-4 text-muted" />
               <input
@@ -138,34 +160,24 @@ export default function ConfiguracaoPage() {
           </div>
         </header>
 
-        {plano.isLoading || !cfops ? (
+        {plano.isLoading || !dados ? (
           <div className="skeleton h-80 w-full" />
-        ) : cfops.length === 0 ? (
-          <p className="grid h-32 place-items-center text-sm text-muted">
-            Nenhum CFOP encontrado
-          </p>
+        ) : dados.cfops.length === 0 ? (
+          <p className="grid h-32 place-items-center text-sm text-muted">Nenhum CFOP encontrado</p>
         ) : (
-          <div
-            className={clsx(
-              "max-h-[34rem] overflow-auto",
-              plano.isFetching && !plano.isLoading && "refetching"
-            )}
-          >
+          <div className={clsx(plano.isFetching && !plano.isLoading && "refetching")}>
             <table className="w-full min-w-[820px] border-collapse text-sm">
-              <thead className="sticky top-0 z-10 bg-surface">
+              <thead>
                 <tr className="border-b border-hairline text-xs text-muted">
                   <th className="py-2 pr-3 text-left font-medium">CFOP</th>
                   <th className="py-2 pr-3 text-left font-medium">Descrição</th>
                   <th className="py-2 pr-3 text-left font-medium">Lançamentos esperados</th>
-                  <th className="py-2 pr-3 text-right font-medium">Notas</th>
                   <th className="py-2 pl-3 text-right font-medium"></th>
                 </tr>
               </thead>
               <tbody>
-                {cfops.map((c) => {
-                  const linhas = c.componentes.flatMap((comp) =>
-                    comp.linhas.map((l) => ({ ...l, comp: comp.rotulo }))
-                  );
+                {dados.cfops.map((c) => {
+                  const linhas = c.componentes.flatMap((comp) => comp.linhas);
                   return (
                     <tr
                       key={`${c.estab}:${c.cfop}`}
@@ -173,8 +185,11 @@ export default function ConfiguracaoPage() {
                     >
                       <td className="py-3 pr-3">
                         <span className="tabular-nums text-ink">{c.cfop}</span>
-                        <span className="block text-[11px] text-muted">
-                          base {c.cfopBase} · estab {c.estab}
+                        <span
+                          className="block text-[11px] text-muted"
+                          title={estabs.get(c.estab)?.cnpj ?? undefined}
+                        >
+                          base {c.cfopBase} · {rotuloEstab(estabs.get(c.estab), c.estab)}
                         </span>
                       </td>
                       <td className="max-w-[260px] py-3 pr-3">
@@ -182,7 +197,10 @@ export default function ConfiguracaoPage() {
                           {c.descricao ?? "—"}
                         </span>
                         {c.origem === "override" && (
-                          <span className="mt-1 inline-block rounded bg-ent/12 px-1.5 py-0.5 text-[10px] font-medium text-ent">
+                          <span
+                            className="mt-1 inline-block rounded bg-ent/12 px-1.5 py-0.5 text-[10px] font-medium text-ent"
+                            title={c.observacao ?? undefined}
+                          >
                             override
                           </span>
                         )}
@@ -204,9 +222,6 @@ export default function ConfiguracaoPage() {
                           </div>
                         )}
                       </td>
-                      <td className="py-3 pr-3 text-right tabular-nums text-ink-2">
-                        {num(c.usos ?? 0)}
-                      </td>
                       <td className="py-3 pl-3 text-right">
                         <button
                           onClick={() => setEditando(c)}
@@ -220,6 +235,30 @@ export default function ConfiguracaoPage() {
                 })}
               </tbody>
             </table>
+
+            {totalPaginas > 1 && (
+              <div className="mt-4 flex items-center justify-between border-t border-hairline pt-3">
+                <p className="text-xs text-muted">
+                  Página {dados.pagina} de {num(totalPaginas)}
+                </p>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setPagina((p) => Math.max(1, p - 1))}
+                    disabled={dados.pagina <= 1}
+                    className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs text-muted hover:bg-surface-2 hover:text-ink disabled:opacity-40 disabled:hover:bg-transparent"
+                  >
+                    <ChevronLeft className="size-3.5" /> Anterior
+                  </button>
+                  <button
+                    onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))}
+                    disabled={dados.pagina >= totalPaginas}
+                    className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs text-muted hover:bg-surface-2 hover:text-ink disabled:opacity-40 disabled:hover:bg-transparent"
+                  >
+                    Próxima <ChevronRight className="size-3.5" />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </section>
@@ -235,8 +274,9 @@ export default function ConfiguracaoPage() {
 
       {editando && (
         <PlanoEditor
-          empresa={filtros.empresas[0]}
+          empresa={empresa}
           plano={editando}
+          rotuloEstab={rotuloEstab(estabs.get(editando.estab), editando.estab)}
           onFechar={() => setEditando(null)}
           onSalvo={() => {
             setEditando(null);

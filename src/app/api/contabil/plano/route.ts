@@ -1,6 +1,6 @@
 import { pool } from "@/lib/db";
 import { apiRoute } from "@/lib/api-route";
-import { parseFilters, FilterError } from "@/lib/fiscal-filters";
+import { FilterError } from "@/lib/fiscal-filters";
 import { planoQuestor } from "@/lib/plano-contabil";
 import {
   aplicarOverrides,
@@ -9,68 +9,81 @@ import {
   salvarOverride,
   type SalvarOverride,
 } from "@/lib/plano-override";
-import type { PlanoResp } from "@/lib/types";
+import type { EstabInfo, PlanoResp } from "@/lib/types";
 
-/** Quantas notas usaram cada CFOP no período — dirige a ordem da tela. */
-const USOS_SQL = `
-  select codigocfop cfop, codigoestab estab, count(distinct chavelctofisent) usos
-    from lctofisentproduto
-   where codigoempresa = $1 and datalctofis between $2 and $3
-   group by 1, 2
-  union all
-  select codigocfop, codigoestab, count(distinct chavelctofissai)
-    from lctofissaiproduto
-   where codigoempresa = $1 and datalctofis between $2 and $3
-   group by 1, 2`;
+const POR_PAGINA = 50;
 
 /**
- * Plano de contabilização da empresa: para cada CFOP movimentado no período,
- * quais lançamentos são esperados. Vem do Questor e, onde houver override
- * cadastrado, do override.
+ * Plano de contabilização da empresa. É configuração **fixa**: vale enquanto
+ * não for alterada, sem relação com período — por isso esta rota não recebe
+ * inicio/fim. Vem do Questor e, onde houver override cadastrado, do override.
  */
 export const GET = apiRoute(async (req) => {
-  const filters = parseFilters(req.nextUrl.searchParams);
-  if (filters.empresas.length !== 1) {
-    throw new FilterError("Selecione uma empresa para ver o plano de contabilização");
-  }
-  const empresa = filters.empresas[0];
-  const estabParam = req.nextUrl.searchParams.get("estab");
+  const p = req.nextUrl.searchParams;
+
+  const empresa = Number(p.get("empresa"));
+  if (!Number.isInteger(empresa)) throw new FilterError("Selecione uma empresa");
+
+  const estabParam = p.get("estab");
   const estab = estabParam ? Number(estabParam) : undefined;
   if (estabParam && !Number.isInteger(estab)) throw new FilterError("Estabelecimento inválido");
 
+  const busca = (p.get("busca") ?? "").trim().toLowerCase();
+  const filtro = p.get("filtro") ?? "todos";
+  const pagina = Math.max(1, Number(p.get("pagina") ?? 1) || 1);
+
   const client = await pool.connect();
   try {
-    const usosRes = await client.query<{ cfop: number; estab: number; usos: number }>(USOS_SQL, [
-      empresa,
-      filters.inicio,
-      filters.fim,
-    ]);
-
-    const usos = new Map<string, number>();
-    const cfops = new Set<number>();
-    for (const r of usosRes.rows) {
-      cfops.add(r.cfop);
-      const chave = `${r.estab}:${r.cfop}`;
-      usos.set(chave, (usos.get(chave) ?? 0) + Number(r.usos));
-    }
-    if (!cfops.size) {
-      return { empresa, estabs: [], cfops: [] } satisfies PlanoResp;
-    }
-
-    const [plano, overrides] = await Promise.all([
-      planoQuestor(client, empresa, { estab, cfops: [...cfops] }),
+    const [planoBruto, overrides] = await Promise.all([
+      planoQuestor(client, empresa, { estab }),
       listarOverrides(empresa),
     ]);
 
-    const comUsos = aplicarOverrides(plano, overrides)
-      .map((p) => ({ ...p, usos: usos.get(`${p.estab}:${p.cfop}`) ?? 0 }))
-      .filter((p) => p.usos > 0)
-      .sort((a, b) => b.usos - a.usos || a.cfop - b.cfop);
+    const todos = aplicarOverrides(planoBruto, overrides);
+
+    const filtrados = todos
+      .filter((c) => {
+        if (filtro === "ent" && c.lado !== "ent") return false;
+        if (filtro === "sai" && c.lado !== "sai") return false;
+        if (filtro === "override" && c.origem !== "override") return false;
+        if (filtro === "naocontabiliza" && c.contabiliza) return false;
+        if (!busca) return true;
+        return (
+          String(c.cfop).includes(busca) ||
+          String(c.cfopBase).includes(busca) ||
+          (c.descricao ?? "").toLowerCase().includes(busca)
+        );
+      })
+      // Overrides primeiro: é o que o usuário mexeu e quer reencontrar.
+      .sort(
+        (a, b) =>
+          Number(b.origem === "override") - Number(a.origem === "override") ||
+          a.cfop - b.cfop ||
+          a.estab - b.estab
+      );
+
+    const pagina1 = filtrados.slice((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA);
+
+    // Identifica cada estabelecimento pelo CNPJ — "estab 2" sozinho não diz nada.
+    const codigos = [...new Set(todos.map((c) => c.estab))].sort((a, b) => a - b);
+    const estabRes = await client.query<EstabInfo>(
+      `select codigoestab codigo, btrim(nomeestab) nome, inscrfederal cnpj, siglaestado uf
+         from estab where codigoempresa = $1 and codigoestab = any($2::int[])`,
+      [empresa, codigos]
+    );
+    const porCodigo = new Map(estabRes.rows.map((e) => [e.codigo, e]));
 
     return {
       empresa,
-      estabs: [...new Set(comUsos.map((p) => p.estab))].sort((a, b) => a - b),
-      cfops: comUsos,
+      estabs: codigos.map(
+        (c) => porCodigo.get(c) ?? { codigo: c, nome: null, cnpj: null, uf: null }
+      ),
+      cfops: pagina1,
+      total: filtrados.length,
+      totalGeral: todos.length,
+      overrides: todos.filter((c) => c.origem === "override").length,
+      pagina,
+      porPagina: POR_PAGINA,
     } satisfies PlanoResp;
   } finally {
     client.release();

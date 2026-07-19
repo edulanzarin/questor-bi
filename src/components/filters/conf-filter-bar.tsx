@@ -26,7 +26,11 @@ function presets() {
   ];
 }
 
-export function ConfFilterBar() {
+/**
+ * `mostrarPeriodo=false` na aba Configuração: o plano de contabilização é
+ * configuração fixa da empresa, não tem recorte de tempo.
+ */
+export function ConfFilterBar({ mostrarPeriodo = true }: { mostrarPeriodo?: boolean } = {}) {
   const { filtros, atualizar } = useFiltros();
   const { data: empresas } = useEmpresas();
   const [busca, setBusca] = useState("");
@@ -103,6 +107,7 @@ export function ConfFilterBar() {
       </Dropdown>
 
       {/* Período (teto de 1 ano) */}
+      {mostrarPeriodo && (
       <Dropdown
         icone={<CalendarRange className="size-4" />}
         rotulo={presetAtivo ? presetAtivo.nome : `${dataBR(filtros.inicio)} – ${dataBR(filtros.fim)}`}
@@ -177,6 +182,7 @@ export function ConfFilterBar() {
           </div>
         )}
       </Dropdown>
+      )}
     </div>
   );
 }

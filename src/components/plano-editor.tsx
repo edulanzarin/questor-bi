@@ -28,6 +28,8 @@ function doPlano(plano: PlanoCfop): LinhaEdit[] {
 interface Props {
   empresa: number;
   plano: PlanoCfop;
+  /** Ex.: "matriz" ou "filial 0002" — mais legível que o código do estab. */
+  rotuloEstab: string;
   onFechar: () => void;
   onSalvo: () => void;
 }
@@ -36,7 +38,7 @@ interface Props {
  * Editor do override de um CFOP. Abre pré-preenchido com o plano vigente (do
  * Questor ou do override já salvo); salvar passa a valer no lugar do Questor.
  */
-export function PlanoEditor({ empresa, plano, onFechar, onSalvo }: Props) {
+export function PlanoEditor({ empresa, plano, rotuloEstab, onFechar, onSalvo }: Props) {
   const [contabiliza, setContabiliza] = useState(plano.contabiliza);
   const [linhas, setLinhas] = useState<LinhaEdit[]>(() => doPlano(plano));
   const [observacao, setObservacao] = useState(plano.observacao ?? "");
@@ -119,7 +121,7 @@ export function PlanoEditor({ empresa, plano, onFechar, onSalvo }: Props) {
             <h2 className="text-sm font-semibold">
               CFOP {plano.cfop}
               <span className="ml-2 text-xs font-normal text-muted">
-                estab {plano.estab} · {plano.lado === "ent" ? "entrada" : "saída"}
+                {rotuloEstab} · {plano.lado === "ent" ? "entrada" : "saída"}
               </span>
             </h2>
             <p className="mt-0.5 max-w-md text-xs text-muted">{plano.descricao ?? "—"}</p>

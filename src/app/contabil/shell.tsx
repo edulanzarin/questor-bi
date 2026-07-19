@@ -1,18 +1,32 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import Link from "next/link";
+import { usePathname, useSearchParams } from "next/navigation";
 import { BookOpen, Loader2 } from "lucide-react";
 import { useIsFetching } from "@tanstack/react-query";
+import clsx from "clsx";
 import { ConfFilterBar } from "@/components/filters/conf-filter-bar";
 import { useFiltros } from "@/hooks/use-filters";
-import { secaoContabilAtual } from "@/lib/contabil-secoes";
+import {
+  ABAS_CONFERENCIA,
+  abaConferenciaAtual,
+  abaUsaPeriodo,
+  secaoContabilAtual,
+} from "@/lib/contabil-secoes";
 import { dataBR } from "@/lib/format";
 
 export function ContabilShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const sp = useSearchParams();
   const { filtros } = useFiltros();
   const secao = secaoContabilAtual(pathname);
+  const aba = abaConferenciaAtual(pathname);
   const carregando = useIsFetching() > 0;
+  const usaPeriodo = abaUsaPeriodo(pathname);
+
+  // Os filtros seguem na URL ao trocar de aba.
+  const qs = sp.toString();
+  const suffix = qs ? `?${qs}` : "";
 
   return (
     <div className="mx-auto max-w-7xl px-6 py-6">
@@ -24,6 +38,7 @@ export function ContabilShell({ children }: { children: React.ReactNode }) {
           <div>
             <p className="text-[11px] font-medium uppercase tracking-wide text-muted">Contábil</p>
             <h1 className="text-xl font-semibold tracking-tight">{secao?.rotulo ?? "Contábil"}</h1>
+            {aba && <p className="text-xs text-muted">{aba.descricao}</p>}
           </div>
         </div>
         <div className="flex items-center gap-4">
@@ -33,13 +48,38 @@ export function ContabilShell({ children }: { children: React.ReactNode }) {
               Atualizando…
             </span>
           )}
-          <p className="hidden text-xs text-muted sm:block">
-            {dataBR(filtros.inicio)} – {dataBR(filtros.fim)}
-          </p>
+          {usaPeriodo && (
+            <p className="hidden text-xs text-muted sm:block">
+              {dataBR(filtros.inicio)} – {dataBR(filtros.fim)}
+            </p>
+          )}
         </div>
       </header>
 
-      <ConfFilterBar />
+      {aba && (
+        <nav className="mb-4 flex gap-1 border-b border-hairline" aria-label="Conferência Fiscal">
+          {ABAS_CONFERENCIA.map((a) => {
+            const ativa = a.id === aba.id;
+            return (
+              <Link
+                key={a.id}
+                href={`${a.path}${suffix}`}
+                aria-current={ativa ? "page" : undefined}
+                className={clsx(
+                  "-mb-px border-b-2 px-3 py-2 text-sm transition-colors",
+                  ativa
+                    ? "border-ent font-medium text-ent"
+                    : "border-transparent text-muted hover:border-hairline hover:text-ink"
+                )}
+              >
+                {a.rotulo}
+              </Link>
+            );
+          })}
+        </nav>
+      )}
+
+      <ConfFilterBar mostrarPeriodo={abaUsaPeriodo(pathname)} />
 
       <div className="mt-5 space-y-4">{children}</div>
     </div>

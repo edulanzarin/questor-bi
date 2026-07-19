@@ -315,10 +315,26 @@ export interface PlanoCfop {
   usos?: number;
 }
 
+/** Estabelecimento (filial) da empresa — cada um tem CNPJ próprio. */
+export interface EstabInfo {
+  codigo: number;
+  nome: string | null;
+  cnpj: string | null;
+  uf: string | null;
+}
+
 export interface PlanoResp {
   empresa: number;
-  estabs: number[];
+  estabs: EstabInfo[];
+  /** Só a página atual. */
   cfops: PlanoCfop[];
+  /** Quantos CFOPs passam no filtro/busca. */
+  total: number;
+  /** Quantos CFOPs a empresa tem cadastrados, sem filtro. */
+  totalGeral: number;
+  overrides: number;
+  pagina: number;
+  porPagina: number;
 }
 
 /** Tipos de divergência que a conferência aponta. */

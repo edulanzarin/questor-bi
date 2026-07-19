@@ -339,5 +339,6 @@ export const useDivergencias = (qs: string, enabled = true) =>
     enabled
   );
 
+/** Plano de contabilização: configuração fixa da empresa, sem período. */
 export const usePlano = (qs: string, enabled = true) =>
   useApiQuery<PlanoResp>(["plano", qs], `/api/contabil/plano?${qs}`, enabled);
