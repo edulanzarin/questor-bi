@@ -28,6 +28,8 @@ import type {
   ConformidadeEmpresa,
   TributosCargaEmpresa,
   ConferenciaResp,
+  DivergenciasResp,
+  PlanoResp,
 } from "@/lib/types";
 
 async function fetchJson<T>(url: string): Promise<T> {
@@ -329,3 +331,13 @@ export const useCancelamentosRanking = (
     `/api/fiscal/cancelamentos-ranking?${qs}&tipo=${tipo}&por=${por}`,
     enabled
   );
+
+export const useDivergencias = (qs: string, enabled = true) =>
+  useApiQuery<DivergenciasResp>(
+    ["divergencias", qs],
+    `/api/contabil/divergencias?${qs}`,
+    enabled
+  );
+
+export const usePlano = (qs: string, enabled = true) =>
+  useApiQuery<PlanoResp>(["plano", qs], `/api/contabil/plano?${qs}`, enabled);

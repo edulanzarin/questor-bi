@@ -9,6 +9,20 @@ export const SECOES_CONTABIL: SecaoFiscal[] = [
     metrica: false,
     descricao: "Notas pendentes de contabilização",
   },
+  {
+    id: "contas",
+    rotulo: "Conferência de Contas",
+    path: "/contabil/contas",
+    metrica: false,
+    descricao: "Notas contabilizadas na conta errada",
+  },
+  {
+    id: "configuracao",
+    rotulo: "Configuração",
+    path: "/contabil/configuracao",
+    metrica: false,
+    descricao: "Plano de contabilização por CFOP",
+  },
 ];
 
 export function secaoContabilAtual(pathname: string): SecaoFiscal | undefined {

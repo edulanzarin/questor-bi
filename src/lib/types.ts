@@ -275,6 +275,95 @@ export interface ConferenciaResp {
   sai: ConfLado;
 }
 
+/** Um lançamento contábil que a nota deveria gerar, segundo o plano. */
+export interface LinhaPlano {
+  seq: number;
+  /** 1 = débito, -1 = crédito. */
+  natureza: 1 | -1;
+  conta: number | null;
+  /** Conta que só se conhece no lançamento (fornecedor/cliente) — não dá para fixar. */
+  contaVariavel: boolean;
+  origemConta: number;
+  descrConta: string | null;
+  /** Fórmula do Questor, ex.: "vlrContabil-vlrIPI-vlrICMS". */
+  regraValor: string | null;
+}
+
+/** Slot de contabilização do CFOP: o valor contábil ou um tributo. */
+export interface ComponentePlano {
+  id: string;
+  rotulo: string;
+  retido: boolean;
+  tabela: number | null;
+  descrTabela: string | null;
+  linhas: LinhaPlano[];
+}
+
+/** Plano de contabilização de um CFOP — do Questor ou sobrescrito pelo usuário. */
+export interface PlanoCfop {
+  estab: number;
+  cfop: number;
+  cfopBase: number;
+  descricao: string | null;
+  lado: "ent" | "sai";
+  contaLivro: number | null;
+  componentes: ComponentePlano[];
+  origem: "questor" | "override";
+  contabiliza: boolean;
+  observacao?: string | null;
+  /** Quantas notas usaram esse CFOP no período consultado. */
+  usos?: number;
+}
+
+export interface PlanoResp {
+  empresa: number;
+  estabs: number[];
+  cfops: PlanoCfop[];
+}
+
+/** Tipos de divergência que a conferência aponta. */
+export type TipoDivergencia = "conta" | "faltando" | "valor" | "natureza" | "extra";
+
+export interface Divergencia {
+  tipo: TipoDivergencia;
+  componente: string;
+  detalhe: string;
+  contaEsperada: number | null;
+  contaLancada: number | null;
+  valorEsperado: number | null;
+  valorLancado: number | null;
+}
+
+/** Nota contabilizada que não bate com o plano de contabilização. */
+export interface NotaDivergente {
+  chave: string;
+  numero: number;
+  serie: string | null;
+  especie: string;
+  data: string;
+  valor: number;
+  contraparte: string | null;
+  cfops: number[];
+  divergencias: Divergencia[];
+}
+
+export interface DivergenciasLado {
+  analisadas: number;
+  conformes: number;
+  divergentes: number;
+  /** Contabilizadas cujo CFOP não tem plano — não dá para conferir. */
+  semPlano: number;
+  valorDivergente: number;
+  porTipo: Record<TipoDivergencia, number>;
+  notas: NotaDivergente[];
+  truncado: boolean;
+}
+
+export interface DivergenciasResp {
+  ent: DivergenciasLado;
+  sai: DivergenciasLado;
+}
+
 /** Carga tributária efetiva por empresa (ICMS+IPI+ST+ISS ÷ faturamento). */
 export interface TributosCargaEmpresa {
   codigo: number;

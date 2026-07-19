@@ -2,43 +2,14 @@
 
 import { useState } from "react";
 import { AlertTriangle, Building2, CheckCircle2, FileText, Truck } from "lucide-react";
-import clsx from "clsx";
 import { SeletorTipo } from "@/components/charts/top-bar-chart";
 import { ConferenciaTabela } from "@/components/conferencia-tabela";
 import { useFiltros } from "@/hooks/use-filters";
 import { useConferencia } from "@/hooks/use-api";
+import { Kpi } from "@/components/kpi-conf";
 import { brl, brlCompact, num } from "@/lib/format";
 
 type Tipo = "ent" | "sai";
-
-function Kpi({
-  rotulo,
-  icone,
-  corIcone,
-  valor,
-  secundario,
-  alerta,
-}: {
-  rotulo: string;
-  icone: React.ReactNode;
-  corIcone: string;
-  valor: string;
-  secundario: string;
-  alerta?: boolean;
-}) {
-  return (
-    <div className="card anim-fade-up flex flex-col gap-2 p-5">
-      <div className="flex items-center justify-between">
-        <p className="text-xs text-ink-2">{rotulo}</p>
-        <span className={clsx("grid size-8 place-items-center rounded-lg", corIcone)}>{icone}</span>
-      </div>
-      <p className={clsx("text-3xl font-semibold tracking-tight", alerta && "text-critical")}>
-        {valor}
-      </p>
-      <p className="text-xs text-muted">{secundario}</p>
-    </div>
-  );
-}
 
 export default function ConferenciaPage() {
   const { filtros, qs } = useFiltros();
