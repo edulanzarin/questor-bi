@@ -1,5 +1,8 @@
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+/** Teto de período: no máximo 1 ano (evita consultas pesadas nas tabelas gigantes). */
+export const MAX_DIAS_PERIODO = 366;
+
 export const ESPECIES_PRINCIPAIS = ["NFE", "CTE", "NFSE", "NFCE", "NF"];
 
 export interface FiscalFilters {
@@ -18,6 +21,8 @@ export function parseFilters(searchParams: URLSearchParams): FiscalFilters {
     throw new FilterError("Período inválido: informe inicio e fim como YYYY-MM-DD");
   }
   if (inicio > fim) throw new FilterError("Data inicial maior que a final");
+  const dias = (Date.parse(fim) - Date.parse(inicio)) / 86_400_000 + 1;
+  if (dias > MAX_DIAS_PERIODO) throw new FilterError("Período máximo permitido: 1 ano");
 
   const empresas = (searchParams.get("empresas") ?? "")
     .split(",")

@@ -14,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import clsx from "clsx";
+import { toast } from "sonner";
 import { Dropdown, ItemLista } from "@/components/ui/dropdown";
 import { GruposModal } from "@/components/grupos-modal";
 import { useEmpresas } from "@/hooks/use-api";
@@ -60,7 +61,7 @@ export function FilterBar({ mostrarMetrica = true }: { mostrarMetrica?: boolean 
   const fimRef = useRef<HTMLInputElement>(null);
   const [modalGrupos, setModalGrupos] = useState(false);
 
-  const listaPresets = useMemo(presets, []);
+  const listaPresets = useMemo(() => presets(), []);
   const presetAtivo = listaPresets.find(
     (p) => p.inicio === filtros.inicio && p.fim === filtros.fim
   );
@@ -157,7 +158,7 @@ export function FilterBar({ mostrarMetrica = true }: { mostrarMetrica?: boolean 
               ))}
             </div>
             <div className="border-t border-hairline p-3">
-              <p className="mb-2 text-xs text-muted">Período personalizado</p>
+              <p className="mb-2 text-xs text-muted">Período personalizado (máx. 1 ano)</p>
               {/* Campos não-controlados (defaultValue + ref) e commit só no
                   "Aplicar": nada vai pra URL enquanto digita, então dá pra
                   escrever o ano de 4 dígitos sem sobrescrever. O `key` remonta
@@ -185,10 +186,20 @@ export function FilterBar({ mostrarMetrica = true }: { mostrarMetrica?: boolean 
                 </label>
                 <button
                   onClick={() => {
-                    const ini = iniRef.current?.value;
-                    const fim = fimRef.current?.value;
-                    if (!ini || !fim || ini < "2000-01-01" || fim < "2000-01-01") return;
-                    atualizar(ini <= fim ? { inicio: ini, fim } : { inicio: fim, fim: ini });
+                    const v1 = iniRef.current?.value;
+                    const v2 = fimRef.current?.value;
+                    if (!v1 || !v2 || v1 < "2000-01-01" || v2 < "2000-01-01") return;
+                    const [ini, fimOrig] = v1 <= v2 ? [v1, v2] : [v2, v1];
+                    let fim = fimOrig;
+                    // Teto de 1 ano: se passar, limita o fim e avisa.
+                    const MAX = 365 * 86_400_000;
+                    if (Date.parse(fim) - Date.parse(ini) > MAX) {
+                      const d = new Date(ini + "T00:00:00Z");
+                      d.setUTCDate(d.getUTCDate() + 365);
+                      fim = d.toISOString().slice(0, 10);
+                      toast.info("Período limitado a 1 ano");
+                    }
+                    atualizar({ inicio: ini, fim });
                     fechar();
                   }}
                   className="h-8 w-full rounded-md bg-ent text-xs font-medium text-white transition-opacity hover:opacity-90"

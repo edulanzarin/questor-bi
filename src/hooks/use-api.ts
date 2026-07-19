@@ -21,6 +21,14 @@ import type {
   DevolucoesResumo,
   CancelamentosResumo,
   PontoValorSerie,
+  ColaboradorProd,
+  ProdutividadeSerie,
+  ProdutividadeCalendario,
+  ConformidadeResumo,
+  ConformidadeEmpresa,
+  TributosCargaEmpresa,
+  RecebiveisResumo,
+  PagamentoResumo,
 } from "@/lib/types";
 
 async function fetchJson<T>(url: string): Promise<T> {
@@ -210,12 +218,6 @@ export const useFaixasValor = (qs: string, tipo: "ent" | "sai", metrica: Metrica
     `/api/fiscal/faixas-valor?${qs}&tipo=${tipo}&metrica=${metrica}`
   );
 
-export const useUsuarios = (qs: string, tipo: "ent" | "sai", metrica: Metrica) =>
-  useApiQuery<TopItem[]>(
-    ["usuarios", qs, tipo, metrica],
-    `/api/fiscal/usuarios?${qs}&tipo=${tipo}&metrica=${metrica}`
-  );
-
 export const useOrigem = (qs: string, tipo: "ent" | "sai", metrica: Metrica) =>
   useApiQuery<TopItem[]>(
     ["origem", qs, tipo, metrica],
@@ -259,6 +261,60 @@ export const useCancelamentosSerie = (qs: string, tipo: "ent" | "sai", enabled =
   useApiQuery<PontoValorSerie>(
     ["cancelamentos-serie", qs, tipo],
     `/api/fiscal/cancelamentos-serie?${qs}&tipo=${tipo}`,
+    enabled
+  );
+
+export const useProdutividade = (qs: string, enabled = true) =>
+  useApiQuery<ColaboradorProd[]>(
+    ["produtividade", qs],
+    `/api/fiscal/produtividade?${qs}`,
+    enabled
+  );
+
+export const useProdutividadeSerie = (qs: string, enabled = true) =>
+  useApiQuery<ProdutividadeSerie>(
+    ["produtividade-serie", qs],
+    `/api/fiscal/produtividade-serie?${qs}`,
+    enabled
+  );
+
+export const useProdutividadeCalendario = (qs: string, enabled = true) =>
+  useApiQuery<ProdutividadeCalendario>(
+    ["produtividade-calendario", qs],
+    `/api/fiscal/produtividade-calendario?${qs}`,
+    enabled
+  );
+
+export const useRecebiveis = (qs: string, enabled = true) =>
+  useApiQuery<RecebiveisResumo>(["recebiveis", qs], `/api/fiscal/recebiveis?${qs}`, enabled);
+
+export const usePagamento = (qs: string, enabled = true) =>
+  useApiQuery<PagamentoResumo>(["pagamento", qs], `/api/fiscal/pagamento?${qs}`, enabled);
+
+export const useTributosDifal = (qs: string, enabled = true) =>
+  useApiQuery<TopItem[]>(["tributos-difal", qs], `/api/fiscal/tributos-difal?${qs}`, enabled);
+
+export const useTributosCst = (qs: string, enabled = true) =>
+  useApiQuery<TopItem[]>(["tributos-cst", qs], `/api/fiscal/tributos-cst?${qs}`, enabled);
+
+export const useTributosCargaEmpresas = (qs: string, enabled = true) =>
+  useApiQuery<TributosCargaEmpresa[]>(
+    ["tributos-carga-empresas", qs],
+    `/api/fiscal/tributos-carga-empresas?${qs}`,
+    enabled
+  );
+
+export const useConformidade = (qs: string, enabled = true) =>
+  useApiQuery<ConformidadeResumo>(
+    ["conformidade", qs],
+    `/api/fiscal/conformidade?${qs}`,
+    enabled
+  );
+
+export const useConformidadeEmpresas = (qs: string, enabled = true) =>
+  useApiQuery<ConformidadeEmpresa[]>(
+    ["conformidade-empresas", qs],
+    `/api/fiscal/conformidade-empresas?${qs}`,
     enabled
   );
 

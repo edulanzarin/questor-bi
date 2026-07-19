@@ -14,7 +14,6 @@ import {
   useProdutos,
   useTopEmpresas,
   useTopPessoas,
-  useUsuarios,
 } from "@/hooks/use-api";
 import type { TopItem } from "@/lib/types";
 
@@ -30,7 +29,6 @@ export default function AnalisesPage() {
   const [tipoMunic, setTipoMunic] = useState<Tipo>("sai");
   const [tipoFrete, setTipoFrete] = useState<Tipo>("sai");
   const [tipoFaixa, setTipoFaixa] = useState<Tipo>("sai");
-  const [tipoUsuario, setTipoUsuario] = useState<Tipo>("sai");
   const [tipoOrigem, setTipoOrigem] = useState<Tipo>("sai");
 
   const topEmpresas = useTopEmpresas(qs, tipoEmpresas, filtros.metrica);
@@ -41,7 +39,6 @@ export default function AnalisesPage() {
   const municipios = useMunicipios(qs, tipoMunic, filtros.metrica);
   const frete = useFrete(qs, tipoFrete, filtros.metrica);
   const faixas = useFaixasValor(qs, tipoFaixa, filtros.metrica);
-  const usuarios = useUsuarios(qs, tipoUsuario, filtros.metrica);
   const origem = useOrigem(qs, tipoOrigem, filtros.metrica);
 
   const mostraTopEmpresas = filtros.empresas.length !== 1;
@@ -174,19 +171,7 @@ export default function AnalisesPage() {
           rotuloQtd="Notas"
         />
       </div>
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <TopBarChart
-          titulo="Quem lançou (usuário)"
-          subtituloEnt="Usuário que lançou as entradas (0 = ADMINISTRADOR/sistema)"
-          subtituloSai="Usuário que lançou as saídas (0 = ADMINISTRADOR/sistema)"
-          dados={usuarios.data}
-          carregando={usuarios.isLoading}
-          recarregando={usuarios.isFetching && !usuarios.isLoading}
-          tipo={tipoUsuario}
-          onTipo={setTipoUsuario}
-          metrica={filtros.metrica}
-          rotuloQtd="Notas"
-        />
+      <div className="grid grid-cols-1 gap-4">
         <TopBarChart
           titulo="Origem do dado"
           subtituloEnt="Como a nota de entrada entrou no Questor"

@@ -181,6 +181,96 @@ export interface NotasListaResp {
   pageSize: number;
 }
 
+/** Produtividade: um colaborador (usuário do Questor) e o que ele lançou no período. */
+export interface ColaboradorProd {
+  codigo: number;
+  nome: string;
+  /** codigousuario 0 = ADMINISTRADOR/sistema (importações automáticas). */
+  auto: boolean;
+  /** Usuário com data de baixa (desligado/inativo no Questor). */
+  inativo: boolean;
+  notasEnt: number;
+  notasSai: number;
+  notas: number;
+  valorEnt: number;
+  valorSai: number;
+  valor: number;
+  /** Notas canceladas lançadas por ele (indicador de qualidade). */
+  canceladas: number;
+  /** Empresas distintas atendidas. */
+  empresas: number;
+}
+
+export interface ProdutividadeSerie {
+  granularidade: "dia" | "mes";
+  pontos: { bucket: string; ent: number; sai: number }[];
+}
+
+/**
+ * Calendário de atividade (estilo GitHub): notas lançadas por dia no período.
+ * Sempre diário — o filtro é limitado a no máximo 1 ano, então a grade nunca
+ * explode. Cobre exatamente o período selecionado (`inicio`..`fim`).
+ */
+export interface ProdutividadeCalendario {
+  inicio: string;
+  fim: string;
+  /** d = 'YYYY-MM-DD'; n = notas lançadas nesse dia. */
+  celulas: { d: string; n: number }[];
+  total: number;
+  pico: { d: string; n: number } | null;
+}
+
+/** Conformidade fiscal (saídas): pendências que valem atenção/correção. */
+export interface ConformidadeResumo {
+  totalNotas: number;
+  totalItens: number;
+  canceladas: number;
+  /** cdsituacao especial (denegada / inutilizada / outras ≠ normal e ≠ cancelada). */
+  denegadas: number;
+  /** Modelos 55/65/57 sem chave de acesso de 44 dígitos. */
+  semChave: number;
+  ncmInvalidoItens: number;
+  ncmInvalidoProdutos: number;
+  situacoes: { codigo: number; nome: string; qtd: number }[];
+}
+
+export interface ConformidadeEmpresa {
+  codigo: number;
+  nome: string | null;
+  ncmInvalido: number;
+  canceladas: number;
+  denegadas: number;
+  semChave: number;
+  pendencias: number;
+}
+
+/** Recebíveis: duplicatas de saída (aging + fluxo por vencimento). */
+export interface RecebiveisResumo {
+  totalReceber: number;
+  vencido: number;
+  aVencer: number;
+  qtdParcelas: number;
+  aging: { faixa: string; valor: number; qtd: number; vencido: boolean }[];
+  fluxo: { bucket: string; valor: number }[];
+}
+
+/** Meios de pagamento das saídas (NFe) e à vista × a prazo. */
+export interface PagamentoResumo {
+  meios: TopItem[];
+  aVista: number;
+  aPrazo: number;
+  outros: number;
+}
+
+/** Carga tributária efetiva por empresa (ICMS+IPI+ST+ISS ÷ faturamento). */
+export interface TributosCargaEmpresa {
+  codigo: number;
+  nome: string;
+  faturamento: number;
+  tributos: number;
+  carga: number;
+}
+
 /** Item (produto) de uma nota, no drill-down do explorador. */
 export interface NotaItem {
   seq: number;

@@ -8,11 +8,15 @@ import {
   BookOpen,
   ChevronDown,
   Users,
+  Coins,
+  Gauge,
   Landmark,
   LayoutDashboard,
   Receipt,
+  ShieldCheck,
   Table2,
   TrendingUp,
+  Wallet,
   Sun,
   Moon,
   type LucideIcon,
@@ -23,6 +27,10 @@ import { SECOES_FISCAL, type SecaoFiscal } from "@/lib/fiscal-secoes";
 const ICONE_SECAO: Record<string, LucideIcon> = {
   painel: LayoutDashboard,
   analises: TrendingUp,
+  tributos: Coins,
+  recebiveis: Wallet,
+  produtividade: Gauge,
+  conformidade: ShieldCheck,
   dados: Table2,
 };
 
