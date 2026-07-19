@@ -1,93 +1,104 @@
 import type { SecaoFiscal } from "./fiscal-secoes";
 
-/** Seções do módulo Contábil (mesma forma das do Fiscal). */
-export const SECOES_CONTABIL: SecaoFiscal[] = [
+/**
+ * Uma aba dentro de uma seção. Vira aba, e não item de sidebar, quando as telas
+ * são ângulos do mesmo trabalho e compartilham o filtro.
+ */
+export interface AbaContabil {
+  id: string;
+  rotulo: string;
+  path: string;
+  descricao: string;
+  /** Cadastro fixo por empresa: sem recorte de tempo. */
+  semPeriodo?: boolean;
+}
+
+export interface SecaoContabil extends SecaoFiscal {
+  abas: AbaContabil[];
+}
+
+/**
+ * Seções do módulo Contábil. Cada seção é um assunto próprio — a aba pertence à
+ * seção pelo `abas`, não por prefixo de caminho, porque nem toda aba mora sob o
+ * caminho da seção (a Configuração do plano de contabilização, por exemplo).
+ */
+export const SECOES_CONTABIL: SecaoContabil[] = [
   {
     id: "conferencia",
     rotulo: "Conferência Fiscal",
     path: "/contabil/conferencia",
     metrica: false,
     descricao: "Notas fiscais × contabilidade",
+    abas: [
+      {
+        id: "conferencia",
+        rotulo: "Conferência",
+        path: "/contabil/conferencia",
+        descricao: "Notas não contabilizadas e notas na conta errada",
+      },
+      {
+        id: "configuracao",
+        rotulo: "Configuração",
+        path: "/contabil/configuracao",
+        descricao: "Plano de contabilização por CFOP — vale para a empresa toda",
+        semPeriodo: true,
+      },
+    ],
   },
   {
-    id: "extratos",
-    rotulo: "Extratos",
-    path: "/contabil/extratos",
+    id: "lancamentos",
+    rotulo: "Lançamentos Contábeis",
+    path: "/contabil/lancamentos",
     metrica: false,
     descricao: "Extrato bancário → lançamentos",
+    abas: [
+      {
+        id: "regras",
+        rotulo: "Regras",
+        path: "/contabil/lancamentos",
+        descricao: "Contrapartida de cada descrição do extrato",
+        semPeriodo: true,
+      },
+      {
+        id: "importar",
+        rotulo: "Importar",
+        path: "/contabil/lancamentos/importar",
+        descricao: "Ler OFX ou PDF e gerar os lançamentos",
+        semPeriodo: true,
+      },
+    ],
   },
 ];
 
-/**
- * A Conferência Fiscal é uma coisa só, vista de três ângulos — por isso são
- * abas dentro da seção, e não itens separados na sidebar: as três compartilham
- * o mesmo filtro (uma empresa + período) e se lêem em sequência (o que falta
- * lançar → o que foi lançado errado → a regra que define o certo).
- */
-export interface AbaConferencia {
-  id: string;
-  rotulo: string;
-  path: string;
-  descricao: string;
+const TODAS_ABAS: { aba: AbaContabil; secao: SecaoContabil }[] = SECOES_CONTABIL.flatMap((secao) =>
+  secao.abas.map((aba) => ({ aba, secao }))
+)
+  // Mais específica primeiro: /lancamentos/importar antes de /lancamentos.
+  .sort((a, b) => b.aba.path.length - a.aba.path.length);
+
+function casar(pathname: string) {
+  return TODAS_ABAS.find(
+    ({ aba }) => pathname === aba.path || pathname.startsWith(aba.path + "/")
+  );
 }
 
-export const ABAS_CONFERENCIA: AbaConferencia[] = [
-  {
-    id: "conferencia",
-    rotulo: "Conferência",
-    path: "/contabil/conferencia",
-    descricao: "Notas não contabilizadas e notas na conta errada",
-  },
-  {
-    id: "configuracao",
-    rotulo: "Configuração",
-    path: "/contabil/configuracao",
-    descricao: "Plano de contabilização por CFOP — vale para a empresa toda",
-  },
-];
+export function abaContabilAtual(pathname: string): AbaContabil | undefined {
+  return casar(pathname)?.aba;
+}
+
+export function secaoContabilAtual(pathname: string): SecaoContabil | undefined {
+  return casar(pathname)?.secao;
+}
+
+/** Abas da seção a que o caminho pertence — vazio quando não pertence a nenhuma. */
+export function abasDaSecao(pathname: string): AbaContabil[] {
+  return casar(pathname)?.secao.abas ?? [];
+}
 
 /**
- * Telas de cadastro são fixas por empresa e não têm recorte de tempo — mostrar
- * um seletor de período nelas sugeriria que a regra vale só naquele mês.
+ * Mostrar seletor de período numa tela de cadastro sugeriria que a regra vale
+ * só naquele mês, o que não é verdade.
  */
-const SEM_PERIODO = ["/contabil/configuracao", "/contabil/extratos"];
-
 export function abaUsaPeriodo(pathname: string): boolean {
-  return !SEM_PERIODO.some((p) => pathname === p || pathname.startsWith(p + "/"));
-}
-
-export const ABAS_EXTRATOS: AbaConferencia[] = [
-  {
-    id: "regras",
-    rotulo: "Regras",
-    path: "/contabil/extratos",
-    descricao: "Contrapartida de cada descrição do extrato",
-  },
-  {
-    id: "importar",
-    rotulo: "Importar",
-    path: "/contabil/extratos/importar",
-    descricao: "Ler OFX ou PDF e gerar os lançamentos",
-  },
-];
-
-/** Abas da seção a que o caminho pertence — vazio quando a seção não tem. */
-export function abasDaSecao(pathname: string): AbaConferencia[] {
-  if (pathname.startsWith("/contabil/extratos")) return ABAS_EXTRATOS;
-  if (ABAS_CONFERENCIA.some((a) => pathname === a.path)) return ABAS_CONFERENCIA;
-  return [];
-}
-
-export function abaConferenciaAtual(pathname: string): AbaConferencia | undefined {
-  // A mais específica primeiro: /extratos/importar antes de /extratos.
-  return [...ABAS_CONFERENCIA, ...ABAS_EXTRATOS]
-    .slice()
-    .sort((a, b) => b.path.length - a.path.length)
-    .find((a) => pathname === a.path || pathname.startsWith(a.path + "/"));
-}
-
-export function secaoContabilAtual(pathname: string): SecaoFiscal | undefined {
-  // Todas as abas da conferência pertencem à mesma seção.
-  if (abaConferenciaAtual(pathname)) return SECOES_CONTABIL[0];
-  return SECOES_CONTABIL.find((s) => pathname === s.path || pathname.startsWith(s.path + "/"));
+  return !casar(pathname)?.aba.semPeriodo;
 }

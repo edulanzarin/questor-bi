@@ -8,7 +8,7 @@ import clsx from "clsx";
 import { ConfFilterBar } from "@/components/filters/conf-filter-bar";
 import { useFiltros } from "@/hooks/use-filters";
 import {
-  abaConferenciaAtual,
+  abaContabilAtual,
   abasDaSecao,
   abaUsaPeriodo,
   secaoContabilAtual,
@@ -20,7 +20,7 @@ export function ContabilShell({ children }: { children: React.ReactNode }) {
   const sp = useSearchParams();
   const { filtros } = useFiltros();
   const secao = secaoContabilAtual(pathname);
-  const aba = abaConferenciaAtual(pathname);
+  const aba = abaContabilAtual(pathname);
   const abas = abasDaSecao(pathname);
   const carregando = useIsFetching() > 0;
   const usaPeriodo = abaUsaPeriodo(pathname);
