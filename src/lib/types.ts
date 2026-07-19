@@ -244,24 +244,6 @@ export interface ConformidadeEmpresa {
   pendencias: number;
 }
 
-/** Recebíveis: duplicatas de saída (aging + fluxo por vencimento). */
-export interface RecebiveisResumo {
-  totalReceber: number;
-  vencido: number;
-  aVencer: number;
-  qtdParcelas: number;
-  aging: { faixa: string; valor: number; qtd: number; vencido: boolean }[];
-  fluxo: { bucket: string; valor: number }[];
-}
-
-/** Meios de pagamento das saídas (NFe) e à vista × a prazo. */
-export interface PagamentoResumo {
-  meios: TopItem[];
-  aVista: number;
-  aPrazo: number;
-  outros: number;
-}
-
 /** Carga tributária efetiva por empresa (ICMS+IPI+ST+ISS ÷ faturamento). */
 export interface TributosCargaEmpresa {
   codigo: number;

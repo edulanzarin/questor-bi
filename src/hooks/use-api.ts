@@ -27,8 +27,6 @@ import type {
   ConformidadeResumo,
   ConformidadeEmpresa,
   TributosCargaEmpresa,
-  RecebiveisResumo,
-  PagamentoResumo,
 } from "@/lib/types";
 
 async function fetchJson<T>(url: string): Promise<T> {
@@ -284,12 +282,6 @@ export const useProdutividadeCalendario = (qs: string, enabled = true) =>
     `/api/fiscal/produtividade-calendario?${qs}`,
     enabled
   );
-
-export const useRecebiveis = (qs: string, enabled = true) =>
-  useApiQuery<RecebiveisResumo>(["recebiveis", qs], `/api/fiscal/recebiveis?${qs}`, enabled);
-
-export const usePagamento = (qs: string, enabled = true) =>
-  useApiQuery<PagamentoResumo>(["pagamento", qs], `/api/fiscal/pagamento?${qs}`, enabled);
 
 export const useTributosDifal = (qs: string, enabled = true) =>
   useApiQuery<TopItem[]>(["tributos-difal", qs], `/api/fiscal/tributos-difal?${qs}`, enabled);

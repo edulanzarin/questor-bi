@@ -31,13 +31,6 @@ export const SECOES_FISCAL: SecaoFiscal[] = [
     descricao: "Carga, DIFAL e regime (CST)",
   },
   {
-    id: "recebiveis",
-    rotulo: "Recebíveis",
-    path: "/fiscal/recebiveis",
-    metrica: false,
-    descricao: "Duplicatas e meios de pagamento",
-  },
-  {
     id: "produtividade",
     rotulo: "Produtividade",
     path: "/fiscal/produtividade",
