@@ -1,3 +1,4 @@
+import { ClipboardCheck, Landmark } from "lucide-react";
 import type { SecaoFiscal } from "./fiscal-secoes";
 
 /**
@@ -26,6 +27,7 @@ export const SECOES_CONTABIL: SecaoContabil[] = [
   {
     id: "conferencia",
     rotulo: "Conferência Fiscal",
+    icone: ClipboardCheck,
     path: "/contabil/conferencia",
     metrica: false,
     descricao: "Notas fiscais × contabilidade",
@@ -46,24 +48,27 @@ export const SECOES_CONTABIL: SecaoContabil[] = [
     ],
   },
   {
-    id: "lancamentos",
-    rotulo: "Lançamentos Contábeis",
-    path: "/contabil/lancamentos",
+    id: "conciliacao",
+    rotulo: "Conciliação",
+    icone: Landmark,
+    path: "/contabil/conciliacao",
     metrica: false,
     descricao: "Extrato bancário → lançamentos",
+    // Importar primeiro: é o que se faz no dia a dia. As regras são cadastro,
+    // mexidas de vez em quando — por isso a raiz da seção é a importação.
     abas: [
-      {
-        id: "regras",
-        rotulo: "Regras",
-        path: "/contabil/lancamentos",
-        descricao: "Contrapartida de cada descrição do extrato",
-        semPeriodo: true,
-      },
       {
         id: "importar",
         rotulo: "Importar",
-        path: "/contabil/lancamentos/importar",
+        path: "/contabil/conciliacao",
         descricao: "Ler OFX ou PDF e gerar os lançamentos",
+        semPeriodo: true,
+      },
+      {
+        id: "regras",
+        rotulo: "Regras",
+        path: "/contabil/conciliacao/regras",
+        descricao: "Contrapartida de cada descrição do extrato",
         semPeriodo: true,
       },
     ],
@@ -73,7 +78,7 @@ export const SECOES_CONTABIL: SecaoContabil[] = [
 const TODAS_ABAS: { aba: AbaContabil; secao: SecaoContabil }[] = SECOES_CONTABIL.flatMap((secao) =>
   secao.abas.map((aba) => ({ aba, secao }))
 )
-  // Mais específica primeiro: /lancamentos/importar antes de /lancamentos.
+  // Mais específica primeiro: /conciliacao/regras antes de /conciliacao.
   .sort((a, b) => b.aba.path.length - a.aba.path.length);
 
 function casar(pathname: string) {

@@ -1,3 +1,13 @@
+import {
+  Coins,
+  Gauge,
+  LayoutDashboard,
+  ShieldCheck,
+  Table2,
+  TrendingUp,
+  type LucideIcon,
+} from "lucide-react";
+
 /** Seções do módulo Fiscal — dirigem a sidebar, o header e a visibilidade da métrica. */
 export interface SecaoFiscal {
   id: string;
@@ -6,11 +16,18 @@ export interface SecaoFiscal {
   /** Se o toggle Valor|Quantidade faz sentido nessa seção. */
   metrica: boolean;
   descricao: string;
+  /**
+   * Ícone da sidebar. Fica aqui, e não num mapa à parte por id, para o
+   * TypeScript cobrar um ícone de toda seção nova — num mapa, esquecer passa
+   * despercebido e a seção aparece sem ícone no meio das outras.
+   */
+  icone: LucideIcon;
 }
 
 export const SECOES_FISCAL: SecaoFiscal[] = [
   {
     id: "painel",
+    icone: LayoutDashboard,
     rotulo: "Painel",
     path: "/fiscal/painel",
     metrica: true,
@@ -18,6 +35,7 @@ export const SECOES_FISCAL: SecaoFiscal[] = [
   },
   {
     id: "analises",
+    icone: TrendingUp,
     rotulo: "Análises",
     path: "/fiscal/analises",
     metrica: true,
@@ -25,6 +43,7 @@ export const SECOES_FISCAL: SecaoFiscal[] = [
   },
   {
     id: "tributos",
+    icone: Coins,
     rotulo: "Tributos",
     path: "/fiscal/tributos",
     metrica: false,
@@ -32,6 +51,7 @@ export const SECOES_FISCAL: SecaoFiscal[] = [
   },
   {
     id: "produtividade",
+    icone: Gauge,
     rotulo: "Produtividade",
     path: "/fiscal/produtividade",
     metrica: false,
@@ -39,6 +59,7 @@ export const SECOES_FISCAL: SecaoFiscal[] = [
   },
   {
     id: "conformidade",
+    icone: ShieldCheck,
     rotulo: "Conformidade",
     path: "/fiscal/conformidade",
     metrica: false,
@@ -46,6 +67,7 @@ export const SECOES_FISCAL: SecaoFiscal[] = [
   },
   {
     id: "dados",
+    icone: Table2,
     rotulo: "Dados",
     path: "/fiscal/dados",
     metrica: false,

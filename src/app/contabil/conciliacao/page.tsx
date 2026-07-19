@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -9,10 +9,10 @@ import {
   CheckCircle2,
   FileUp,
   Landmark,
-  Upload,
 } from "lucide-react";
 import clsx from "clsx";
 import { Dropdown, ItemLista } from "@/components/ui/dropdown";
+import { DropzoneArquivo } from "@/components/dropzone-arquivo";
 import { Kpi } from "@/components/kpi-conf";
 import { useFiltros } from "@/hooks/use-filters";
 import { brl, dataBR, num } from "@/lib/format";
@@ -50,7 +50,6 @@ export default function ImportarPage() {
   const [previa, setPrevia] = useState<Previa | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [filtro, setFiltro] = useState<Filtro>("todos");
-  const inputRef = useRef<HTMLInputElement>(null);
 
   const { data: contas } = useQuery({
     queryKey: ["extrato-regras", empresa],
@@ -79,7 +78,6 @@ export default function ImportarPage() {
       toast.error(err instanceof Error ? err.message : "Falha ao ler o extrato");
     } finally {
       setEnviando(false);
-      if (inputRef.current) inputRef.current.value = "";
     }
   }
 
@@ -103,71 +101,61 @@ export default function ImportarPage() {
 
   return (
     <>
-      <section className="card anim-fade-up flex flex-wrap items-end gap-3 p-5">
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-medium text-ink-2">Conta de banco</label>
-          <Dropdown
-            icone={<Landmark className="size-4" />}
-            rotulo={
-              contaBanco
-                ? `${contaBanco.conta} · ${contaBanco.apelido || contaBanco.descricao}`
-                : "Escolher conta"
-            }
-            ativo={!!contaBanco}
-            largura="w-80"
-          >
-            {(fechar) => (
-              <div className="max-h-72 overflow-y-auto py-1">
-                {!contas?.length && (
-                  <p className="px-3 py-2 text-sm text-muted">
-                    Nenhuma conta cadastrada — cadastre na aba Regras.
-                  </p>
-                )}
-                {contas?.map((c) => (
-                  <ItemLista
-                    key={c.id}
-                    selecionado={c.id === contaBanco?.id}
-                    onClick={() => {
-                      setContaBanco(c);
-                      setPrevia(null);
-                      fechar();
-                    }}
-                  >
-                    <span className="tnum w-14 shrink-0 text-xs text-muted">{c.conta}</span>
-                    <span className="flex-1 truncate">{c.apelido || c.descricao}</span>
-                    <span className="shrink-0 text-[11px] text-muted">{c.regras.length} regras</span>
-                  </ItemLista>
-                ))}
-              </div>
-            )}
-          </Dropdown>
+      <section className="card anim-fade-up flex flex-col gap-4 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-medium text-ink-2">Conta de banco</label>
+            <Dropdown
+              icone={<Landmark className="size-4" />}
+              rotulo={
+                contaBanco
+                  ? `${contaBanco.conta} · ${contaBanco.apelido || contaBanco.descricao}`
+                  : "Escolher conta"
+              }
+              ativo={!!contaBanco}
+              largura="w-80"
+            >
+              {(fechar) => (
+                <div className="max-h-72 overflow-y-auto py-1">
+                  {!contas?.length && (
+                    <p className="px-3 py-2 text-sm text-muted">
+                      Nenhuma conta cadastrada — cadastre na aba Regras.
+                    </p>
+                  )}
+                  {contas?.map((c) => (
+                    <ItemLista
+                      key={c.id}
+                      selecionado={c.id === contaBanco?.id}
+                      onClick={() => {
+                        setContaBanco(c);
+                        setPrevia(null);
+                        fechar();
+                      }}
+                    >
+                      <span className="tnum w-14 shrink-0 text-xs text-muted">{c.conta}</span>
+                      <span className="flex-1 truncate">{c.apelido || c.descricao}</span>
+                      <span className="shrink-0 text-[11px] text-muted">
+                        {c.regras.length} regras
+                      </span>
+                    </ItemLista>
+                  ))}
+                </div>
+              )}
+            </Dropdown>
+          </div>
+          <p className="max-w-sm text-[11px] text-muted">
+            OFX de qualquer banco. PDF só do Nubank por enquanto — e precisa ser o arquivo
+            original, não digitalizado.
+          </p>
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-medium text-ink-2">Arquivo do extrato</label>
-          <input
-            ref={inputRef}
-            type="file"
-            accept=".ofx,.qfx,.pdf"
-            disabled={!contaBanco || enviando}
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) enviar(f);
-            }}
-            className="h-9 w-72 rounded-lg border border-hairline bg-surface-2 px-2.5 text-xs text-ink file:mr-2 file:rounded file:border-0 file:bg-ent/12 file:px-2 file:py-1 file:text-xs file:text-ent disabled:opacity-50"
-          />
-        </div>
-
-        {enviando && (
-          <span className="flex items-center gap-2 pb-2 text-xs text-muted">
-            <Upload className="size-4 animate-pulse" /> Lendo…
-          </span>
-        )}
-
-        <p className="ml-auto max-w-xs pb-2 text-[11px] text-muted">
-          OFX de qualquer banco. PDF só do Nubank por enquanto — e precisa ser o arquivo original,
-          não digitalizado.
-        </p>
+        <DropzoneArquivo
+          aceita={[".ofx", ".qfx", ".pdf"]}
+          onArquivo={enviar}
+          desabilitado={!contaBanco}
+          carregando={enviando}
+          motivo={!contaBanco ? "Escolha a conta de banco para enviar o extrato" : undefined}
+        />
       </section>
 
       {!previa ? (

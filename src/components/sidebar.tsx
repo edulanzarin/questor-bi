@@ -7,16 +7,9 @@ import {
   BarChart3,
   BookOpen,
   ChevronDown,
-  ClipboardCheck,
   Users,
-  Coins,
-  Gauge,
   Landmark,
-  LayoutDashboard,
   Receipt,
-  ShieldCheck,
-  Table2,
-  TrendingUp,
   Sun,
   Moon,
   type LucideIcon,
@@ -24,16 +17,6 @@ import {
 import clsx from "clsx";
 import { SECOES_FISCAL, type SecaoFiscal } from "@/lib/fiscal-secoes";
 import { SECOES_CONTABIL } from "@/lib/contabil-secoes";
-
-const ICONE_SECAO: Record<string, LucideIcon> = {
-  painel: LayoutDashboard,
-  analises: TrendingUp,
-  tributos: Coins,
-  produtividade: Gauge,
-  conformidade: ShieldCheck,
-  dados: Table2,
-  conferencia: ClipboardCheck,
-};
 
 interface Modulo {
   id: string;
@@ -139,7 +122,7 @@ export function Sidebar() {
               {expandido && (
                 <div className="mt-0.5 mb-1 ml-4 flex flex-col gap-0.5 border-l border-hairline pl-2">
                   {m.secoes.map((s) => {
-                    const Icone = ICONE_SECAO[s.id];
+                    const Icone = s.icone;
                     const secaoAtiva = pathname === s.path || pathname.startsWith(s.path + "/");
                     return (
                       <Link
@@ -152,7 +135,7 @@ export function Sidebar() {
                             : "text-ink-2 hover:bg-surface-2 hover:text-ink"
                         )}
                       >
-                        {Icone && <Icone className="size-4 shrink-0" />}
+                        <Icone className="size-4 shrink-0" />
                         {s.rotulo}
                       </Link>
                     );
