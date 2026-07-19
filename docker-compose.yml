@@ -4,8 +4,9 @@ services:
     container_name: questor-bi
     restart: unless-stopped
     # Acesso pela rede: http://<ip-do-computador>:4022
+    # APP_PORT no .env.local muda a porta sem editar este arquivo.
     ports:
-      - "4022:3000"
+      - "${APP_PORT:-4022}:3000"
     env_file:
       - .env.local
     environment:
@@ -30,9 +31,10 @@ services:
       POSTGRES_DB: questorbi
       POSTGRES_USER: questorbi
       POSTGRES_PASSWORD: questorbi
-    # Só no localhost do host: o banco do BI não fica exposto para a rede.
-    ports:
-      - "127.0.0.1:5433:5432"
+    # Sem `ports`: o app alcança o banco pela rede interna do compose
+    # (app-db:5432). Publicar porta no host só serviria para acessar de fora, o
+    # que em produção é risco e mais uma chance de colisão. Para desenvolver,
+    # o docker-compose.dev.yml publica em 127.0.0.1:5433.
     volumes:
       - app-db-data:/var/lib/postgresql/data
     healthcheck:

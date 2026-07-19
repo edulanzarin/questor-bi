@@ -39,12 +39,22 @@ O volume `app-db-data` guarda os dados; `docker compose down -v` apaga tudo.
 
 ## Rodando em desenvolvimento
 
+Aqui **não** se usa Docker para o app — só para o banco. O Next roda direto na
+máquina, com hot reload:
+
 ```bash
 npm install
-npm run db:up      # sobe só o Postgres do BI (porta 5433)
+npm run db:up      # sobe só o Postgres do BI (publica em 127.0.0.1:5433)
 npm run migrate    # aplica as migrations
-npm run dev        # porta 3000
+npm run dev        # porta 3000, hot reload
 ```
+
+`docker compose up -d --build` é o fluxo de **produção**. Não precisa rebuildar
+a imagem para testar mudança: mexeu no código, o `npm run dev` já reflete.
+Quando a mudança estiver pronta, aí sim se builda no computador de produção.
+
+Por que o banco em Docker mesmo no dev: é o mesmo Postgres 17 da produção,
+mesmas migrations, sem instalar nada na máquina.
 
 ## O que já existe
 

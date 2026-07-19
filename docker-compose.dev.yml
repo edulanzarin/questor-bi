@@ -1,0 +1,12 @@
+# Extras de DESENVOLVIMENTO — não usar no computador de produção.
+#
+# Publica o Postgres do BI no host para que `npm run dev`, `npm run migrate` e
+# clientes SQL (psql, DBeaver) alcancem o banco. 5433 e não 5432 para não
+# colidir com um Postgres instalado na máquina. Só em 127.0.0.1.
+#
+# Uso: docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d app-db
+# (é o que `npm run db:up` faz)
+services:
+  app-db:
+    ports:
+      - "127.0.0.1:5433:5432"
