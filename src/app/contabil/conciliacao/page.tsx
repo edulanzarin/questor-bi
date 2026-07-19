@@ -19,6 +19,7 @@ import { ContaDropdown } from "@/components/conta-dropdown";
 import { Kpi } from "@/components/kpi-conf";
 import { useFiltros } from "@/hooks/use-filters";
 import { brl, dataBR, num } from "@/lib/format";
+import { CHAVES_CONCILIACAO } from "@/lib/conciliacao-cache";
 import type { ContaBanco } from "@/lib/types";
 import { gerarLancamentos, type LancamentoGerado, type RegraExtrato } from "@/lib/regras-extrato";
 
@@ -45,15 +46,9 @@ interface Previa {
   lancamentos: LancamentoGerado[];
 }
 
-/**
- * O extrato carregado fica no cache do React Query, que é de nível de app —
- * assim ir até a aba Regras cadastrar o que faltou e voltar não perde o
- * trabalho. O arquivo em si não é guardado; o que se guarda são as transações
- * já lidas, que bastam para reaplicar as regras.
- */
-const CHAVE_EXTRATO = ["conciliacao-extrato"] as const;
-const CHAVE_CONTA = ["conciliacao-conta"] as const;
-const CHAVE_AJUSTES = ["conciliacao-ajustes"] as const;
+// Chaves em módulo próprio: o shell precisa delas para liberar o cache quando
+// o usuário sai da seção. Ver `conciliacao-cache.ts`.
+const [CHAVE_EXTRATO, CHAVE_CONTA, CHAVE_AJUSTES] = CHAVES_CONCILIACAO;
 
 type Filtro = "todos" | "prontos" | "pendentes";
 /** Conta escolhida à mão para uma linha, só nesta importação. */

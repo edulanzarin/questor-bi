@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { BookOpen, Loader2 } from "lucide-react";
-import { useIsFetching } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { useIsFetching, useQueryClient } from "@tanstack/react-query";
 import clsx from "clsx";
 import { ConfFilterBar } from "@/components/filters/conf-filter-bar";
 import { useFiltros } from "@/hooks/use-filters";
@@ -13,6 +14,7 @@ import {
   abaUsaPeriodo,
   secaoContabilAtual,
 } from "@/lib/contabil-secoes";
+import { limparConciliacao } from "@/lib/conciliacao-cache";
 import { dataBR } from "@/lib/format";
 
 export function ContabilShell({ children }: { children: React.ReactNode }) {
@@ -23,6 +25,16 @@ export function ContabilShell({ children }: { children: React.ReactNode }) {
   const aba = abaContabilAtual(pathname);
   const abas = abasDaSecao(pathname);
   const carregando = useIsFetching() > 0;
+  const queryClient = useQueryClient();
+
+  // O extrato carregado vale enquanto se está na Conciliação (trocar de aba
+  // mantém). Sair da seção — ou do módulo — libera a memória.
+  const secaoId = secao?.id;
+  useEffect(() => {
+    return () => {
+      if (secaoId === "conciliacao") limparConciliacao(queryClient);
+    };
+  }, [secaoId, queryClient]);
   const usaPeriodo = abaUsaPeriodo(pathname);
 
   // Os filtros seguem na URL ao trocar de aba.
