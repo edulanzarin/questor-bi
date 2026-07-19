@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { FilterError } from "./fiscal-filters";
+import { AppDbError } from "./app-db";
 
 type Handler = (req: NextRequest) => Promise<unknown>;
 
@@ -12,7 +13,15 @@ export function apiRoute(handler: Handler) {
       if (err instanceof FilterError) {
         return NextResponse.json({ error: err.message }, { status: 400 });
       }
-      const message = err instanceof Error ? err.message : "Erro inesperado";
+      // Falha no banco do BI tem causa e solução próprias — não confundir com o
+      // Questor, senão a mensagem manda investigar o banco errado.
+      if (err instanceof AppDbError) {
+        console.error("[api][bi]", err.message);
+        return NextResponse.json({ error: err.message }, { status: 503 });
+      }
+      // Erro de conexão do pg pode ter mensagem vazia (AggregateError): sem o
+      // fallback, o log sai em branco e não se descobre a causa.
+      const message = err instanceof Error && err.message ? err.message : String(err);
       console.error("[api]", message);
       const friendly = message.includes("statement timeout")
         ? "A consulta demorou demais — restrinja o período ou as empresas"

@@ -60,6 +60,11 @@ npm run dev        # porta 3000, hot reload
 a imagem para testar mudança: mexeu no código, o `npm run dev` já reflete.
 Quando a mudança estiver pronta, aí sim se builda no computador de produção.
 
+> **Pegadinha:** rodar `docker compose up -d` (sem o arquivo de dev) nesta
+> máquina recria o banco **sem** publicar a 5433, e aí o `npm run dev` perde o
+> acesso ao banco do BI — as telas do Contábil passam a responder 503. É só
+> rodar `npm run db:up` de novo. A mensagem de erro na tela já diz isso.
+
 Por que o banco em Docker mesmo no dev: é o mesmo Postgres 17 da produção,
 mesmas migrations, sem instalar nada na máquina.
 

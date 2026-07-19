@@ -27,10 +27,39 @@ export const appPool =
 
 if (process.env.NODE_ENV !== "production") global._appPool = appPool;
 
+/** Falha no banco do BI — distinta de falha no Questor, que tem outra causa. */
+export class AppDbError extends Error {}
+
+/**
+ * Erro de conexão do pg vem como AggregateError de mensagem VAZIA quando tenta
+ * IPv4 e IPv6 e as duas recusam. Sem isto o usuário vê um erro em branco.
+ */
+export function erroAppDb(err: unknown): AppDbError {
+  const codigos = new Set<string>();
+  const visitar = (e: unknown) => {
+    const c = (e as { code?: string })?.code;
+    if (c) codigos.add(c);
+    for (const sub of (e as { errors?: unknown[] })?.errors ?? []) visitar(sub);
+  };
+  visitar(err);
+
+  if (codigos.has("ECONNREFUSED") || codigos.has("ENOTFOUND") || codigos.has("ETIMEDOUT")) {
+    return new AppDbError(
+      "Banco do BI fora do ar — suba com `npm run db:up` (desenvolvimento) ou `docker compose up -d` (produção)"
+    );
+  }
+  const msg = err instanceof Error && err.message ? err.message : String(err);
+  return new AppDbError(`Falha no banco do BI: ${msg}`);
+}
+
 export async function appQuery<T = Record<string, unknown>>(
   text: string,
   params: unknown[] = []
 ): Promise<T[]> {
-  const result = await appPool.query(text, params);
-  return result.rows as T[];
+  try {
+    const result = await appPool.query(text, params);
+    return result.rows as T[];
+  } catch (err) {
+    throw erroAppDb(err);
+  }
 }

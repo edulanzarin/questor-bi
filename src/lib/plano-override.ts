@@ -1,4 +1,4 @@
-import { appPool, appQuery } from "./app-db";
+import { appPool, appQuery, erroAppDb } from "./app-db";
 import type { LinhaPlano, PlanoCfop } from "./types";
 
 /**
@@ -141,7 +141,12 @@ export interface SalvarOverride {
 }
 
 export async function salvarOverride(entrada: SalvarOverride): Promise<number> {
-  const client = await appPool.connect();
+  let client;
+  try {
+    client = await appPool.connect();
+  } catch (err) {
+    throw erroAppDb(err);
+  }
   try {
     await client.query("begin");
     const { rows } = await client.query<{ id: number }>(
@@ -168,8 +173,8 @@ export async function salvarOverride(entrada: SalvarOverride): Promise<number> {
     await client.query("commit");
     return id;
   } catch (err) {
-    await client.query("rollback");
-    throw err;
+    await client.query("rollback").catch(() => {});
+    throw erroAppDb(err);
   } finally {
     client.release();
   }
