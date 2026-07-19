@@ -3,7 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
+  ArrowUpDown,
   Building2,
+  Check,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
@@ -19,6 +21,7 @@ import clsx from "clsx";
 import { SeletorTipo } from "@/components/charts/top-bar-chart";
 import { Kpi } from "@/components/kpi-conf";
 import { FacetaDropdown } from "@/components/filters/faceta-dropdown";
+import { Dropdown, ItemLista } from "@/components/ui/dropdown";
 import { useFiltros } from "@/hooks/use-filters";
 import { useConferencia } from "@/hooks/use-api";
 import { brl, brlCompact, dataBR, documento, num } from "@/lib/format";
@@ -240,18 +243,31 @@ export default function ConferenciaPage() {
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <select
-                value={ordem}
-                onChange={(e) => setOrdem(e.target.value as Ordem)}
-                className="rounded-lg border border-hairline bg-surface-2 px-2.5 py-1.5 text-xs text-ink outline-none"
-                aria-label="Ordenar por"
+              <Dropdown
+                icone={<ArrowUpDown className="size-4" />}
+                rotulo={ORDENS.find((o) => o.id === ordem)?.rotulo ?? "Ordenar"}
+                largura="w-48"
               >
-                {ORDENS.map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {o.rotulo}
-                  </option>
-                ))}
-              </select>
+                {(fechar) => (
+                  <div className="py-1">
+                    {ORDENS.map((o) => (
+                      <ItemLista
+                        key={o.id}
+                        selecionado={o.id === ordem}
+                        onClick={() => {
+                          setOrdem(o.id);
+                          fechar();
+                        }}
+                      >
+                        <span className="grid size-4 place-items-center">
+                          {o.id === ordem && <Check className="size-4 stroke-[3] text-ent" />}
+                        </span>
+                        {o.rotulo}
+                      </ItemLista>
+                    ))}
+                  </div>
+                )}
+              </Dropdown>
               <div className="flex items-center gap-2 rounded-lg border border-hairline bg-surface-2 px-2.5 py-1.5">
                 <Search className="size-4 text-muted" />
                 <input

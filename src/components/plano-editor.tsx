@@ -168,14 +168,27 @@ export function PlanoEditor({ empresa, plano, rotuloEstab, onFechar, onSalvo }: 
 
             {linhas.map((l, i) => (
               <div key={i} className="flex flex-wrap items-center gap-2 rounded-lg bg-surface-2 p-2">
-                <select
-                  value={l.natureza}
-                  onChange={(e) => alterar(i, { natureza: Number(e.target.value) as 1 | -1 })}
-                  className="rounded-md border border-hairline bg-surface px-2 py-1.5 text-xs text-ink outline-none"
-                >
-                  <option value={1}>Débito</option>
-                  <option value={-1}>Crédito</option>
-                </select>
+                {/* Binário: alternar em um clique é melhor que abrir uma lista. */}
+                <div className="flex overflow-hidden rounded-md border border-hairline">
+                  {([1, -1] as const).map((nat) => (
+                    <button
+                      key={nat}
+                      type="button"
+                      onClick={() => alterar(i, { natureza: nat })}
+                      aria-pressed={l.natureza === nat}
+                      className={clsx(
+                        "px-2.5 py-1.5 text-xs transition-colors",
+                        l.natureza === nat
+                          ? nat === 1
+                            ? "bg-ent/12 font-medium text-ent"
+                            : "bg-sai/12 font-medium text-sai"
+                          : "bg-surface text-muted hover:text-ink"
+                      )}
+                    >
+                      {nat === 1 ? "Débito" : "Crédito"}
+                    </button>
+                  ))}
+                </div>
 
                 <input
                   value={l.variavel ? "" : l.conta}
