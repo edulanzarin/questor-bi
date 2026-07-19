@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Building2, Copy, Landmark } from "lucide-react";
+import { Building2, Copy, Landmark, Search } from "lucide-react";
 import clsx from "clsx";
 import { ContaDropdown } from "@/components/conta-dropdown";
 import { ReplicarModal } from "@/components/replicar-modal";
@@ -32,6 +32,7 @@ export default function RegrasPage() {
 
   const [conta, setConta] = useState<number | null>(null);
   const [replicando, setReplicando] = useState<ContaBanco | null>(null);
+  const [busca, setBusca] = useState("");
 
   // Contas que já têm cadastro: atalho para navegar entre elas.
   const { data: comRegras } = useQuery({
@@ -47,6 +48,20 @@ export default function RegrasPage() {
   });
 
   const recarregar = () => queryClient.invalidateQueries({ queryKey: ["extrato-regras"] });
+
+  const visiveis = useMemo(() => {
+    const q = busca.trim().toLowerCase();
+    if (!atual) return [];
+    if (!q) return atual.regras;
+    return atual.regras.filter(
+      (r) =>
+        r.termoOriginal.toLowerCase().includes(q) ||
+        String(r.contaPagamento ?? "").includes(q) ||
+        String(r.contaRecebimento ?? "").includes(q) ||
+        (r.descrPagamento ?? "").toLowerCase().includes(q) ||
+        (r.descrRecebimento ?? "").toLowerCase().includes(q)
+    );
+  }, [atual, busca]);
 
   if (!temEmpresa) {
     return (
@@ -131,22 +146,41 @@ export default function RegrasPage() {
         <div className="skeleton h-64 w-full" />
       ) : (
         <section className="card anim-fade-up p-5">
-          <header className="mb-4 flex items-center gap-3">
-            <span className="grid size-9 place-items-center rounded-lg bg-ent/12 text-ent">
-              <Landmark className="size-4" />
-            </span>
-            <div>
-              <h2 className="text-sm font-semibold">{atual.descricao ?? `Conta ${atual.conta}`}</h2>
-              <p className="text-xs text-muted">
-                conta {atual.conta} · {num(atual.regras.length)}{" "}
-                {atual.regras.length === 1 ? "regra" : "regras"}
-              </p>
+          <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <span className="grid size-9 place-items-center rounded-lg bg-ent/12 text-ent">
+                <Landmark className="size-4" />
+              </span>
+              <div>
+                <h2 className="text-sm font-semibold">
+                  {atual.descricao ?? `Conta ${atual.conta}`}
+                </h2>
+                <p className="text-xs text-muted">
+                  conta {atual.conta} · {num(atual.regras.length)}{" "}
+                  {atual.regras.length === 1 ? "regra" : "regras"}
+                  {busca && ` · ${num(visiveis.length)} no filtro`}
+                </p>
+              </div>
             </div>
+            {atual.regras.length > 8 && (
+              <div className="flex items-center gap-2 rounded-lg border border-hairline bg-surface-2 px-2.5 py-1.5">
+                <Search className="size-4 text-muted" />
+                <input
+                  value={busca}
+                  onChange={(e) => setBusca(e.target.value)}
+                  placeholder="Filtrar por termo ou conta…"
+                  className="w-48 bg-transparent text-xs text-ink outline-none placeholder:text-muted"
+                />
+              </div>
+            )}
           </header>
 
-          <div className="overflow-x-auto">
+          {/* Altura limitada: o cadastro cresce sem fim e a página não pode
+              crescer junto. Cabeçalho fica fixo e a linha de nova regra vem
+              antes da lista, para continuar alcançável com a lista rolada. */}
+          <div className="max-h-[30rem] overflow-auto">
             <table className="w-full min-w-[860px] border-collapse text-sm">
-              <thead>
+              <thead className="sticky top-0 z-10 bg-surface">
                 <tr className="border-b border-hairline text-xs text-muted">
                   <th className="w-64 py-2 pr-3 text-left font-medium">Descrição no extrato</th>
                   <th className="w-28 py-2 pr-3 text-left font-medium">Casamento</th>
@@ -156,7 +190,13 @@ export default function RegrasPage() {
                 </tr>
               </thead>
               <tbody>
-                {atual.regras.map((r) => (
+                <RegraExtratoLinha
+                  empresa={empresa}
+                  conta={atual.conta}
+                  regra={null}
+                  onSalvo={recarregar}
+                />
+                {visiveis.map((r) => (
                   <RegraExtratoLinha
                     key={r.id}
                     empresa={empresa}
@@ -165,12 +205,13 @@ export default function RegrasPage() {
                     onSalvo={recarregar}
                   />
                 ))}
-                <RegraExtratoLinha
-                  empresa={empresa}
-                  conta={atual.conta}
-                  regra={null}
-                  onSalvo={recarregar}
-                />
+                {busca && visiveis.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="py-6 text-center text-sm text-muted">
+                      Nenhuma regra com esse filtro
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
