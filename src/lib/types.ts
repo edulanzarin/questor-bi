@@ -286,6 +286,13 @@ export interface ConfResumo {
   valorDivergente: number;
 }
 
+/** Valor disponível para filtrar, com quantas notas ele tem. */
+export interface Faceta {
+  valor: string;
+  rotulo: string | null;
+  qtd: number;
+}
+
 export interface ConferenciaResp {
   resumo: ConfResumo;
   /** Página atual, já filtrada e ordenada. */
@@ -296,6 +303,8 @@ export interface ConferenciaResp {
   porPagina: number;
   /** Período grande demais: nem todas as notas foram analisadas. */
   truncado: boolean;
+  /** Espécies e CFOPs realmente presentes, para montar os filtros. */
+  facetas: { especies: Faceta[]; cfops: Faceta[] };
 }
 
 /** Um lançamento contábil que a nota deveria gerar, segundo o plano. */

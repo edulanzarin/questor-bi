@@ -8,14 +8,17 @@ import {
   ChevronLeft,
   ChevronRight,
   FileText,
+  Receipt,
   Search,
   ShieldCheck,
+  Tags,
   Truck,
   X,
 } from "lucide-react";
 import clsx from "clsx";
 import { SeletorTipo } from "@/components/charts/top-bar-chart";
 import { Kpi } from "@/components/kpi-conf";
+import { FacetaDropdown } from "@/components/filters/faceta-dropdown";
 import { useFiltros } from "@/hooks/use-filters";
 import { useConferencia } from "@/hooks/use-api";
 import { brl, brlCompact, dataBR, documento, num } from "@/lib/format";
@@ -121,8 +124,8 @@ export default function ConferenciaPage() {
   const [situacao, setSituacao] = useState<FiltroSituacao>("problema");
   const [busca, setBusca] = useState("");
   const [buscaAplicada, setBuscaAplicada] = useState("");
-  const [especie, setEspecie] = useState("");
-  const [cfop, setCfop] = useState("");
+  const [especies, setEspecies] = useState<string[]>([]);
+  const [cfops, setCfops] = useState<string[]>([]);
   const [ordem, setOrdem] = useState<Ordem>("valor_desc");
   const [pagina, setPagina] = useState(1);
   const temEmpresa = filtros.empresas.length === 1;
@@ -134,7 +137,7 @@ export default function ConferenciaPage() {
   }, [busca]);
 
   // Qualquer mudança de recorte recomeça na primeira página.
-  useEffect(() => setPagina(1), [tipo, situacao, buscaAplicada, especie, cfop, ordem]);
+  useEffect(() => setPagina(1), [tipo, situacao, buscaAplicada, especies, cfops, ordem]);
 
   const url = useMemo(() => {
     const p = new URLSearchParams(qs);
@@ -143,16 +146,16 @@ export default function ConferenciaPage() {
     p.set("ordem", ordem);
     p.set("pagina", String(pagina));
     if (buscaAplicada) p.set("busca", buscaAplicada);
-    if (especie) p.set("especie", especie);
-    if (cfop) p.set("cfop", cfop);
+    if (especies.length) p.set("especies", especies.join(","));
+    if (cfops.length) p.set("cfops", cfops.join(","));
     return p.toString();
-  }, [qs, tipo, situacao, ordem, pagina, buscaAplicada, especie, cfop]);
+  }, [qs, tipo, situacao, ordem, pagina, buscaAplicada, especies, cfops]);
 
   const conf = useConferencia(url, temEmpresa);
   const dados = conf.data;
   const r = dados?.resumo;
 
-  const temFiltroExtra = !!(buscaAplicada || especie || cfop);
+  const temFiltroExtra = !!buscaAplicada || especies.length > 0 || cfops.length > 0;
 
   if (!temEmpresa) {
     return (
@@ -254,7 +257,7 @@ export default function ConferenciaPage() {
                 <input
                   value={busca}
                   onChange={(e) => setBusca(e.target.value)}
-                  placeholder="Nº, contraparte, CNPJ ou CFOP…"
+                  placeholder="Nº, contraparte, CNPJ ou UF…"
                   className="w-52 bg-transparent text-xs text-ink outline-none placeholder:text-muted"
                 />
               </div>
@@ -297,26 +300,31 @@ export default function ConferenciaPage() {
             })}
           </div>
 
-          {/* Refinos: espécie e CFOP */}
+          {/* Refinos: só os valores que existem no recorte atual */}
           <div className="flex flex-wrap items-center gap-2">
-            <input
-              value={especie}
-              onChange={(e) => setEspecie(e.target.value.toUpperCase())}
-              placeholder="Espécie (NFE, NFSE…)"
-              className="w-40 rounded-lg border border-hairline bg-surface-2 px-2.5 py-1.5 text-xs text-ink outline-none placeholder:text-muted"
+            <FacetaDropdown
+              rotulo="Espécie"
+              icone={<Receipt className="size-4" />}
+              opcoes={dados?.facetas.especies ?? []}
+              selecionados={especies}
+              onMudar={setEspecies}
+              largura="w-60"
             />
-            <input
-              value={cfop}
-              onChange={(e) => setCfop(e.target.value.replace(/\D/g, ""))}
-              placeholder="CFOP exato"
-              className="w-32 rounded-lg border border-hairline bg-surface-2 px-2.5 py-1.5 text-xs tabular-nums text-ink outline-none placeholder:text-muted"
+            <FacetaDropdown
+              rotulo="CFOP"
+              icone={<Tags className="size-4" />}
+              opcoes={dados?.facetas.cfops ?? []}
+              selecionados={cfops}
+              onMudar={setCfops}
+              buscavel
+              largura="w-96"
             />
             {temFiltroExtra && (
               <button
                 onClick={() => {
                   setBusca("");
-                  setEspecie("");
-                  setCfop("");
+                  setEspecies([]);
+                  setCfops([]);
                 }}
                 className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs text-muted hover:bg-surface-2 hover:text-ink"
               >

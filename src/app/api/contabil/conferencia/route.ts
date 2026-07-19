@@ -8,6 +8,7 @@ import { conferirNota, type LancamentoReal, type ValoresNota } from "@/lib/diver
 import type {
   ConferenciaResp,
   ConfResumo,
+  Faceta,
   NotaConferida,
   PlanoCfop,
   SituacaoNota,
@@ -80,12 +81,23 @@ function sqlNotas(c: LadoCfg): string {
 
 type Ordem = "valor_desc" | "valor_asc" | "data_desc" | "data_asc" | "numero";
 
+/** Agrupa pares [valor, rótulo] em facetas ordenadas por frequência. */
+function contar(pares: ReadonlyArray<readonly [string, string | null]>): Faceta[] {
+  const mapa = new Map<string, Faceta>();
+  for (const [valor, rotulo] of pares) {
+    const atual = mapa.get(valor);
+    if (atual) atual.qtd += 1;
+    else mapa.set(valor, { valor, rotulo, qtd: 1 });
+  }
+  return [...mapa.values()].sort((a, b) => b.qtd - a.qtd || a.valor.localeCompare(b.valor));
+}
+
 interface Opcoes {
   tipo: "ent" | "sai";
   situacao: string;
   busca: string;
-  especie: string;
-  cfop: number | null;
+  especies: string[];
+  cfops: number[];
   ordem: Ordem;
   pagina: number;
 }
@@ -122,6 +134,7 @@ async function conferir(
     pagina: 1,
     porPagina: POR_PAGINA,
     truncado: false,
+    facetas: { especies: [], cfops: [] },
   };
   if (!notas.length) return vazio;
 
@@ -174,7 +187,11 @@ async function conferir(
   ]);
   const plano = aplicarOverrides(planoBruto, overrides);
   const porChave = new Map<string, PlanoCfop>();
-  for (const p of plano) porChave.set(`${p.estab}:${p.cfop}`, p);
+  const descrCfop = new Map<number, string>();
+  for (const p of plano) {
+    porChave.set(`${p.estab}:${p.cfop}`, p);
+    if (p.descricao && !descrCfop.has(p.cfop)) descrCfop.set(p.cfop, p.descricao);
+  }
 
   /**
    * CFOPs que comprovadamente geram lançamento nesta empresa. O plano sozinho
@@ -271,20 +288,41 @@ async function conferir(
   }
 
   // ---- filtros ----
+  // A busca livre não procura CFOP: CFOP tem filtro próprio, e ter os dois
+  // fazia o mesmo termo cair em dois lugares com resultados diferentes.
   const q = o.busca.trim().toLowerCase();
-  const filtradas = conferidas.filter((n) => {
+  // Dígitos do termo, para casar CNPJ mesmo digitado com pontuação. Precisa ter
+  // conteúdo: `"".includes("")` é sempre verdadeiro e faria a busca por texto
+  // casar com todas as notas.
+  const qDigitos = q.replace(/\D/g, "");
+  const base = conferidas.filter((n) => {
     if (o.situacao === "problema") {
       if (n.situacao !== "pendente" && n.situacao !== "divergente") return false;
     } else if (o.situacao !== "todas" && n.situacao !== o.situacao) return false;
-    if (o.especie && n.especie !== o.especie) return false;
-    if (o.cfop != null && !n.cfops.includes(o.cfop)) return false;
     if (!q) return true;
     return (
-      String(n.numero).includes(q) ||
+      (qDigitos.length > 0 && String(n.numero).includes(qDigitos)) ||
       (n.contraparte ?? "").toLowerCase().includes(q) ||
-      (n.doc ?? "").includes(q) ||
-      n.cfops.some((cf) => String(cf).includes(q))
+      (qDigitos.length >= 3 && (n.doc ?? "").replace(/\D/g, "").includes(qDigitos)) ||
+      (n.uf ?? "").toLowerCase() === q
     );
+  });
+
+  // Facetas saem do conjunto antes dos filtros de espécie/CFOP, para as opções
+  // não sumirem conforme se seleciona — é o que se espera de um filtro assim.
+  const facetas = {
+    especies: contar(base.map((n) => [n.especie, null] as const)),
+    cfops: contar(
+      base.flatMap((n) => n.cfops.map((cf) => [String(cf), descrCfop.get(cf) ?? null] as const))
+    ),
+  };
+
+  const especies = new Set(o.especies);
+  const cfopsSel = new Set(o.cfops);
+  const filtradas = base.filter((n) => {
+    if (especies.size && !especies.has(n.especie)) return false;
+    if (cfopsSel.size && !n.cfops.some((cf) => cfopsSel.has(cf))) return false;
+    return true;
   });
 
   const ordenadas = filtradas.sort((a, b) => {
@@ -310,6 +348,7 @@ async function conferir(
     pagina,
     porPagina: POR_PAGINA,
     truncado,
+    facetas,
   };
 }
 
@@ -325,16 +364,21 @@ export const GET = apiRoute(async (req) => {
     throw new FilterError("Selecione uma empresa para a conferência");
   }
   const p = req.nextUrl.searchParams;
-  const cfopParam = p.get("cfop");
-  const cfop = cfopParam ? Number(cfopParam) : null;
-  if (cfopParam && !Number.isInteger(cfop)) throw new FilterError("CFOP inválido");
+  const cfops = (p.get("cfops") ?? "")
+    .split(",")
+    .filter(Boolean)
+    .map((v) => {
+      const n = Number(v);
+      if (!Number.isInteger(n)) throw new FilterError(`CFOP inválido: ${v}`);
+      return n;
+    });
 
   const opcoes: Opcoes = {
     tipo: p.get("tipo") === "sai" ? "sai" : "ent",
     situacao: p.get("situacao") ?? "problema",
     busca: p.get("busca") ?? "",
-    especie: (p.get("especie") ?? "").toUpperCase(),
-    cfop,
+    especies: (p.get("especies") ?? "").split(",").filter(Boolean).map((e) => e.toUpperCase()),
+    cfops,
     ordem: (p.get("ordem") ?? "valor_desc") as Ordem,
     pagina: Number(p.get("pagina") ?? 1) || 1,
   };
