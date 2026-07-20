@@ -1,12 +1,37 @@
 import { NextRequest, NextResponse } from "next/server";
 import { FilterError } from "./fiscal-filters";
 import { AppDbError } from "./app-db";
+import { podeAcessar } from "./sessao";
+import type { ModuloId } from "./modulos";
 
 type Handler = (req: NextRequest) => Promise<unknown>;
+
+/**
+ * A rota declara o módulo pelo próprio caminho: /api/fiscal/... e
+ * /api/contabil/... Assim o gate mora num lugar só e nenhuma rota nasce
+ * desprotegida — não há como esquecer de checar. (/api/empresas e afins não
+ * casam: são compartilhados, liberados a qualquer sessão por enquanto.)
+ */
+function moduloDaRota(pathname: string): ModuloId | undefined {
+  const m = pathname.match(/^\/api\/(fiscal|contabil)(?:\/|$)/);
+  return m ? (m[1] as ModuloId) : undefined;
+}
 
 export function apiRoute(handler: Handler) {
   return async (req: NextRequest) => {
     try {
+      // Permissão se valida no servidor, sempre. Ler exige view; escrever
+      // (POST/PUT/DELETE/PATCH) exige edit.
+      const modulo = moduloDaRota(req.nextUrl.pathname);
+      if (modulo) {
+        const nivel = req.method === "GET" ? "view" : "edit";
+        if (!(await podeAcessar(modulo, nivel))) {
+          return NextResponse.json(
+            { error: "Você não tem acesso a este módulo" },
+            { status: 403 }
+          );
+        }
+      }
       const data = await handler(req);
       return NextResponse.json(data);
     } catch (err) {

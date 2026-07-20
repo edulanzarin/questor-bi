@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
-import { Sidebar } from "@/components/sidebar";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -16,11 +14,11 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Questor BI",
-  description: "Business Intelligence sobre a base do Questor",
+  title: "Questor Hub",
+  description: "Plataforma da Navecon sobre a base do Questor",
 };
 
-const themeInit = `(function(){try{var t=localStorage.getItem("questor-bi-theme");if(t!=="light"&&t!=="dark"){t=matchMedia("(prefers-color-scheme: light)").matches?"light":"dark"}document.documentElement.dataset.theme=t}catch(e){document.documentElement.dataset.theme="dark"}})()`;
+const themeInit = `(function(){try{var t=localStorage.getItem("questor-hub-theme");if(t!=="light"&&t!=="dark"){t=matchMedia("(prefers-color-scheme: light)").matches?"light":"dark"}document.documentElement.dataset.theme=t}catch(e){document.documentElement.dataset.theme="dark"}})()`;
 
 export default function RootLayout({
   children,
@@ -35,16 +33,9 @@ export default function RootLayout({
     >
       <body className="min-h-full">
         <script dangerouslySetInnerHTML={{ __html: themeInit }} />
-        <Providers>
-          <div className="flex min-h-screen">
-            <Suspense
-              fallback={<aside className="w-60 shrink-0 border-r border-hairline bg-surface" />}
-            >
-              <Sidebar />
-            </Suspense>
-            <main className="min-w-0 flex-1">{children}</main>
-          </div>
-        </Providers>
+        {/* Sem sidebar aqui: o launcher (/) e cada módulo trazem a própria
+            casca. Este layout guarda só o que é global — tema, fontes, providers. */}
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

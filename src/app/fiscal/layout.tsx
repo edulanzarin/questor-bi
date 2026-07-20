@@ -1,4 +1,6 @@
 import { Suspense } from "react";
+import { ModuloSidebar } from "@/components/sidebar";
+import { assertAcesso } from "@/lib/sessao";
 import { FiscalShell } from "./shell";
 
 function Fallback() {
@@ -15,10 +17,19 @@ function Fallback() {
   );
 }
 
-export default function FiscalLayout({ children }: { children: React.ReactNode }) {
+export default async function FiscalLayout({ children }: { children: React.ReactNode }) {
+  // Gate otimista do módulo (a tranca de verdade é o apiRoute). Nega redirecionando.
+  await assertAcesso("fiscal");
   return (
-    <Suspense fallback={<Fallback />}>
-      <FiscalShell>{children}</FiscalShell>
-    </Suspense>
+    <div className="flex min-h-screen">
+      <Suspense fallback={<aside className="w-60 shrink-0 border-r border-hairline bg-surface" />}>
+        <ModuloSidebar moduloId="fiscal" />
+      </Suspense>
+      <main className="min-w-0 flex-1">
+        <Suspense fallback={<Fallback />}>
+          <FiscalShell>{children}</FiscalShell>
+        </Suspense>
+      </main>
+    </div>
   );
 }

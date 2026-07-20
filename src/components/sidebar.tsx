@@ -1,160 +1,72 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import {
-  BarChart3,
-  BookOpen,
-  ChevronDown,
-  Users,
-  Landmark,
-  Receipt,
-  Sun,
-  Moon,
-  type LucideIcon,
-} from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import clsx from "clsx";
-import { SECOES_FISCAL, type SecaoFiscal } from "@/lib/fiscal-secoes";
-import { SECOES_CONTABIL } from "@/lib/contabil-secoes";
+import { getModulo, secoesDoModulo, type ModuloId } from "@/lib/modulos";
+import { ThemeToggle } from "./theme-toggle";
 
-interface Modulo {
-  id: string;
-  titulo: string;
-  icone: LucideIcon;
-  ativo: boolean;
-  secoes: SecaoFiscal[];
-}
-
-const MODULOS: Modulo[] = [
-  { id: "fiscal", titulo: "Fiscal", icone: Receipt, ativo: true, secoes: SECOES_FISCAL },
-  { id: "contabil", titulo: "Contábil", icone: BookOpen, ativo: true, secoes: SECOES_CONTABIL },
-  { id: "folha", titulo: "Folha", icone: Users, ativo: false, secoes: [] },
-  { id: "patrimonio", titulo: "Patrimônio", icone: Landmark, ativo: false, secoes: [] },
-];
-
-function moduloAtivo(pathname: string): string | undefined {
-  return MODULOS.find((m) => pathname.startsWith(`/${m.id}`))?.id;
-}
-
-function useTheme() {
-  const [theme, setTheme] = useState<"light" | "dark">("dark");
-  useEffect(() => {
-    const atual = document.documentElement.dataset.theme;
-    if (atual === "light" || atual === "dark") setTheme(atual);
-  }, []);
-  const toggle = () => {
-    const proximo = theme === "dark" ? "light" : "dark";
-    setTheme(proximo);
-    document.documentElement.dataset.theme = proximo;
-    try {
-      localStorage.setItem("questor-bi-theme", proximo);
-    } catch {}
-  };
-  return { theme, toggle };
-}
-
-export function Sidebar() {
+/**
+ * Sidebar escopada a um módulo: mostra só as seções dele. A escolha do módulo
+ * acontece antes, no launcher — aqui o único caminho para outro módulo é
+ * "Trocar módulo", que volta ao launcher. Escala para muitos módulos sem virar
+ * paredão de links, porque cada módulo tem sua própria sidebar enxuta.
+ */
+export function ModuloSidebar({ moduloId }: { moduloId: ModuloId }) {
   const pathname = usePathname();
   const sp = useSearchParams();
-  const { theme, toggle } = useTheme();
   const qs = sp.toString();
   const suffix = qs ? `?${qs}` : "";
 
-  // Acordeão: o módulo da rota atual abre por padrão; o usuário pode fechar/abrir os outros.
-  const [aberto, setAberto] = useState<Record<string, boolean>>(() => {
-    const ativo = moduloAtivo(pathname) ?? "fiscal";
-    return { [ativo]: true };
-  });
-
-  useEffect(() => {
-    const ativo = moduloAtivo(pathname);
-    if (ativo) setAberto((prev) => (prev[ativo] ? prev : { ...prev, [ativo]: true }));
-  }, [pathname]);
-
-  const toggleModulo = (id: string) =>
-    setAberto((prev) => ({ ...prev, [id]: !prev[id] }));
+  const modulo = getModulo(moduloId);
+  const secoes = secoesDoModulo(moduloId);
+  if (!modulo) return null;
+  const Icone = modulo.icone;
 
   return (
     <aside className="sticky top-0 flex h-screen w-60 shrink-0 flex-col border-r border-hairline bg-surface px-3 py-5">
-      <div className="flex items-center gap-2.5 px-2">
+      <Link
+        href="/"
+        className="flex items-center gap-1.5 px-2 text-xs text-muted transition-colors hover:text-ink"
+      >
+        <ChevronLeft className="size-3.5" />
+        Trocar módulo
+      </Link>
+
+      <div className="mt-3 flex items-center gap-2.5 px-2">
         <span className="grid size-9 place-items-center rounded-xl bg-ent/15 text-ent">
-          <BarChart3 className="size-5" />
+          <Icone className="size-5" />
         </span>
         <div className="leading-tight">
-          <p className="text-sm font-semibold tracking-tight">Questor BI</p>
-          <p className="text-[11px] text-muted">Navecon</p>
+          <p className="text-sm font-semibold tracking-tight">{modulo.titulo}</p>
+          <p className="text-[11px] text-muted">Questor Hub</p>
         </div>
       </div>
 
       <nav className="mt-7 flex flex-1 flex-col gap-0.5 overflow-y-auto">
-        {MODULOS.map((m) => {
-          const expandido = !!aberto[m.id] && m.secoes.length > 0;
-          const ehAtivo = moduloAtivo(pathname) === m.id;
+        {secoes.map((s) => {
+          const Ico = s.icone;
+          const ativa = pathname === s.path || pathname.startsWith(s.path + "/");
           return (
-            <div key={m.id}>
-              <button
-                onClick={() => m.ativo && m.secoes.length > 0 && toggleModulo(m.id)}
-                disabled={!m.ativo}
-                className={clsx(
-                  "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors",
-                  !m.ativo
-                    ? "cursor-default text-muted/50"
-                    : ehAtivo
-                      ? "font-medium text-ink hover:bg-surface-2"
-                      : "text-ink-2 hover:bg-surface-2 hover:text-ink"
-                )}
-              >
-                <m.icone className="size-4 shrink-0" />
-                {m.titulo}
-                {m.ativo && m.secoes.length > 0 ? (
-                  <ChevronDown
-                    className={clsx(
-                      "ml-auto size-4 text-muted transition-transform",
-                      !expandido && "-rotate-90"
-                    )}
-                  />
-                ) : (
-                  <span className="ml-auto text-[10px] uppercase tracking-wide">breve</span>
-                )}
-              </button>
-
-              {expandido && (
-                <div className="mt-0.5 mb-1 ml-4 flex flex-col gap-0.5 border-l border-hairline pl-2">
-                  {m.secoes.map((s) => {
-                    const Icone = s.icone;
-                    const secaoAtiva = pathname === s.path || pathname.startsWith(s.path + "/");
-                    return (
-                      <Link
-                        key={s.id}
-                        href={`${s.path}${suffix}`}
-                        className={clsx(
-                          "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors",
-                          secaoAtiva
-                            ? "bg-ent/12 font-medium text-ent"
-                            : "text-ink-2 hover:bg-surface-2 hover:text-ink"
-                        )}
-                      >
-                        <Icone className="size-4 shrink-0" />
-                        {s.rotulo}
-                      </Link>
-                    );
-                  })}
-                </div>
+            <Link
+              key={s.id}
+              href={`${s.path}${suffix}`}
+              className={clsx(
+                "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors",
+                ativa
+                  ? "bg-ent/12 font-medium text-ent"
+                  : "text-ink-2 hover:bg-surface-2 hover:text-ink"
               )}
-            </div>
+            >
+              <Ico className="size-4 shrink-0" />
+              {s.rotulo}
+            </Link>
           );
         })}
       </nav>
 
-      <button
-        onClick={toggle}
-        className="mt-2 flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink"
-        title={theme === "dark" ? "Tema claro" : "Tema escuro"}
-      >
-        {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
-        {theme === "dark" ? "Tema claro" : "Tema escuro"}
-      </button>
+      <ThemeToggle className="mt-2" />
     </aside>
   );
 }
