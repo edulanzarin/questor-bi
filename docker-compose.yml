@@ -38,7 +38,7 @@ services:
     # que em produção é risco e mais uma chance de colisão. Para desenvolver,
     # o docker-compose.dev.yml publica em 127.0.0.1:5022.
     volumes:
-      - app-db-data:/var/lib/postgresql/data
+      - db-data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U questorbi -d questorbi"]
       interval: 5s
@@ -46,4 +46,13 @@ services:
       retries: 10
 
 volumes:
-  app-db-data:
+  db-data:
+    # Nome explícito seguindo a convenção <slug>-db-data, independente do nome da
+    # pasta ou do COMPOSE_PROJECT_NAME.
+    name: questor-hub-db-data
+
+networks:
+  # A rede default do projeto com nome explícito <slug>-net; os serviços falam
+  # por nome (app-db:5432) dentro dela.
+  default:
+    name: questor-hub-net
