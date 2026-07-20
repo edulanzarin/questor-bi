@@ -7,6 +7,7 @@ import clsx from "clsx";
 import { ContaDropdown } from "@/components/conta-dropdown";
 import { ReplicarModal } from "@/components/replicar-modal";
 import { RegraExtratoLinha } from "@/components/regra-extrato-linha";
+import { useEstadoSecao } from "@/hooks/use-estado-secao";
 import { useFiltros } from "@/hooks/use-filters";
 import { num } from "@/lib/format";
 import type { ContaBanco } from "@/lib/types";
@@ -30,9 +31,11 @@ export default function RegrasPage() {
   const empresa = filtros.empresas[0];
   const temEmpresa = filtros.empresas.length === 1;
 
-  const [conta, setConta] = useState<number | null>(null);
+  // Nomes prefixados: a conta aqui é a que se está cadastrando, não a conta do
+  // extrato importado na outra aba — mesma seção, significados diferentes.
+  const [conta, setConta] = useEstadoSecao<number | null>("regras.conta", null);
   const [replicando, setReplicando] = useState<ContaBanco | null>(null);
-  const [busca, setBusca] = useState("");
+  const [busca, setBusca] = useEstadoSecao("regras.busca", "");
 
   // Contas que já têm cadastro: atalho para navegar entre elas.
   const { data: comRegras } = useQuery({

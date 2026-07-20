@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   AlertTriangle,
@@ -17,9 +17,9 @@ import clsx from "clsx";
 import { DropzoneArquivo } from "@/components/dropzone-arquivo";
 import { ContaDropdown } from "@/components/conta-dropdown";
 import { Kpi } from "@/components/kpi-conf";
+import { useEstadoSecao } from "@/hooks/use-estado-secao";
 import { useFiltros } from "@/hooks/use-filters";
 import { brl, dataBR, num } from "@/lib/format";
-import { CHAVES_CONCILIACAO } from "@/lib/conciliacao-cache";
 import type { ContaBanco } from "@/lib/types";
 import { gerarLancamentos, type LancamentoGerado, type RegraExtrato } from "@/lib/regras-extrato";
 
@@ -46,10 +46,6 @@ interface Previa {
   lancamentos: LancamentoGerado[];
 }
 
-// Chaves em módulo próprio: o shell precisa delas para liberar o cache quando
-// o usuário sai da seção. Ver `conciliacao-cache.ts`.
-const [CHAVE_EXTRATO, CHAVE_CONTA, CHAVE_AJUSTES] = CHAVES_CONCILIACAO;
-
 type Filtro = "todos" | "prontos" | "pendentes";
 /** Conta escolhida à mão para uma linha, só nesta importação. */
 type Ajustes = Record<number, number>;
@@ -71,29 +67,20 @@ function resumir(lancamentos: LancamentoGerado[], ajustes: Ajustes): Resumo {
 
 export default function ImportarPage() {
   const { filtros } = useFiltros();
-  const queryClient = useQueryClient();
   const empresa = filtros.empresas[0];
   const temEmpresa = filtros.empresas.length === 1;
 
-  // Estado restaurado do cache ao remontar (volta da aba Regras, por exemplo).
-  const [conta, setConta] = useState<number | null>(
-    () => queryClient.getQueryData<number>(CHAVE_CONTA) ?? null
-  );
-  const [previa, setPrevia] = useState<Previa | null>(
-    () => queryClient.getQueryData<Previa>(CHAVE_EXTRATO) ?? null
-  );
-  const [ajustes, setAjustes] = useState<Ajustes>(
-    () => queryClient.getQueryData<Ajustes>(CHAVE_AJUSTES) ?? {}
-  );
+  // Sobrevive à ida e volta para a aba Regras — o extrato lido é trabalho, não
+  // dá para pedir o arquivo de novo só porque o usuário foi cadastrar a regra.
+  const [conta, setConta] = useEstadoSecao<number | null>("conta", null);
+  const [previa, setPrevia] = useEstadoSecao<Previa | null>("extrato", null);
+  const [ajustes, setAjustes] = useEstadoSecao<Ajustes>("ajustes", {});
   const [enviando, setEnviando] = useState(false);
   const [atualizando, setAtualizando] = useState(false);
   const [senha, setSenha] = useState("");
-  const [filtro, setFiltro] = useState<Filtro>("todos");
+  const [filtro, setFiltro] = useEstadoSecao<Filtro>("filtro", "todos");
 
   function guardar(p: Previa | null, c: number | null, a: Ajustes) {
-    queryClient.setQueryData(CHAVE_EXTRATO, p);
-    queryClient.setQueryData(CHAVE_CONTA, c);
-    queryClient.setQueryData(CHAVE_AJUSTES, a);
     setPrevia(p);
     setConta(c);
     setAjustes(a);

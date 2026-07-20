@@ -1,10 +1,12 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import { useEffect } from "react";
 import { Loader2, Receipt } from "lucide-react";
 import { useIsFetching } from "@tanstack/react-query";
 import { FilterBar } from "@/components/filters/filter-bar";
 import { useFiltros } from "@/hooks/use-filters";
+import { limparEstadoSecao } from "@/lib/estado-secao";
 import { secaoAtual } from "@/lib/fiscal-secoes";
 import { dataBR } from "@/lib/format";
 
@@ -13,6 +15,14 @@ export function FiscalShell({ children }: { children: React.ReactNode }) {
   const { filtros } = useFiltros();
   const secao = secaoAtual(pathname);
   const carregando = useIsFetching() > 0;
+
+  // Busca e filtros de tela sobrevivem enquanto se está na seção; sair libera.
+  const secaoPath = secao?.path;
+  useEffect(() => {
+    return () => {
+      if (secaoPath) limparEstadoSecao(secaoPath);
+    };
+  }, [secaoPath]);
 
   return (
     <div className="mx-auto max-w-7xl px-6 py-6">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import {
   AlertTriangle,
   ArrowUpDown,
@@ -22,6 +22,7 @@ import { SeletorTipo } from "@/components/charts/top-bar-chart";
 import { Kpi } from "@/components/kpi-conf";
 import { FacetaDropdown } from "@/components/filters/faceta-dropdown";
 import { Dropdown, ItemLista } from "@/components/ui/dropdown";
+import { useEstadoSecao } from "@/hooks/use-estado-secao";
 import { useFiltros } from "@/hooks/use-filters";
 import { useConferencia } from "@/hooks/use-api";
 import { brl, brlCompact, dataBR, documento, num } from "@/lib/format";
@@ -123,24 +124,31 @@ function Linha({ nota, rotuloContraparte }: { nota: NotaConferida; rotuloContrap
 
 export default function ConferenciaPage() {
   const { filtros, qs } = useFiltros();
-  const [tipo, setTipo] = useState<Tipo>("ent");
-  const [situacao, setSituacao] = useState<FiltroSituacao>("problema");
-  const [busca, setBusca] = useState("");
-  const [buscaAplicada, setBuscaAplicada] = useState("");
-  const [especies, setEspecies] = useState<string[]>([]);
-  const [cfops, setCfops] = useState<string[]>([]);
-  const [ordem, setOrdem] = useState<Ordem>("valor_desc");
-  const [pagina, setPagina] = useState(1);
+  const [tipo, setTipo] = useEstadoSecao<Tipo>("tipo", "ent");
+  const [situacao, setSituacao] = useEstadoSecao<FiltroSituacao>("situacao", "problema");
+  const [busca, setBusca] = useEstadoSecao("busca", "");
+  const [buscaAplicada, setBuscaAplicada] = useEstadoSecao("buscaAplicada", "");
+  const [especies, setEspecies] = useEstadoSecao<string[]>("especies", []);
+  const [cfops, setCfops] = useEstadoSecao<string[]>("cfops", []);
+  const [ordem, setOrdem] = useEstadoSecao<Ordem>("ordem", "valor_desc");
+  const [pagina, setPagina] = useEstadoSecao("pagina", 1);
   const temEmpresa = filtros.empresas.length === 1;
 
   // Digitar não dispara consulta a cada tecla.
   useEffect(() => {
     const t = setTimeout(() => setBuscaAplicada(busca), 350);
     return () => clearTimeout(t);
-  }, [busca]);
+  }, [busca, setBuscaAplicada]);
 
-  // Qualquer mudança de recorte recomeça na primeira página.
-  useEffect(() => setPagina(1), [tipo, situacao, buscaAplicada, especies, cfops, ordem]);
+  // Qualquer mudança de recorte recomeça na primeira página — mas voltar da
+  // Configuração não é mudança: zerar na remontagem perderia a página guardada.
+  const recorte = [tipo, situacao, buscaAplicada, ordem, ...especies, "|", ...cfops].join(" ");
+  const recorteAnterior = useRef(recorte);
+  useEffect(() => {
+    if (recorteAnterior.current === recorte) return;
+    recorteAnterior.current = recorte;
+    setPagina(1);
+  }, [recorte, setPagina]);
 
   const url = useMemo(() => {
     const p = new URLSearchParams(qs);
