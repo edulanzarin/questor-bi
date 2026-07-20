@@ -70,22 +70,13 @@ export default function RegrasPage() {
           <Building2 className="size-6" />
         </span>
         <p className="text-sm font-medium text-ink">Selecione uma empresa</p>
-        <p className="max-w-md text-xs text-muted">
-          As regras de contrapartida são por empresa e por conta de banco. Escolha a empresa no
-          filtro acima.
-        </p>
+        <p className="max-w-md text-xs text-muted">Escolha a empresa no filtro acima.</p>
       </section>
     );
   }
 
   return (
     <>
-      <p className="max-w-3xl text-sm text-muted">
-        Escolha a conta de banco e diga em que conta contábil cai cada descrição do extrato. O que
-        entra debita o banco e credita a contrapartida; o que sai faz o inverso. Quando mais de uma
-        regra casa, vence a mais específica — exato ganha de contém, e entre contém o termo mais
-        longo ganha.
-      </p>
 
       <section className="card anim-fade-up flex flex-col gap-3 p-5">
         <div className="flex flex-wrap items-end justify-between gap-3">
@@ -138,8 +129,7 @@ export default function RegrasPage() {
           </span>
           <p className="text-sm font-medium text-ink">Escolha uma conta de banco</p>
           <p className="max-w-md text-xs text-muted">
-            Qualquer conta de caixa ou banco (1.1.01) do plano desta empresa. Não é preciso
-            cadastrar nada antes — o cadastro nasce na primeira regra.
+            Escolha a conta no seletor acima para ver e cadastrar as regras dela.
           </p>
         </section>
       ) : isLoading || !atual ? (
@@ -216,10 +206,6 @@ export default function RegrasPage() {
             </table>
           </div>
 
-          <p className="mt-3 text-[11px] text-muted">
-            Ordem de precedência de cima para baixo. Deixar uma contrapartida em branco faz a regra
-            ignorar aquele sentido — a transação aparece como pendente na importação.
-          </p>
         </section>
       )}
 

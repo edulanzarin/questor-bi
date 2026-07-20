@@ -197,9 +197,7 @@ export default function ImportarPage() {
           <Building2 className="size-6" />
         </span>
         <p className="text-sm font-medium text-ink">Selecione uma empresa</p>
-        <p className="max-w-md text-xs text-muted">
-          Escolha a empresa no filtro acima para importar o extrato dela.
-        </p>
+        <p className="max-w-md text-xs text-muted">Escolha a empresa no filtro acima.</p>
       </section>
     );
   }
@@ -254,13 +252,9 @@ export default function ImportarPage() {
           </button>
         )}
 
-        <p className="pb-2 text-[11px] text-muted">
-          {conta != null && cadastro
-            ? cadastro.regras.length > 0
-              ? `${cadastro.regras.length} ${cadastro.regras.length === 1 ? "regra cadastrada" : "regras cadastradas"} nesta conta`
-              : "Sem regras nesta conta — tudo vai sair como pendente"
-            : "OFX de qualquer banco · PDF só do Nubank por enquanto"}
-        </p>
+        {conta != null && cadastro && cadastro.regras.length === 0 && (
+          <p className="pb-2 text-[11px] text-warn">Esta conta ainda não tem regras</p>
+        )}
       </section>
 
       {!previa || !r ? (
@@ -270,8 +264,7 @@ export default function ImportarPage() {
           </span>
           <p className="text-sm font-medium text-ink">Nenhum extrato carregado</p>
           <p className="max-w-md text-xs text-muted">
-            Escolha a conta de banco e envie o OFX ou PDF. Nada é gravado: isto é uma prévia dos
-            lançamentos para conferir antes de exportar.
+            Escolha a conta de banco e envie o arquivo.
           </p>
         </section>
       ) : (
@@ -461,13 +454,6 @@ export default function ImportarPage() {
             </div>
           </section>
 
-          <p className="px-1 text-[11px] text-muted">
-            Recebimento debita a conta do banco e credita a contrapartida; pagamento faz o inverso.
-            A conta escolhida à mão vale só para esta importação e não vira regra — para não
-            precisar escolher de novo no mês que vem, cadastre na aba Regras e use “Reaplicar
-            regras”. A exportação para o Questor entra quando o formato do arquivo estiver
-            confirmado.
-          </p>
         </>
       )}
     </>

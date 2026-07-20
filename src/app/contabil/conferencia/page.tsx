@@ -168,8 +168,7 @@ export default function ConferenciaPage() {
         </span>
         <p className="text-sm font-medium text-ink">Selecione uma empresa</p>
         <p className="max-w-md text-xs text-muted">
-          A conferência roda uma empresa por vez. Escolha a empresa e o período (até 1 ano) no
-          filtro acima para ver o que falta lançar e o que foi lançado na conta errada.
+          Escolha a empresa e o período no filtro acima.
         </p>
       </section>
     );
@@ -180,10 +179,7 @@ export default function ConferenciaPage() {
 
   return (
     <>
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted">
-          Duas perguntas sobre as mesmas notas: foi contabilizada? e foi para a conta certa?
-        </p>
+      <div className="flex justify-end">
         <SeletorTipo tipo={tipo} onTipo={setTipo} />
       </div>
 
@@ -415,13 +411,6 @@ export default function ConferenciaPage() {
         )}
       </section>
 
-      <p className="px-1 text-[11px] text-muted">
-        &quot;Não exigem lançamento&quot; são operações que por CFOP não geram lançamento contábil
-        (remessa, retorno, industrialização por encomenda) — quem define isso é a aba Configuração.
-        Nas contabilizadas, só é cobrado o que o Questor lança nota a nota: tributo apurado
-        mensalmente (ICMS e IPI de saída) vai na apuração, não na nota. Valores só são conferidos em
-        nota de CFOP único.
-      </p>
     </>
   );
 }

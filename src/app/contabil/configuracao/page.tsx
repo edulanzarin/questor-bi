@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Building2, ChevronLeft, ChevronRight, PencilLine, Search, Settings2 } from "lucide-react";
+import { Building2, ChevronLeft, ChevronRight, PencilLine, Search } from "lucide-react";
 import clsx from "clsx";
 import { PlanoEditor } from "@/components/plano-editor";
 import { useFiltros } from "@/hooks/use-filters";
@@ -96,10 +96,7 @@ export default function ConfiguracaoPage() {
           <Building2 className="size-6" />
         </span>
         <p className="text-sm font-medium text-ink">Selecione uma empresa</p>
-        <p className="max-w-md text-xs text-muted">
-          O plano de contabilização é por empresa e não depende de período. Escolha a empresa no
-          filtro acima para ver em quais contas cada CFOP deve lançar.
-        </p>
+        <p className="max-w-md text-xs text-muted">Escolha a empresa no filtro acima.</p>
       </section>
     );
   }
@@ -108,19 +105,6 @@ export default function ConfiguracaoPage() {
 
   return (
     <>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="max-w-2xl text-sm text-muted">
-          O plano vem pronto do Questor: cada CFOP já sabe em quais contas lançar. Editar um CFOP
-          grava uma regra fixa da empresa, que passa a valer no lugar da do Questor até você
-          alterar de novo.
-        </p>
-        {!!dados?.overrides && (
-          <span className="rounded-lg bg-ent/12 px-2.5 py-1.5 text-xs font-medium text-ent">
-            {num(dados.overrides)} {dados.overrides === 1 ? "override ativo" : "overrides ativos"}
-          </span>
-        )}
-      </div>
-
       <section className="card anim-fade-up p-5">
         <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -129,7 +113,7 @@ export default function ConfiguracaoPage() {
               {dados
                 ? `${num(dados.total)} ${dados.total === 1 ? "CFOP" : "CFOPs"}${
                     dados.total !== dados.totalGeral ? ` de ${num(dados.totalGeral)}` : ""
-                  } · configuração fixa, sem período`
+                  }${dados.overrides ? ` · ${num(dados.overrides)} com override` : ""}`
                 : "…"}
             </p>
           </div>
@@ -263,14 +247,6 @@ export default function ConfiguracaoPage() {
         )}
       </section>
 
-      <p className="flex items-start gap-2 px-1 text-[11px] text-muted">
-        <Settings2 className="mt-px size-3.5 shrink-0" />
-        <span>
-          &quot;Variável&quot; é a conta que só se conhece no lançamento — a do fornecedor ou do
-          cliente. CFOP sem lançamento é operação que o Questor não contabiliza (remessa, retorno,
-          industrialização por encomenda).
-        </span>
-      </p>
 
       {editando && (
         <PlanoEditor
