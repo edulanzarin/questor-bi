@@ -135,7 +135,8 @@ export function conferirNota(
       if (oposto.has(conta)) {
         divs.push({
           tipo: "natureza",
-          componente: rotuloNatureza(natureza),
+          natureza,
+          componente: `Conta ${conta}`,
           detalhe: `Conta ${conta} foi lançada a ${rotuloNatureza(natureza).toLowerCase()}, mas o plano espera ${rotuloNatureza(-natureza as 1 | -1).toLowerCase()}`,
           contaEsperada: conta,
           contaLancada: conta,
@@ -149,7 +150,8 @@ export function conferirNota(
       if (aceitaVariavel) continue;
       divs.push({
         tipo: "conta",
-        componente: rotuloNatureza(natureza),
+        natureza,
+        componente: `Conta ${conta}`,
         detalhe: `Conta ${conta} não está no plano de contabilização deste CFOP`,
         contaEsperada: null,
         contaLancada: conta,
@@ -177,6 +179,7 @@ export function conferirNota(
         if (esperadoValor == null || Math.abs(esperadoValor) < TOLERANCIA) continue;
         divs.push({
           tipo: "faltando",
+          natureza,
           componente: linha.descrConta ?? `Conta ${conta}`,
           detalhe: `Esperado ${rotuloNatureza(natureza).toLowerCase()} de ${esperadoValor.toFixed(2)} na conta ${conta}, não gerado`,
           contaEsperada: conta,
@@ -191,6 +194,7 @@ export function conferirNota(
       if (Math.abs(valorLancado - esperadoValor) > TOLERANCIA) {
         divs.push({
           tipo: "valor",
+          natureza,
           componente: linha.descrConta ?? `Conta ${conta}`,
           detalhe: `Conta ${conta}: lançado ${valorLancado.toFixed(2)}, esperado ${esperadoValor.toFixed(2)} (${linha.regraValor})`,
           contaEsperada: conta,

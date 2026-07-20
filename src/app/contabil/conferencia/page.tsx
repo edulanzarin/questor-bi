@@ -111,6 +111,17 @@ function Linha({ nota, rotuloContraparte }: { nota: NotaConferida; rotuloContrap
           <ul className="mt-1.5 flex flex-col gap-1">
             {nota.divergencias.map((d, i) => (
               <li key={i} className="text-xs text-ink-2">
+                {/* Mesmo D/C do plano na Configuração: é por onde se começa a
+                    procurar no Questor. */}
+                <span
+                  className={clsx(
+                    "mr-1 font-semibold",
+                    d.natureza === 1 ? "text-ent" : "text-sai"
+                  )}
+                  title={d.natureza === 1 ? "Débito" : "Crédito"}
+                >
+                  {d.natureza === 1 ? "D" : "C"}
+                </span>
                 <span className="text-muted">{DIV_ROTULO[d.tipo]}:</span> {d.detalhe}
               </li>
             ))}

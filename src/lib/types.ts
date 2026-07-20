@@ -405,6 +405,11 @@ export type TipoDivergencia = "conta" | "faltando" | "valor" | "natureza" | "ext
 
 export interface Divergencia {
   tipo: TipoDivergencia;
+  /**
+   * Lado do razão a que o apontamento se refere: 1 = débito, -1 = crédito.
+   * É por onde se começa a procurar no Questor, então a tela mostra sempre.
+   */
+  natureza: 1 | -1;
   componente: string;
   detalhe: string;
   contaEsperada: number | null;
