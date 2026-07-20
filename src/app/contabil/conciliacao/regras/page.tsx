@@ -31,11 +31,9 @@ export default function RegrasPage() {
   const empresa = filtros.empresas[0];
   const temEmpresa = filtros.empresas.length === 1;
 
-  // Nomes prefixados: a conta aqui é a que se está cadastrando, não a conta do
-  // extrato importado na outra aba — mesma seção, significados diferentes.
-  const [conta, setConta] = useEstadoSecao<number | null>("regras.conta", null);
+  const [conta, setConta] = useEstadoSecao<number | null>("conta", null);
   const [replicando, setReplicando] = useState<ContaBanco | null>(null);
-  const [busca, setBusca] = useEstadoSecao("regras.busca", "");
+  const [busca, setBusca] = useEstadoSecao("busca", "");
 
   // Contas que já têm cadastro: atalho para navegar entre elas.
   const { data: comRegras } = useQuery({
