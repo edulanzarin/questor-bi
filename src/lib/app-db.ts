@@ -18,7 +18,7 @@ export const appPool =
   global._appPool ??
   new Pool({
     connectionString:
-      process.env.APP_DB_URL ?? "postgres://questorbi:questorbi@localhost:5433/questorbi",
+      process.env.APP_DB_URL ?? "postgres://questorbi:questorbi@localhost:5022/questorbi",
     max: 10,
     idleTimeoutMillis: 30_000,
     connectionTimeoutMillis: 10_000,

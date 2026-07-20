@@ -1,7 +1,7 @@
 services:
   app:
     build: .
-    container_name: questor-hub
+    container_name: questor-hub-app
     restart: unless-stopped
     # Acesso pela rede: http://<ip-do-computador>:4022
     # APP_PORT no .env.local muda a porta sem editar este arquivo.
@@ -11,7 +11,7 @@ services:
       - .env
     environment:
       # Dentro da rede do compose o banco próprio atende pelo nome do serviço.
-      # Vem depois do env_file de propósito: sobrescreve o valor de dev (localhost:5433).
+      # Vem depois do env_file de propósito: sobrescreve o valor de dev (localhost:5022).
       APP_DB_URL: postgres://questorbi:${APP_DB_PASSWORD:?defina APP_DB_PASSWORD no .env}@app-db:5432/questorbi
     depends_on:
       app-db:
@@ -36,7 +36,7 @@ services:
     # Sem `ports`: o app alcança o banco pela rede interna do compose
     # (app-db:5432). Publicar porta no host só serviria para acessar de fora, o
     # que em produção é risco e mais uma chance de colisão. Para desenvolver,
-    # o docker-compose.dev.yml publica em 127.0.0.1:5433.
+    # o docker-compose.dev.yml publica em 127.0.0.1:5022.
     volumes:
       - app-db-data:/var/lib/postgresql/data
     healthcheck:
