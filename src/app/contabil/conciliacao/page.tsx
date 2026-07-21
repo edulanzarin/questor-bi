@@ -193,39 +193,32 @@ export default function ImportarPage() {
 
   return (
     <>
-      <section className="card anim-fade-up flex flex-wrap items-end gap-x-4 gap-y-3 p-4">
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-medium text-ink-2">Conta de banco</label>
-          <ContaDropdown
-            empresa={empresa}
-            valor={conta}
-            onMudar={(c) => guardar(null, c, {})}
-            soBanco
-            placeholder="Escolher no plano de contas"
-          />
-        </div>
+      {/* Sem card: é a continuação da barra de filtros — empresa, conta,
+          arquivo. Quem executa é o envio do extrato ([[executar-com-botao]]). */}
+      <div className="anim-fade-up flex flex-wrap items-center gap-2">
+        <ContaDropdown
+          empresa={empresa}
+          valor={conta}
+          onMudar={(c) => guardar(null, c, {})}
+          soBanco
+          placeholder="Conta de banco no plano"
+        />
 
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-medium text-ink-2">Extrato</label>
-          <DropzoneArquivo
-            aceita={[".ofx", ".qfx", ".pdf"]}
-            onArquivo={enviar}
-            desabilitado={conta == null}
-            carregando={enviando}
-            motivo={conta == null ? "Escolha a conta primeiro" : undefined}
-          />
-        </div>
+        <DropzoneArquivo
+          aceita={[".ofx", ".qfx", ".pdf"]}
+          onArquivo={enviar}
+          desabilitado={conta == null}
+          carregando={enviando}
+          motivo={conta == null ? "Escolha a conta primeiro" : undefined}
+        />
 
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-medium text-ink-2">Senha do PDF</label>
-          <input
-            type="password"
-            value={senha}
-            onChange={(e) => setSenha(e.target.value)}
-            placeholder="só se for protegido"
-            className="h-9 w-40 rounded-lg border border-hairline bg-surface px-2.5 text-sm text-ink outline-none placeholder:text-muted"
-          />
-        </div>
+        <input
+          type="password"
+          value={senha}
+          onChange={(e) => setSenha(e.target.value)}
+          placeholder="senha do PDF, se protegido"
+          className="h-9 w-48 rounded-lg border border-hairline bg-surface px-2.5 text-sm text-ink outline-none placeholder:text-muted"
+        />
 
         {previa && (
           <button
@@ -240,9 +233,9 @@ export default function ImportarPage() {
         )}
 
         {conta != null && cadastro && cadastro.regras.length === 0 && (
-          <p className="pb-2 text-[11px] text-warn">Esta conta ainda não tem regras</p>
+          <p className="text-[11px] text-warn">Esta conta ainda não tem regras</p>
         )}
-      </section>
+      </div>
 
       {!previa || !r ? (
         <section className="card grid place-items-center gap-3 px-6 py-14 text-center">

@@ -13,6 +13,7 @@ import {
   abaContabilAtual,
   abasDaSecao,
   abaUsaPeriodo,
+  execucaoDaAba,
   secaoContabilAtual,
 } from "@/lib/contabil-secoes";
 import { limparEstadoSecao } from "@/lib/estado-secao";
@@ -36,6 +37,7 @@ export function ContabilShell({ children }: { children: React.ReactNode }) {
     };
   }, [secaoPath]);
   const usaPeriodo = abaUsaPeriodo(pathname);
+  const execucao = execucaoDaAba(pathname);
 
   // Os filtros seguem na URL ao trocar de aba.
   const qs = sp.toString();
@@ -92,9 +94,13 @@ export function ContabilShell({ children }: { children: React.ReactNode }) {
         </nav>
       )}
 
-      <ConfFilterBar mostrarPeriodo={abaUsaPeriodo(pathname)} />
+      <ConfFilterBar mostrarPeriodo={usaPeriodo} execucao={execucao} />
 
-      <div className="mt-5 space-y-4">{aplicado ? children : <FiltroPendente />}</div>
+      {/* O gate só existe onde há botão; tela de execução imediata cuida dos
+          próprios estados vazios (escolher conta, enviar arquivo). */}
+      <div className="mt-5 space-y-4">
+        {execucao.imediata || aplicado ? children : <FiltroPendente rotulo={execucao.rotulo} />}
+      </div>
     </div>
   );
 }

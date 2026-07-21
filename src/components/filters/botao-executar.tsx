@@ -1,41 +1,59 @@
 "use client";
 
-import { Play } from "lucide-react";
+import { Loader2, Play } from "lucide-react";
+import { useIsFetching } from "@tanstack/react-query";
 import clsx from "clsx";
 
 /**
- * Botão que aplica os filtros e dispara a consulta. É o único gatilho de
- * execução — nada roda ao mudar empresa/data ([[executar-com-botao]]).
- * Enfatizado quando há mudança pendente (`dirty`); segue clicável sem mudança
- * para reexecutar (atualizar). `disabled` bloqueia quando falta algo obrigatório.
+ * Botão que aplica os filtros e dispara a consulta — o único gatilho de
+ * execução ([[executar-com-botao]]). O rótulo segue a ação real da tela
+ * ("Executar" computa, "Carregar" só traz cadastro). Enfatizado quando há
+ * mudança pendente (`dirty`); com consulta em andamento vira spinner e trava,
+ * para o clique ter resposta visível no próprio botão.
  */
 export function BotaoExecutar({
   onClick,
   dirty,
+  rotulo = "Executar",
   disabled = false,
   title,
 }: {
   onClick: () => void;
   dirty: boolean;
+  rotulo?: string;
   disabled?: boolean;
   title?: string;
 }) {
+  // Só consultas de dados contam — as de suporte da própria barra (lista de
+  // empresas, contas do plano) não podem fazer o botão girar sozinho no mount.
+  const executando =
+    useIsFetching({
+      predicate: (q) => q.queryKey[0] !== "empresas" && q.queryKey[0] !== "contas",
+    }) > 0;
+  const travado = disabled || executando;
+
   return (
     <button
       onClick={onClick}
-      disabled={disabled}
+      disabled={travado}
       title={title}
       className={clsx(
         "flex h-9 items-center gap-1.5 rounded-lg px-3.5 text-sm font-medium transition-colors",
         disabled
           ? "cursor-not-allowed bg-surface-2 text-muted"
-          : dirty
-            ? "bg-ent text-white hover:opacity-90"
-            : "border border-hairline bg-surface-2 text-ink-2 hover:text-ink"
+          : executando
+            ? "cursor-wait bg-ent/70 text-white"
+            : dirty
+              ? "bg-ent text-white hover:opacity-90"
+              : "border border-hairline bg-surface-2 text-ink-2 hover:text-ink"
       )}
     >
-      <Play className="size-4" />
-      Executar
+      {executando ? (
+        <Loader2 className="size-4 animate-spin" />
+      ) : (
+        <Play className="size-4" />
+      )}
+      {executando ? "Executando…" : rotulo}
     </button>
   );
 }

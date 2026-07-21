@@ -12,6 +12,14 @@ export interface AbaContabil {
   descricao: string;
   /** Cadastro fixo por empresa: sem recorte de tempo. */
   semPeriodo?: boolean;
+  /**
+   * Como a tela dispara sua consulta ([[executar-com-botao]]):
+   * - ausente → botão "Executar" (consulta que computa algo);
+   * - string  → botão com esse rótulo ("Carregar" quando só traz cadastro);
+   * - null    → aplicação imediata, sem botão — a tela tem gatilho próprio
+   *   (na Conciliação, quem executa é o envio do extrato, não a barra).
+   */
+  execucao?: string | null;
 }
 
 export interface SecaoContabil extends SecaoFiscal {
@@ -44,6 +52,8 @@ export const SECOES_CONTABIL: SecaoContabil[] = [
         path: "/contabil/configuracao",
         descricao: "Plano de contabilização por CFOP — vale para a empresa toda",
         semPeriodo: true,
+        // Só traz o plano pronto do Questor, não computa nada: "Carregar".
+        execucao: "Carregar",
       },
     ],
   },
@@ -63,6 +73,8 @@ export const SECOES_CONTABIL: SecaoContabil[] = [
         path: "/contabil/conciliacao",
         descricao: "Ler OFX ou PDF e gerar os lançamentos",
         semPeriodo: true,
+        // Quem executa aqui é o envio do extrato; a empresa é só contexto.
+        execucao: null,
       },
       {
         id: "regras",
@@ -70,6 +82,8 @@ export const SECOES_CONTABIL: SecaoContabil[] = [
         path: "/contabil/conciliacao/regras",
         descricao: "Contrapartida de cada descrição do extrato",
         semPeriodo: true,
+        // Cadastro leve: escolher a conta já é o gesto, sem botão.
+        execucao: null,
       },
     ],
   },
@@ -106,4 +120,11 @@ export function abasDaSecao(pathname: string): AbaContabil[] {
  */
 export function abaUsaPeriodo(pathname: string): boolean {
   return !casar(pathname)?.aba.semPeriodo;
+}
+
+/** Como a aba executa: com botão (e qual rótulo) ou aplicação imediata. */
+export function execucaoDaAba(pathname: string): { imediata: boolean; rotulo: string } {
+  const execucao = casar(pathname)?.aba.execucao;
+  if (execucao === null) return { imediata: true, rotulo: "" };
+  return { imediata: false, rotulo: execucao ?? "Executar" };
 }

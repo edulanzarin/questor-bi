@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Dropdown, ItemLista } from "@/components/ui/dropdown";
 import { BotaoExecutar } from "@/components/filters/botao-executar";
 import { useEmpresas } from "@/hooks/use-api";
-import { useRascunhoFiltros } from "@/hooks/use-filters";
+import { useFiltros, useRascunhoFiltros } from "@/hooks/use-filters";
 import { dataBR, hojeISO, inicioDoMesISO } from "@/lib/format";
 
 function presets() {
@@ -31,11 +31,25 @@ function presets() {
  * `mostrarPeriodo=false` na aba Configuração: o plano de contabilização é
  * configuração fixa da empresa, não tem recorte de tempo.
  *
- * O usuário edita o rascunho (empresa/período) sem disparar nada; só o botão
- * Executar aplica e roda a consulta ([[executar-com-botao]]).
+ * `execucao` vem do catálogo da aba ([[executar-com-botao]]): com botão, o
+ * usuário edita o rascunho sem disparar nada e só o botão (com o verbo da
+ * tela — "Executar", "Carregar") aplica; `imediata` é para telas cujo gatilho
+ * pesado é próprio (o envio do extrato na Conciliação) — a empresa aplica na
+ * hora, porque ela é contexto, não consulta.
  */
-export function ConfFilterBar({ mostrarPeriodo = true }: { mostrarPeriodo?: boolean } = {}) {
-  const { rascunho, editar, dirty, executar } = useRascunhoFiltros();
+export function ConfFilterBar({
+  mostrarPeriodo = true,
+  execucao = { imediata: false, rotulo: "Executar" },
+}: {
+  mostrarPeriodo?: boolean;
+  execucao?: { imediata: boolean; rotulo: string };
+} = {}) {
+  const { filtros, atualizar } = useFiltros();
+  const { rascunho: rascunhoState, editar: editarRascunho, dirty, executar } =
+    useRascunhoFiltros();
+  // No modo imediato a fonte é o aplicado e editar já comita.
+  const rascunho = execucao.imediata ? filtros : rascunhoState;
+  const editar = execucao.imediata ? atualizar : editarRascunho;
   const { data: empresas } = useEmpresas();
   const [busca, setBusca] = useState("");
   const iniRef = useRef<HTMLInputElement>(null);
@@ -192,12 +206,15 @@ export function ConfFilterBar({ mostrarPeriodo = true }: { mostrarPeriodo?: bool
         </Dropdown>
       )}
 
-      <BotaoExecutar
-        onClick={executar}
-        dirty={dirty}
-        disabled={empresaSel == null}
-        title={empresaSel == null ? "Selecione uma empresa" : undefined}
-      />
+      {!execucao.imediata && (
+        <BotaoExecutar
+          onClick={executar}
+          dirty={dirty}
+          rotulo={execucao.rotulo}
+          disabled={empresaSel == null}
+          title={empresaSel == null ? "Selecione uma empresa" : undefined}
+        />
+      )}
     </div>
   );
 }
