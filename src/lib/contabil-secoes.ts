@@ -1,4 +1,4 @@
-import { ClipboardCheck, Landmark } from "lucide-react";
+import { ClipboardCheck, Landmark, Table2 } from "lucide-react";
 import type { SecaoFiscal } from "./fiscal-secoes";
 
 /**
@@ -54,6 +54,23 @@ export const SECOES_CONTABIL: SecaoContabil[] = [
         semPeriodo: true,
         // Só traz o plano pronto do Questor, não computa nada: "Carregar".
         execucao: "Carregar",
+      },
+    ],
+  },
+  {
+    id: "notas",
+    rotulo: "Notas",
+    icone: Table2,
+    path: "/contabil/notas",
+    metrica: false,
+    descricao: "Explorador de notas fiscais",
+    // Uma tela só: seção própria na sidebar (como o Dados do Fiscal), sem abas.
+    abas: [
+      {
+        id: "notas",
+        rotulo: "Notas",
+        path: "/contabil/notas",
+        descricao: "Todas as notas do período, com itens e produtos",
       },
     ],
   },

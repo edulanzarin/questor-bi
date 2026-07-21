@@ -77,10 +77,13 @@ export function ItensNota({
   );
 }
 
-export function NotasTabela({ qs, enabled, mostraEmpresa }: {
+export function NotasTabela({ qs, enabled, mostraEmpresa, modulo = "fiscal" }: {
   qs: string;
   enabled: boolean;
   mostraEmpresa: boolean;
+  /** Módulo que serve os dados — Fiscal (Dados) ou Contábil (Notas). Só troca
+   *  a rota da listagem, dos itens e das contrapartes; a UI é a mesma. */
+  modulo?: "fiscal" | "contabil";
 }) {
   const [tipo, setTipo] = useState<Tipo>("sai");
   const [busca, setBusca] = useState("");
@@ -114,7 +117,8 @@ export function NotasTabela({ qs, enabled, mostraEmpresa }: {
     buscaDeb,
     situacao,
     pessoa?.codigo ?? null,
-    enabled
+    enabled,
+    modulo
   );
   const total = data?.total ?? 0;
   const pageSize = data?.pageSize ?? 50;
@@ -229,6 +233,7 @@ export function NotasTabela({ qs, enabled, mostraEmpresa }: {
                     mostraEmpresa={mostraEmpresa}
                     tipo={tipo}
                     colSpan={colSpan}
+                    modulo={modulo}
                     onToggle={() => setAberta(aberto ? null : id)}
                   />
                 );
@@ -269,17 +274,19 @@ export function NotasTabela({ qs, enabled, mostraEmpresa }: {
         tipo={tipo}
         selecionado={pessoa}
         onSelecionar={setPessoa}
+        modulo={modulo}
       />
     </section>
   );
 }
 
-function FragmentRow({ n, aberto, mostraEmpresa, tipo, colSpan, onToggle }: {
+function FragmentRow({ n, aberto, mostraEmpresa, tipo, colSpan, modulo, onToggle }: {
   n: NotaLista;
   aberto: boolean;
   mostraEmpresa: boolean;
   tipo: Tipo;
   colSpan: number;
+  modulo: "fiscal" | "contabil";
   onToggle: () => void;
 }) {
   return (
@@ -330,7 +337,7 @@ function FragmentRow({ n, aberto, mostraEmpresa, tipo, colSpan, onToggle }: {
       {aberto && (
         <tr>
           <td colSpan={colSpan} className="border-b border-hairline bg-surface-2/30 p-0">
-            <ItensNota tipo={tipo} empresa={n.empresa} chave={n.chave} />
+            <ItensNota tipo={tipo} empresa={n.empresa} chave={n.chave} modulo={modulo} />
           </td>
         </tr>
       )}

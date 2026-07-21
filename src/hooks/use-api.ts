@@ -161,11 +161,14 @@ export const useNotasLista = (
   busca: string,
   situacao: "todas" | "normais" | "canceladas",
   pessoa: number | null,
-  enabled = true
+  enabled = true,
+  // Cada módulo serve o explorador pela sua própria rota (gate por módulo). A
+  // query é a mesma; muda só o caminho.
+  modulo: "fiscal" | "contabil" = "fiscal"
 ) =>
   useApiQuery<NotasListaResp>(
-    ["notas-lista", qs, tipo, page, busca, situacao, pessoa],
-    `/api/fiscal/notas-lista?${qs}&tipo=${tipo}&page=${page}&busca=${encodeURIComponent(busca)}&situacao=${situacao}${pessoa != null ? `&pessoa=${pessoa}` : ""}`,
+    ["notas-lista", modulo, qs, tipo, page, busca, situacao, pessoa],
+    `/api/${modulo}/notas-lista?${qs}&tipo=${tipo}&page=${page}&busca=${encodeURIComponent(busca)}&situacao=${situacao}${pessoa != null ? `&pessoa=${pessoa}` : ""}`,
     enabled
   );
 
@@ -174,11 +177,12 @@ export const useContrapartes = (
   tipo: "ent" | "sai",
   q: string,
   page: number,
-  enabled = true
+  enabled = true,
+  modulo: "fiscal" | "contabil" = "fiscal"
 ) =>
   useApiQuery<ContrapartesResp>(
-    ["contrapartes", qs, tipo, q, page],
-    `/api/fiscal/contrapartes?${qs}&tipo=${tipo}&q=${encodeURIComponent(q)}&page=${page}`,
+    ["contrapartes", modulo, qs, tipo, q, page],
+    `/api/${modulo}/contrapartes?${qs}&tipo=${tipo}&q=${encodeURIComponent(q)}&page=${page}`,
     enabled
   );
 

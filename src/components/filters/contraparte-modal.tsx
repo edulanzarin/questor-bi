@@ -18,6 +18,8 @@ interface Props {
   tipo: "ent" | "sai";
   selecionado: PessoaSel | null;
   onSelecionar: (p: PessoaSel | null) => void;
+  /** Módulo que serve a busca — cada um pela sua rota, gateada pelo módulo. */
+  modulo?: "fiscal" | "contabil";
 }
 
 export function ContraparteModal({
@@ -27,6 +29,7 @@ export function ContraparteModal({
   tipo,
   selecionado,
   onSelecionar,
+  modulo = "fiscal",
 }: Props) {
   const [q, setQ] = useState("");
   const [qDeb, setQDeb] = useState("");
@@ -52,7 +55,7 @@ export function ContraparteModal({
     };
   }, [aberto, onFechar]);
 
-  const { data, isFetching } = useContrapartes(qs, tipo, qDeb, page, aberto);
+  const { data, isFetching } = useContrapartes(qs, tipo, qDeb, page, aberto, modulo);
 
   if (!aberto) return null;
 
