@@ -38,10 +38,14 @@ export const GET = apiRoute(async (req) => {
       `with lc as (
          select to_char(l.datalctoctb,'YYYY-MM-DD') data,
                 substring(l.chaveorigem from 1 for 2) origem,
-                substring(l.chaveorigem from 3)::bigint chave,
+                -- só ME/MS têm chave de nota; IM (apuração, ex.: 'IMP01') / RE não.
+                case when l.chaveorigem ~ '^M[ES][0-9]+$'
+                     then substring(l.chaveorigem from 3)::bigint end chave,
                 l.valorlctoctb::float valor, l.complhist hist, l.${natCol} conta
            from lctoctb l
           where l.codigoempresa=$1 and l.codigooriglctoctb='FI'
+            -- só notas (ME/MS), pra bater com a coluna Contábil do balancete
+            and (l.chaveorigem like 'ME%' or l.chaveorigem like 'MS%')
             and l.datalctoctb between $2 and $3 and l.${natCol} = any($4::bigint[])
        )
        select lc.data, lc.origem, lc.chave, lc.valor, lc.conta,

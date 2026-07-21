@@ -435,7 +435,8 @@ export interface BalanceteLancamento {
   data: string;
   /** Prefixo da origem: ME/MS (nota), IM (apuração), RE (retenção). */
   origem: string;
-  chave: number;
+  /** Chave da nota — null em apuração/retenção (IM/RE), que não têm nota. */
+  chave: number | null;
   conta: number;
   valor: number;
   historico: string;
