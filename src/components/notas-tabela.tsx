@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, ChevronRight, Filter, Loader2, Search, Table2 } from "lucide-react";
+import { ChevronRight, Filter, Loader2, Search, Table2 } from "lucide-react";
 import clsx from "clsx";
 import { SeletorTipo } from "@/components/charts/top-bar-chart";
 import { ContraparteModal, type PessoaSel } from "@/components/filters/contraparte-modal";
-import { useNotaItens, useNotasLista } from "@/hooks/use-api";
+import { NotaExploradorModal } from "@/components/nota-explorador-modal";
+import { useNotasLista } from "@/hooks/use-api";
 import { brl, dataBR, documento, num } from "@/lib/format";
 import type { NotaLista } from "@/lib/types";
 
@@ -17,65 +18,6 @@ const SITUACOES: { id: Situacao; rotulo: string }[] = [
   { id: "normais", rotulo: "Normais" },
   { id: "canceladas", rotulo: "Canceladas" },
 ];
-
-/** Tabela de itens (produtos) de uma nota. Reusada no drill-down do Fiscal e no
- *  modal de detalhe da Conferência (Contábil) — `modulo` só troca a rota. */
-export function ItensNota({
-  tipo,
-  empresa,
-  chave,
-  modulo = "fiscal",
-}: {
-  tipo: Tipo;
-  empresa: number;
-  chave: string;
-  modulo?: "fiscal" | "contabil";
-}) {
-  const { data, isLoading } = useNotaItens(tipo, empresa, chave, modulo);
-  if (isLoading)
-    return (
-      <div className="flex items-center gap-2 px-4 py-3 text-xs text-muted">
-        <Loader2 className="size-3.5 animate-spin" /> Carregando itens…
-      </div>
-    );
-  if (!data || data.length === 0)
-    return <div className="px-4 py-3 text-xs text-muted">Sem itens de produto nesta nota.</div>;
-  return (
-    <div className="overflow-x-auto px-4 py-3">
-      <table className="w-full min-w-[680px] text-xs">
-        <thead>
-          <tr className="text-left text-muted">
-            <th className="py-1 pr-3 font-medium">Produto</th>
-            <th className="py-1 pr-3 font-medium">CFOP</th>
-            <th className="py-1 pr-3 text-right font-medium">Qtd</th>
-            <th className="py-1 pr-3 text-right font-medium">V. unit.</th>
-            <th className="py-1 pr-3 text-right font-medium">Total</th>
-            <th className="py-1 pr-3 text-right font-medium">ICMS</th>
-            <th className="py-1 text-right font-medium">IPI</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.map((it) => (
-            <tr key={it.seq} className="border-t border-hairline/60">
-              <td className="max-w-[240px] truncate py-1.5 pr-3" title={it.descricao ?? ""}>
-                <span className="text-muted">{it.produto}</span> · {it.descricao ?? "—"}
-              </td>
-              <td className="py-1.5 pr-3 text-muted" title={it.cfopDescr ?? ""}>{it.cfop}</td>
-              <td className="tnum py-1.5 pr-3 text-right">
-                {it.quantidade.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}
-                {it.unidade ? <span className="text-muted"> {it.unidade}</span> : null}
-              </td>
-              <td className="tnum py-1.5 pr-3 text-right">{brl(it.valorUnitario)}</td>
-              <td className="tnum py-1.5 pr-3 text-right font-medium">{brl(it.valorTotal)}</td>
-              <td className="tnum py-1.5 pr-3 text-right text-muted">{brl(it.icms)}</td>
-              <td className="tnum py-1.5 text-right text-muted">{brl(it.ipi)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
 
 export function NotasTabela({ qs, enabled, mostraEmpresa, modulo = "fiscal" }: {
   qs: string;
@@ -92,7 +34,8 @@ export function NotasTabela({ qs, enabled, mostraEmpresa, modulo = "fiscal" }: {
   const [pessoa, setPessoa] = useState<PessoaSel | null>(null);
   const [modalContra, setModalContra] = useState(false);
   const [page, setPage] = useState(1);
-  const [aberta, setAberta] = useState<string | null>(null);
+  // Nota aberta no modal de detalhe — efêmera, não sobrevive à troca de recorte.
+  const [notaAberta, setNotaAberta] = useState<NotaLista | null>(null);
 
   // debounce da busca
   useEffect(() => {
@@ -107,7 +50,7 @@ export function NotasTabela({ qs, enabled, mostraEmpresa, modulo = "fiscal" }: {
     if (recorteAnterior.current === recorte) return;
     recorteAnterior.current = recorte;
     setPage(1);
-    setAberta(null);
+    setNotaAberta(null);
   }, [recorte]);
 
   const { data, isLoading, isFetching } = useNotasLista(
@@ -141,8 +84,8 @@ export function NotasTabela({ qs, enabled, mostraEmpresa, modulo = "fiscal" }: {
             <h2 className="text-sm font-semibold">Notas fiscais</h2>
             <p className="mt-0.5 text-xs text-muted">
               {total > 0
-                ? `${num(total)} ${total === 1 ? "nota" : "notas"} no período · clique pra ver os itens`
-                : "Dados brutos · clique numa nota pra ver os itens"}
+                ? `${num(total)} ${total === 1 ? "nota" : "notas"} no período · clique pra ver o detalhe`
+                : "Dados brutos · clique numa nota pra ver o detalhe"}
             </p>
           </div>
         </div>
@@ -193,14 +136,14 @@ export function NotasTabela({ qs, enabled, mostraEmpresa, modulo = "fiscal" }: {
         <table className="w-full min-w-[820px] text-sm">
           <thead className="text-left text-xs text-muted">
             <tr className="border-b border-hairline">
-              <th className="w-8 py-2.5 pl-5" />
-              <th className="py-2.5 pr-3 font-medium">Data</th>
+              <th className="py-2.5 pl-5 pr-3 font-medium">Data</th>
               {mostraEmpresa && <th className="py-2.5 pr-3 font-medium">Empresa</th>}
               <th className="py-2.5 pr-3 font-medium">Nº · Série</th>
               <th className="py-2.5 pr-3 font-medium">Espécie</th>
               <th className="py-2.5 pr-3 font-medium">Contraparte</th>
               <th className="py-2.5 pr-3 font-medium">UF</th>
-              <th className="py-2.5 pr-5 text-right font-medium">Valor</th>
+              <th className="py-2.5 pr-3 text-right font-medium">Valor</th>
+              <th className="w-6" />
             </tr>
           </thead>
           <tbody className={clsx(isFetching && !isLoading && "opacity-60 transition-opacity")}>
@@ -222,22 +165,14 @@ export function NotasTabela({ qs, enabled, mostraEmpresa, modulo = "fiscal" }: {
             )}
 
             {!isLoading &&
-              linhas.map((n: NotaLista) => {
-                const id = `${n.empresa}-${n.chave}`;
-                const aberto = aberta === id;
-                return (
-                  <FragmentRow
-                    key={id}
-                    n={n}
-                    aberto={aberto}
-                    mostraEmpresa={mostraEmpresa}
-                    tipo={tipo}
-                    colSpan={colSpan}
-                    modulo={modulo}
-                    onToggle={() => setAberta(aberto ? null : id)}
-                  />
-                );
-              })}
+              linhas.map((n: NotaLista) => (
+                <Linha
+                  key={`${n.empresa}-${n.chave}`}
+                  n={n}
+                  mostraEmpresa={mostraEmpresa}
+                  onAbrir={() => setNotaAberta(n)}
+                />
+              ))}
           </tbody>
         </table>
       </div>
@@ -276,71 +211,64 @@ export function NotasTabela({ qs, enabled, mostraEmpresa, modulo = "fiscal" }: {
         onSelecionar={setPessoa}
         modulo={modulo}
       />
+      <NotaExploradorModal
+        nota={notaAberta}
+        tipo={tipo}
+        modulo={modulo}
+        mostraEmpresa={mostraEmpresa}
+        onFechar={() => setNotaAberta(null)}
+      />
     </section>
   );
 }
 
-function FragmentRow({ n, aberto, mostraEmpresa, tipo, colSpan, modulo, onToggle }: {
+function Linha({ n, mostraEmpresa, onAbrir }: {
   n: NotaLista;
-  aberto: boolean;
   mostraEmpresa: boolean;
-  tipo: Tipo;
-  colSpan: number;
-  modulo: "fiscal" | "contabil";
-  onToggle: () => void;
+  onAbrir: () => void;
 }) {
   return (
-    <>
-      <tr
-        onClick={onToggle}
+    <tr
+      onClick={onAbrir}
+      className={clsx(
+        "group cursor-pointer border-b border-hairline/60 transition-colors hover:bg-surface-2/60",
+        n.cancelada && "text-muted"
+      )}
+    >
+      <td className="tnum py-2.5 pl-5 pr-3 whitespace-nowrap">{dataBR(n.data)}</td>
+      {mostraEmpresa && (
+        <td className="max-w-[180px] truncate py-2.5 pr-3" title={n.empresaNome ?? ""}>
+          {n.empresaNome ?? `Empresa ${n.empresa}`}
+        </td>
+      )}
+      <td className="tnum py-2.5 pr-3 whitespace-nowrap">
+        {n.numero}
+        {n.serie ? <span className="text-muted">/{n.serie}</span> : null}
+      </td>
+      <td className="py-2.5 pr-3">
+        <span className="rounded bg-surface-2 px-1.5 py-0.5 text-xs text-ink-2">{n.especie}</span>
+        {n.cancelada && (
+          <span className="ml-1.5 rounded bg-sai/12 px-1.5 py-0.5 text-xs text-sai">cancelada</span>
+        )}
+      </td>
+      <td className="max-w-[280px] py-2.5 pr-3">
+        <div className="truncate" title={n.contraparte ?? ""}>{n.contraparte ?? "—"}</div>
+        {n.contraparteDoc && (
+          <div className="tnum text-xs text-muted">{documento(n.contraparteDoc)}</div>
+        )}
+      </td>
+      <td className="py-2.5 pr-3 text-muted">{n.uf ?? "—"}</td>
+      <td
         className={clsx(
-          "cursor-pointer border-b border-hairline/60 transition-colors hover:bg-surface-2/60",
-          aberto && "bg-surface-2/60",
-          n.cancelada && "text-muted"
+          "tnum py-2.5 pr-3 text-right font-medium whitespace-nowrap",
+          n.cancelada && "line-through"
         )}
       >
-        <td className="py-2.5 pl-5 text-muted">
-          {aberto ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
-        </td>
-        <td className="tnum py-2.5 pr-3 whitespace-nowrap">{dataBR(n.data)}</td>
-        {mostraEmpresa && (
-          <td className="max-w-[180px] truncate py-2.5 pr-3" title={n.empresaNome ?? ""}>
-            {n.empresaNome ?? `Empresa ${n.empresa}`}
-          </td>
-        )}
-        <td className="tnum py-2.5 pr-3 whitespace-nowrap">
-          {n.numero}
-          {n.serie ? <span className="text-muted">/{n.serie}</span> : null}
-        </td>
-        <td className="py-2.5 pr-3">
-          <span className="rounded bg-surface-2 px-1.5 py-0.5 text-xs text-ink-2">{n.especie}</span>
-          {n.cancelada && (
-            <span className="ml-1.5 rounded bg-sai/12 px-1.5 py-0.5 text-xs text-sai">cancelada</span>
-          )}
-        </td>
-        <td className="max-w-[280px] py-2.5 pr-3">
-          <div className="truncate" title={n.contraparte ?? ""}>{n.contraparte ?? "—"}</div>
-          {n.contraparteDoc && (
-            <div className="tnum text-xs text-muted">{documento(n.contraparteDoc)}</div>
-          )}
-        </td>
-        <td className="py-2.5 pr-3 text-muted">{n.uf ?? "—"}</td>
-        <td
-          className={clsx(
-            "tnum py-2.5 pr-5 text-right font-medium whitespace-nowrap",
-            n.cancelada && "line-through"
-          )}
-        >
-          {brl(n.valor)}
-        </td>
-      </tr>
-      {aberto && (
-        <tr>
-          <td colSpan={colSpan} className="border-b border-hairline bg-surface-2/30 p-0">
-            <ItensNota tipo={tipo} empresa={n.empresa} chave={n.chave} modulo={modulo} />
-          </td>
-        </tr>
-      )}
-    </>
+        {brl(n.valor)}
+      </td>
+      <td className="w-6 py-2.5 pl-1 pr-5 text-muted">
+        <ChevronRight className="size-4 opacity-0 transition-opacity group-hover:opacity-100" />
+      </td>
+    </tr>
   );
 }

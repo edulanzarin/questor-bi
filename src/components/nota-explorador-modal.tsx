@@ -3,23 +3,13 @@
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
-import clsx from "clsx";
 import { ItensNota } from "@/components/itens-nota";
-import { SituacaoBadge } from "@/components/situacao-badge";
 import { brl, dataBR, documento, num } from "@/lib/format";
-import type { NotaConferida, TipoDivergencia } from "@/lib/types";
-
-const DIV_ROTULO: Record<TipoDivergencia, string> = {
-  conta: "Conta fora do plano",
-  faltando: "Lançamento faltando",
-  valor: "Valor divergente",
-  natureza: "Natureza invertida",
-  extra: "Lançamento extra",
-};
+import type { NotaLista } from "@/lib/types";
 
 function Campo({ rotulo, children }: { rotulo: string; children: React.ReactNode }) {
   return (
-    <div>
+    <div className="min-w-0">
       <p className="text-[10px] font-medium uppercase tracking-wide text-muted">{rotulo}</p>
       <div className="mt-0.5 text-sm text-ink">{children}</div>
     </div>
@@ -27,19 +17,22 @@ function Campo({ rotulo, children }: { rotulo: string; children: React.ReactNode
 }
 
 /**
- * Detalhe de uma nota da Conferência: cabeçalho, resumo, divergências e os itens
- * (produtos), buscados sob demanda pela rota do Contábil. Abre ao clicar na linha
- * da tabela — que fica enxuta, com o detalhe aqui.
+ * Detalhe de uma nota do explorador (Fiscal → Dados, Contábil → Notas). Abre ao
+ * clicar na linha — que fica enxuta, com o detalhe completo aqui: cabeçalho,
+ * campos que não cabem na tabela (documento, modelo, chave de acesso de 44
+ * dígitos) e os itens/produtos, buscados sob demanda pela rota do módulo.
  */
-export function NotaDetalheModal({
+export function NotaExploradorModal({
   nota,
   tipo,
-  empresa,
+  modulo,
+  mostraEmpresa,
   onFechar,
 }: {
-  nota: NotaConferida | null;
+  nota: NotaLista | null;
   tipo: "ent" | "sai";
-  empresa: number;
+  modulo: "fiscal" | "contabil";
+  mostraEmpresa: boolean;
   onFechar: () => void;
 }) {
   useEffect(() => {
@@ -59,7 +52,6 @@ export function NotaDetalheModal({
     nota.especie,
     `${num(nota.numero)}${nota.serie ? ` / ${nota.serie}` : ""}`,
     dataBR(nota.data),
-    documento(nota.doc),
     nota.uf,
   ]
     .filter(Boolean)
@@ -79,9 +71,16 @@ export function NotaDetalheModal({
       >
         <header className="flex items-start justify-between gap-4 border-b border-hairline px-6 py-4">
           <div className="min-w-0">
-            <h3 className="truncate text-lg font-semibold" title={nota.contraparte ?? ""}>
-              {nota.contraparte ?? "Nota sem contraparte"}
-            </h3>
+            <div className="flex items-center gap-2">
+              <h3 className="truncate text-lg font-semibold" title={nota.contraparte ?? ""}>
+                {nota.contraparte ?? "Nota sem contraparte"}
+              </h3>
+              {nota.cancelada && (
+                <span className="shrink-0 rounded bg-sai/12 px-1.5 py-0.5 text-xs text-sai">
+                  cancelada
+                </span>
+              )}
+            </div>
             <p className="mt-0.5 truncate text-xs text-muted">{legenda}</p>
           </div>
           <button
@@ -95,43 +94,34 @@ export function NotaDetalheModal({
 
         <div className="min-h-0 flex-1 overflow-y-auto">
           <div className="grid grid-cols-2 gap-x-6 gap-y-3 border-b border-hairline px-6 py-4 sm:grid-cols-4">
-            <Campo rotulo="Situação">
-              <SituacaoBadge situacao={nota.situacao} />
-            </Campo>
             <Campo rotulo="Valor">
-              <span className="font-semibold tabular-nums">{brl(nota.valor)}</span>
+              <span className={nota.cancelada ? "font-semibold tabular-nums line-through" : "font-semibold tabular-nums"}>
+                {brl(nota.valor)}
+              </span>
             </Campo>
-            <Campo rotulo="CFOP">
-              <span className="tabular-nums">{nota.cfops.join(", ") || "—"}</span>
+            <Campo rotulo="Documento">
+              <span className="tabular-nums">{nota.contraparteDoc ? documento(nota.contraparteDoc) : "—"}</span>
             </Campo>
-            <Campo rotulo="Lançamentos">
-              <span className="tabular-nums">{num(nota.lancamentos)}</span>
+            <Campo rotulo="Modelo">
+              <span className="tabular-nums">{nota.modelo ?? "—"}</span>
             </Campo>
+            {mostraEmpresa && (
+              <Campo rotulo="Empresa">
+                <span className="block truncate" title={nota.empresaNome ?? ""}>
+                  {nota.empresaNome ?? `Empresa ${nota.empresa}`}
+                </span>
+              </Campo>
+            )}
           </div>
 
-          {nota.divergencias.length > 0 && (
+          {nota.chaveNfe && (
             <div className="border-b border-hairline px-6 py-4">
-              <p className="mb-2 text-[10px] font-medium uppercase tracking-wide text-muted">
-                Divergências
+              <p className="text-[10px] font-medium uppercase tracking-wide text-muted">
+                Chave de acesso
               </p>
-              <ul className="flex flex-col gap-1.5">
-                {nota.divergencias.map((d, i) => (
-                  <li key={i} className="text-sm text-ink-2">
-                    {/* Mesmo D/C do plano na Configuração: é por onde se começa a
-                        procurar no Questor. */}
-                    <span
-                      className={clsx(
-                        "mr-1 font-semibold",
-                        d.natureza === 1 ? "text-ent" : "text-sai"
-                      )}
-                      title={d.natureza === 1 ? "Débito" : "Crédito"}
-                    >
-                      {d.natureza === 1 ? "D" : "C"}
-                    </span>
-                    <span className="text-muted">{DIV_ROTULO[d.tipo]}:</span> {d.detalhe}
-                  </li>
-                ))}
-              </ul>
+              <p className="mt-0.5 break-all font-mono text-xs text-ink-2 select-all">
+                {nota.chaveNfe}
+              </p>
             </div>
           )}
 
@@ -139,7 +129,7 @@ export function NotaDetalheModal({
             <p className="px-6 pb-1 pt-2 text-[10px] font-medium uppercase tracking-wide text-muted">
               Itens da nota
             </p>
-            <ItensNota tipo={tipo} empresa={empresa} chave={nota.chave} modulo="contabil" />
+            <ItensNota tipo={tipo} empresa={nota.empresa} chave={nota.chave} modulo={modulo} />
           </div>
         </div>
       </div>
