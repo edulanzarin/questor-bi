@@ -430,6 +430,24 @@ export interface BalanceteFiscalResp {
   nivelMax: number;
 }
 
+/** Um lançamento real que compõe o movimento de uma conta (drill-down). */
+export interface BalanceteLancamento {
+  data: string;
+  /** Prefixo da origem: ME/MS (nota), IM (apuração), RE (retenção). */
+  origem: string;
+  chave: number;
+  conta: number;
+  valor: number;
+  historico: string;
+  numero: number | null;
+  contraparte: string | null;
+}
+
+export interface BalanceteLancamentosResp {
+  lancamentos: BalanceteLancamento[];
+  total: number;
+}
+
 /** Estabelecimento (filial) da empresa — cada um tem CNPJ próprio. */
 export interface EstabInfo {
   codigo: number;

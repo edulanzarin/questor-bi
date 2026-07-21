@@ -30,6 +30,7 @@ import type {
   ConferenciaResp,
   PlanoResp,
   BalanceteFiscalResp,
+  BalanceteLancamentosResp,
 } from "@/lib/types";
 
 async function fetchJson<T>(url: string): Promise<T> {
@@ -305,6 +306,17 @@ export const useBalanceteFiscal = (qs: string, enabled = true) =>
     ["balancete-fiscal", qs],
     `/api/contabil/balancete-fiscal?${qs}`,
     enabled
+  );
+
+export const useBalanceteLancamentos = (
+  qs: string,
+  classif: string | null,
+  natureza: 1 | -1
+) =>
+  useApiQuery<BalanceteLancamentosResp>(
+    ["balancete-lancamentos", qs, classif, natureza],
+    `/api/contabil/balancete-lancamentos?${qs}&classif=${encodeURIComponent(classif ?? "")}&natureza=${natureza}`,
+    classif != null
   );
 
 export const useTributosDifal = (qs: string, enabled = true) =>

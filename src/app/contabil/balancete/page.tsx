@@ -5,6 +5,10 @@ import { AlertTriangle, Building2, Layers } from "lucide-react";
 import clsx from "clsx";
 import { useFiltros } from "@/hooks/use-filters";
 import { useBalanceteFiscal } from "@/hooks/use-api";
+import {
+  BalanceteLancamentosModal,
+  type AlvoBalancete,
+} from "@/components/balancete-lancamentos-modal";
 import { brl, num } from "@/lib/format";
 import type { BalanceteLinha } from "@/lib/types";
 
@@ -18,6 +22,7 @@ export default function BalanceteFiscalPage() {
   const { filtros, qs } = useFiltros();
   const temEmpresa = filtros.empresas.length === 1;
   const [nivel, setNivel] = useState(3);
+  const [alvo, setAlvo] = useState<AlvoBalancete | null>(null);
 
   const bal = useBalanceteFiscal(qs, temEmpresa);
   const dados = bal.data;
@@ -111,18 +116,39 @@ export default function BalanceteFiscalPage() {
               </thead>
               <tbody>
                 {linhas.map((l) => (
-                  <Linha key={`${l.classif}-${l.conta}`} l={l} />
+                  <Linha
+                    key={`${l.classif}-${l.conta}`}
+                    l={l}
+                    onDrill={(natureza) =>
+                      setAlvo({ classif: l.classif, natureza, descricao: `${l.conta} · ${l.descricao}` })
+                    }
+                  />
                 ))}
               </tbody>
             </table>
           </div>
         </div>
       )}
+
+      <BalanceteLancamentosModal qs={qs} alvo={alvo} onFechar={() => setAlvo(null)} />
     </section>
   );
 }
 
-function Linha({ l }: { l: BalanceteLinha }) {
+/** Valor real clicável (drill-down) quando não é zero. */
+function ValReal({ v, natureza, onDrill }: { v: number; natureza: 1 | -1; onDrill: (n: 1 | -1) => void }) {
+  if (Math.abs(v) < 0.005) return <span className="text-muted/40">—</span>;
+  return (
+    <button
+      onClick={() => onDrill(natureza)}
+      className="tabular-nums text-ink transition-colors hover:text-ent hover:underline"
+    >
+      {brl(v)}
+    </button>
+  );
+}
+
+function Linha({ l, onDrill }: { l: BalanceteLinha; onDrill: (natureza: 1 | -1) => void }) {
   const difNet = l.fiscalDeb - l.fiscalCred - (l.realDeb - l.realCred);
   const temDif = Math.abs(difNet) > 0.5;
   const grande = Math.abs(difNet) > 100;
@@ -146,10 +172,10 @@ function Linha({ l }: { l: BalanceteLinha }) {
         <Val v={l.fiscalCred} forte={l.sintetica} />
       </td>
       <td className="border-l border-hairline/50 py-1.5 pl-3 pr-3 text-right">
-        <Val v={l.realDeb} forte={l.sintetica} />
+        <ValReal v={l.realDeb} natureza={1} onDrill={onDrill} />
       </td>
       <td className="py-1.5 pr-3 text-right">
-        <Val v={l.realCred} forte={l.sintetica} />
+        <ValReal v={l.realCred} natureza={-1} onDrill={onDrill} />
       </td>
       <td
         className={clsx(
