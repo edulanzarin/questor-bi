@@ -1,0 +1,5 @@
+# Scripts de shell PRECISAM de LF, mesmo em clones no Windows (autocrlf=true).
+# Com CRLF, o `\r` entra no shebang e o container falha ao subir com
+# "exec ./docker-entrypoint.sh: no such file or directory".
+*.sh text eol=lf
+docker-entrypoint.sh text eol=lf

@@ -39,7 +39,9 @@ COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --chown=nextjs:nodejs migrations ./migrations
 COPY --chown=nextjs:nodejs scripts ./scripts
 COPY --chown=nextjs:nodejs docker-entrypoint.sh ./
-RUN chmod +x docker-entrypoint.sh
+# Remove CR (caso o host tenha feito checkout CRLF, ex.: Windows/autocrlf) para
+# o shebang não virar "/bin/sh\r", e garante o bit executável no próprio build.
+RUN sed -i 's/\r$//' docker-entrypoint.sh && chmod +x docker-entrypoint.sh
 
 USER nextjs
 EXPOSE 3000
