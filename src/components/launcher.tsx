@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, BarChart3 } from "lucide-react";
+import { BarChart3 } from "lucide-react";
 import { MODULOS, type ModuloId } from "@/lib/modulos";
 import { ThemeToggle } from "./theme-toggle";
 
@@ -8,6 +8,9 @@ import { ThemeToggle } from "./theme-toggle";
  * de permissão — só entram na grade os módulos que a sessão libera (`acessiveis`
  * vem do perfil no servidor). Módulo ainda por vir aparece como "em breve", pra
  * sinalizar o roteiro sem prometer o que não abre.
+ *
+ * Card icônico: o ícone grande é o foco, o título vem abaixo. A descrição não
+ * ocupa espaço — fica só no tooltip (title), pra tela respirar.
  */
 export function Launcher({
   usuario,
@@ -37,7 +40,7 @@ export function Launcher({
         <p className="text-sm text-muted">Bem-vindo, {usuario}</p>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight">Escolha um módulo</h1>
 
-        <div className="mt-8 grid gap-4 sm:grid-cols-2">
+        <div className="mt-8 grid gap-5 sm:grid-cols-2">
           {visiveis.map((m) => {
             const Icone = m.icone;
 
@@ -45,20 +48,18 @@ export function Launcher({
               return (
                 <div
                   key={m.id}
-                  className="card anim-scale-in flex items-start gap-4 p-5 opacity-55"
+                  title={m.descricao}
                   aria-disabled
+                  className="card anim-scale-in flex flex-col items-center gap-4 px-6 py-8 text-center opacity-55"
                 >
-                  <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-surface-2 text-muted">
-                    <Icone className="size-5" />
+                  <span className="grid size-16 place-items-center rounded-2xl bg-surface-2 text-muted">
+                    <Icone className="size-8" />
                   </span>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium">{m.titulo}</p>
-                      <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[10px] uppercase tracking-wide text-muted">
-                        em breve
-                      </span>
-                    </div>
-                    <p className="mt-0.5 text-sm text-muted">{m.descricao}</p>
+                  <div>
+                    <p className="text-base font-semibold">{m.titulo}</p>
+                    <span className="mt-1 inline-block text-[10px] font-medium uppercase tracking-wide text-muted">
+                      em breve
+                    </span>
                   </div>
                 </div>
               );
@@ -68,16 +69,13 @@ export function Launcher({
               <Link
                 key={m.id}
                 href={m.home}
-                className="card anim-scale-in group flex items-start gap-4 p-5 transition-colors hover:border-ent/40 hover:bg-surface-2"
+                title={m.descricao}
+                className="card anim-scale-in group flex flex-col items-center gap-4 px-6 py-8 text-center transition-colors hover:border-ent/40 hover:bg-surface-2"
               >
-                <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-ent/12 text-ent">
-                  <Icone className="size-5" />
+                <span className="grid size-16 place-items-center rounded-2xl bg-ent/12 text-ent transition-colors group-hover:bg-ent/20">
+                  <Icone className="size-8" />
                 </span>
-                <div className="min-w-0 flex-1">
-                  <p className="font-medium">{m.titulo}</p>
-                  <p className="mt-0.5 text-sm text-muted">{m.descricao}</p>
-                </div>
-                <ArrowRight className="size-4 shrink-0 text-muted transition-transform group-hover:translate-x-0.5 group-hover:text-ent" />
+                <p className="text-base font-semibold">{m.titulo}</p>
               </Link>
             );
           })}
