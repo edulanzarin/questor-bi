@@ -8,11 +8,48 @@ import { conferirNota, type LancamentoReal, type ValoresNota } from "@/lib/diver
 import type {
   ConferenciaResp,
   ConfResumo,
+  Duplicidade,
   Faceta,
   NotaConferida,
   PlanoCfop,
   SituacaoNota,
 } from "@/lib/types";
+
+/** Lançamento com o dia em que foi feito — o dia é o que denuncia a duplicidade. */
+type LancamentoComDia = LancamentoReal & { dia: string };
+
+/**
+ * Duplicidade = a MESMA partida (débito, crédito, valor) aparece em dias de
+ * lançamento distintos: re-rodaram a contabilização. Não confundir com nota
+ * lançada em parcelas (partidas diferentes) nem com itens iguais no mesmo dia
+ * (mesma partida, mesmo dia) — por isso o critério é "partida idêntica em 2+
+ * DIAS", validado contra os dados reais.
+ */
+function detectarDuplicidade(
+  lancamentos: LancamentoComDia[],
+  valorNota: number
+): Duplicidade | null {
+  const diasPorPartida = new Map<string, Set<string>>();
+  for (const l of lancamentos) {
+    const key = `${l.contaDeb ?? ""}|${l.contaCred ?? ""}|${l.valor.toFixed(2)}`;
+    let dias = diasPorPartida.get(key);
+    if (!dias) {
+      dias = new Set();
+      diasPorPartida.set(key, dias);
+    }
+    dias.add(l.dia);
+  }
+  let vezes = 1;
+  const datas = new Set<string>();
+  for (const dias of diasPorPartida.values()) {
+    if (dias.size >= 2) {
+      vezes = Math.max(vezes, dias.size);
+      for (const d of dias) datas.add(d);
+    }
+  }
+  if (vezes < 2) return null;
+  return { vezes, valor: valorNota * (vezes - 1), datas: [...datas].sort() };
+}
 
 const POR_PAGINA = 100;
 /** Teto de notas analisadas — a comparação com o plano roda em memória. */
@@ -121,6 +158,7 @@ async function conferir(
       contabilizadas: 0,
       conformes: 0,
       divergentes: 0,
+      duplicadas: 0,
       pendentes: 0,
       naoExigem: 0,
       canceladas: 0,
@@ -128,6 +166,7 @@ async function conferir(
       valorTotal: 0,
       valorPendente: 0,
       valorDivergente: 0,
+      valorDuplicado: 0,
     },
     notas: [],
     total: 0,
@@ -146,22 +185,24 @@ async function conferir(
     deb: number | null;
     cred: number | null;
     valor: number;
+    dia: string;
   }>(
     `select substring(chaveorigem from 3)::bigint chave, contactbdeb deb, contactbcred cred,
-            valorlctoctb valor
+            valorlctoctb valor,
+            coalesce(to_char(datahoralctoctb, 'YYYY-MM-DD'), to_char(datalctoctb, 'YYYY-MM-DD')) dia
        from lctoctb
       where codigoempresa = $1 and datalctoctb between $2 and $3
         and codigooriglctoctb = 'FI' and chaveorigem like '${c.prefix}%'
         and substring(chaveorigem from 3)::bigint = any($4::bigint[])`,
     [...params, chaves]
   );
-  const porNota = new Map<number, LancamentoReal[]>();
+  const porNota = new Map<number, LancamentoComDia[]>();
   // Contas que de fato recebem lançamento por nota — calibra o que é cobrável.
   const observadas = new Set<string>();
   for (const l of lctos.rows) {
     if (l.deb != null) observadas.add(`1:${l.deb}`);
     if (l.cred != null) observadas.add(`-1:${l.cred}`);
-    const item = { contaDeb: l.deb, contaCred: l.cred, valor: Number(l.valor) };
+    const item = { contaDeb: l.deb, contaCred: l.cred, valor: Number(l.valor), dia: l.dia };
     const lista = porNota.get(l.chave);
     if (lista) lista.push(item);
     else porNota.set(l.chave, [item]);
@@ -219,11 +260,13 @@ async function conferir(
 
     let situacao: SituacaoNota;
     let divergencias: NotaConferida["divergencias"] = [];
+    let duplicidade: Duplicidade | null = null;
 
     if (n.cancelada) {
       situacao = "cancelada";
       resumo.canceladas += 1;
     } else {
+      duplicidade = detectarDuplicidade(lancamentos, valor);
       const planoNota = cfops
         .map((cf) => porChave.get(`${n.estab}:${cf}`))
         .filter((p): p is PlanoCfop => p != null);
@@ -234,30 +277,38 @@ async function conferir(
 
       if (lancamentos.length > 0) {
         resumo.contabilizadas += 1;
-        const conferiveis = planoNota.filter((p) => p.contabiliza);
-        if (!conferiveis.length) {
-          // Contabilizada, mas sem plano para comparar as contas.
-          situacao = "ok";
-          resumo.semPlano += 1;
-          resumo.conformes += 1;
+        if (duplicidade) {
+          // Contabilizada mais de uma vez: é o problema principal e ofusca a
+          // conferência de conta (os valores vêm dobrados). Não computa divergência.
+          situacao = "duplicada";
+          resumo.duplicadas += 1;
+          resumo.valorDuplicado += duplicidade.valor;
         } else {
-          const valores: ValoresNota = {
-            vlrContabil: valor,
-            vlrICMS: Number(n.valoricms),
-            vlrIPI: Number(n.valoripi),
-            vlrFunRural: Number(n.valorfunrural),
-          };
-          divergencias = conferirNota(lancamentos, conferiveis, valores, {
-            observadas,
-            checarValor: cfops.length === 1,
-          });
-          if (divergencias.length) {
-            situacao = "divergente";
-            resumo.divergentes += 1;
-            resumo.valorDivergente += valor;
-          } else {
+          const conferiveis = planoNota.filter((p) => p.contabiliza);
+          if (!conferiveis.length) {
+            // Contabilizada, mas sem plano para comparar as contas.
             situacao = "ok";
+            resumo.semPlano += 1;
             resumo.conformes += 1;
+          } else {
+            const valores: ValoresNota = {
+              vlrContabil: valor,
+              vlrICMS: Number(n.valoricms),
+              vlrIPI: Number(n.valoripi),
+              vlrFunRural: Number(n.valorfunrural),
+            };
+            divergencias = conferirNota(lancamentos, conferiveis, valores, {
+              observadas,
+              checarValor: cfops.length === 1,
+            });
+            if (divergencias.length) {
+              situacao = "divergente";
+              resumo.divergentes += 1;
+              resumo.valorDivergente += valor;
+            } else {
+              situacao = "ok";
+              resumo.conformes += 1;
+            }
           }
         }
       } else if (deveContabilizar) {
@@ -284,6 +335,7 @@ async function conferir(
       situacao,
       lancamentos: lancamentos.length,
       divergencias,
+      duplicidade,
     });
   }
 
@@ -297,7 +349,12 @@ async function conferir(
   const qDigitos = q.replace(/\D/g, "");
   const base = conferidas.filter((n) => {
     if (o.situacao === "problema") {
-      if (n.situacao !== "pendente" && n.situacao !== "divergente") return false;
+      if (
+        n.situacao !== "pendente" &&
+        n.situacao !== "divergente" &&
+        n.situacao !== "duplicada"
+      )
+        return false;
     } else if (o.situacao !== "todas" && n.situacao !== o.situacao) return false;
     if (!q) return true;
     return (

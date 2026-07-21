@@ -4,6 +4,7 @@ import type { SituacaoNota } from "@/lib/types";
 export const SIT_ROTULO: Record<SituacaoNota, string> = {
   ok: "Correta",
   divergente: "Conta errada",
+  duplicada: "Duplicada",
   pendente: "Não contabilizada",
   nao_exige: "Não exige lançamento",
   cancelada: "Cancelada",
@@ -12,6 +13,7 @@ export const SIT_ROTULO: Record<SituacaoNota, string> = {
 const SIT_COR: Record<SituacaoNota, string> = {
   ok: "bg-good/12 text-good",
   divergente: "bg-critical/12 text-critical",
+  duplicada: "bg-sai/12 text-sai",
   pendente: "bg-warn/12 text-warn",
   nao_exige: "bg-surface-2 text-muted",
   cancelada: "bg-surface-2 text-muted",

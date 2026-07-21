@@ -252,7 +252,26 @@ export interface ConformidadeEmpresa {
  * - `nao_exige`: CFOP que não gera lançamento (remessa, retorno…)
  * - `cancelada`: fora da conferência
  */
-export type SituacaoNota = "ok" | "divergente" | "pendente" | "nao_exige" | "cancelada";
+export type SituacaoNota =
+  | "ok"
+  | "divergente"
+  | "duplicada"
+  | "pendente"
+  | "nao_exige"
+  | "cancelada";
+
+/**
+ * Nota contabilizada mais de uma vez: a MESMA partida (débito, crédito, valor)
+ * reaparece em dias distintos de lançamento — re-rodaram a contabilização.
+ */
+export interface Duplicidade {
+  /** Quantas vezes a nota foi contabilizada (>= 2). */
+  vezes: number;
+  /** Valor lançado a mais (valor da nota × (vezes − 1)). */
+  valor: number;
+  /** Dias de lançamento envolvidos (YYYY-MM-DD), em ordem. */
+  datas: string[];
+}
 
 export interface NotaConferida {
   chave: string;
@@ -269,6 +288,8 @@ export interface NotaConferida {
   /** Quantos lançamentos contábeis a nota gerou. */
   lancamentos: number;
   divergencias: Divergencia[];
+  /** Presente só quando a nota foi contabilizada em duplicidade. */
+  duplicidade: Duplicidade | null;
 }
 
 export interface ConfResumo {
@@ -276,6 +297,8 @@ export interface ConfResumo {
   contabilizadas: number;
   conformes: number;
   divergentes: number;
+  /** Contabilizadas mais de uma vez (partida idêntica em dias distintos). */
+  duplicadas: number;
   pendentes: number;
   naoExigem: number;
   canceladas: number;
@@ -284,6 +307,8 @@ export interface ConfResumo {
   valorTotal: number;
   valorPendente: number;
   valorDivergente: number;
+  /** Total lançado a mais pelas duplicadas. */
+  valorDuplicado: number;
 }
 
 /** Valor disponível para filtrar, com quantas notas ele tem. */

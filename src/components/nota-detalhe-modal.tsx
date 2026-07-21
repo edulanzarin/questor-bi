@@ -81,6 +81,20 @@ export function NotaDetalheModal({
           </Campo>
         </div>
 
+        {nota.duplicidade && (
+          <div className="border-b border-hairline bg-sai/8 px-6 py-4">
+            <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-sai">
+              Contabilizada em duplicidade
+            </p>
+            <p className="text-sm text-ink-2">
+              Lançada <span className="font-semibold text-ink">{nota.duplicidade.vezes}×</span>, com
+              a mesma partida, em {nota.duplicidade.datas.map((d) => dataBR(d)).join(" e ")}.{" "}
+              <span className="font-semibold text-ink">{brl(nota.duplicidade.valor)}</span> lançado a
+              mais.
+            </p>
+          </div>
+        )}
+
         {nota.divergencias.length > 0 && (
           <div className="border-b border-hairline px-6 py-4">
             <p className="mb-2 text-[10px] font-medium uppercase tracking-wide text-muted">
