@@ -47,9 +47,9 @@ export function BotaoExecutar({
           ? "cursor-not-allowed bg-surface-2 text-muted"
           : executando
             ? "cursor-wait bg-ent/70 text-white"
-            : dirty
-              ? "bg-ent text-white hover:opacity-90"
-              : "border border-hairline bg-surface-2 text-ink-2 hover:text-ink"
+            : // Sempre ativo: dá pra re-rodar sem mudar filtro. Um anel destaca
+              // quando há mudança pendente (dirty).
+              clsx("bg-ent text-white hover:opacity-90", dirty && "ring-2 ring-ent/30")
       )}
     >
       {executando ? (

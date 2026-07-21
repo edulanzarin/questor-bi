@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Building2, CalendarRange, Check, Search } from "lucide-react";
 import { toast } from "sonner";
 import { Dropdown, ItemLista } from "@/components/ui/dropdown";
@@ -51,6 +52,16 @@ export function ConfFilterBar({
   const { filtros, atualizar } = useFiltros();
   const { rascunho: rascunhoState, editar: editarRascunho, dirty, executar } =
     useRascunhoFiltros();
+  const queryClient = useQueryClient();
+  // Executar sempre roda — mesmo sem mudar filtro. `executar` comita o rascunho
+  // (só refaz a consulta se algo mudou); a invalidação força o refetch quando
+  // nada mudou, pra o clique ter efeito. Empresas/contas (cadastro) ficam de fora.
+  const aoExecutar = () => {
+    executar();
+    queryClient.invalidateQueries({
+      predicate: (q) => q.queryKey[0] !== "empresas" && q.queryKey[0] !== "contas",
+    });
+  };
   // No modo imediato a fonte é o aplicado e editar já comita.
   const rascunho = execucao.imediata ? filtros : rascunhoState;
   const editar = execucao.imediata ? atualizar : editarRascunho;
@@ -216,7 +227,7 @@ export function ConfFilterBar({
         // Fixo na direita: não anda conforme a largura dos inputs.
         <div className="ml-auto">
           <BotaoExecutar
-            onClick={executar}
+            onClick={aoExecutar}
             dirty={dirty}
             rotulo={execucao.rotulo}
             disabled={empresaSel == null}
