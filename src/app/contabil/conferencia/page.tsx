@@ -337,7 +337,7 @@ export default function ConferenciaPage() {
             <CheckCircle2 className="mx-auto size-6 text-good" />
             <p className="text-sm text-muted">
               {situacao === "problema" && !temFiltroExtra
-                ? "Nada pendente e nada fora do plano 🎉"
+                ? "Nada pendente e nada fora do plano"
                 : "Nenhuma nota com esse filtro"}
             </p>
           </div>

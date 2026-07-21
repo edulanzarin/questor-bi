@@ -1,5 +1,6 @@
 "use client";
 
+import { CheckCircle2 } from "lucide-react";
 import clsx from "clsx";
 import type { ConformidadeEmpresa } from "@/lib/types";
 import { num } from "@/lib/format";
@@ -31,9 +32,10 @@ export function ConformidadeTabela({ dados, carregando, recarregando }: Props) {
       {carregando || !dados ? (
         <div className="skeleton h-80 w-full" />
       ) : dados.length === 0 ? (
-        <p className="grid h-32 place-items-center text-sm text-muted">
-          Nenhuma pendência no período 🎉
-        </p>
+        <div className="grid h-32 place-items-center gap-2 text-center">
+          <CheckCircle2 className="mx-auto size-6 text-good" />
+          <p className="text-sm text-muted">Nenhuma pendência no período</p>
+        </div>
       ) : (
         <div className={clsx("overflow-x-auto", recarregando && "refetching")}>
           <table className="w-full min-w-[640px] border-collapse text-sm">
