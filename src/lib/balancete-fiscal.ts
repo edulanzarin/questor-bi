@@ -73,11 +73,19 @@ export async function balanceteFiscal(
   empresa: number,
   inicio: string,
   fim: string,
-  tipo: "ent" | "sai"
+  tipo: "ent" | "sai",
+  /** Restringe a estas chaves (para validar reprodução só nas notas contabilizadas). */
+  chavesFiltro?: number[]
 ): Promise<BalanceteFiscalMov> {
   const c = LADO[tipo];
 
   // Notas do período, com os valores que alimentam as fórmulas.
+  const params: unknown[] = [empresa, inicio, fim];
+  let filtroChaves = "";
+  if (chavesFiltro) {
+    params.push(chavesFiltro);
+    filtroChaves = `and f.${c.chave} = any($${params.length}::bigint[])`;
+  }
   const notas = (
     await client.query<NotaRow>(
       `select f.${c.chave} chave, f.codigoestab estab,
@@ -89,8 +97,8 @@ export async function balanceteFiscal(
               coalesce((select sum(x.valorimposto) from ${c.cfopTab} x
                          where x.codigoempresa=f.codigoempresa and x.${c.chave}=f.${c.chave} and x.tipoimposto=1),0)::float vlricms
          from ${c.tabela} f
-        where f.codigoempresa=$1 and f.datalctofis between $2 and $3 and f.cancelada <> '1'`,
-      [empresa, inicio, fim]
+        where f.codigoempresa=$1 and f.datalctofis between $2 and $3 and f.cancelada <> '1' ${filtroChaves}`,
+      params
     )
   ).rows;
   if (!notas.length) return { porConta: new Map(), notas: 0, pulados: 0 };
