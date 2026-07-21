@@ -8,6 +8,8 @@ import { useIsFetching } from "@tanstack/react-query";
 import clsx from "clsx";
 import { ConfFilterBar } from "@/components/filters/conf-filter-bar";
 import { FiltroPendente } from "@/components/filtro-pendente";
+import { ImportarControles } from "@/components/importar-controles";
+import { RegrasControles } from "@/components/regras-controles";
 import { useFiltros } from "@/hooks/use-filters";
 import {
   abaContabilAtual,
@@ -18,6 +20,14 @@ import {
 } from "@/lib/contabil-secoes";
 import { limparEstadoSecao } from "@/lib/estado-secao";
 import { dataBR } from "@/lib/format";
+
+// Controles que cada aba põe na linha da barra. O mapa vive aqui (e não no
+// catálogo) para o catálogo não importar componente de app — evita ciclo de
+// import, já que o estado de seção depende do próprio catálogo.
+const CONTROLES_BARRA: Record<string, React.ComponentType> = {
+  importar: ImportarControles,
+  regras: RegrasControles,
+};
 
 export function ContabilShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -94,7 +104,14 @@ export function ContabilShell({ children }: { children: React.ReactNode }) {
         </nav>
       )}
 
-      <ConfFilterBar mostrarPeriodo={usaPeriodo} execucao={execucao} />
+      <ConfFilterBar
+        mostrarPeriodo={usaPeriodo}
+        execucao={execucao}
+        extras={(() => {
+          const Controles = aba ? CONTROLES_BARRA[aba.id] : undefined;
+          return Controles ? <Controles /> : undefined;
+        })()}
+      />
 
       {/* O gate só existe onde há botão; tela de execução imediata cuida dos
           próprios estados vazios (escolher conta, enviar arquivo). */}

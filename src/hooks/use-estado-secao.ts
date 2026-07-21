@@ -1,8 +1,14 @@
 "use client";
 
-import { useCallback, useState, type Dispatch, type SetStateAction } from "react";
+import {
+  useCallback,
+  useState,
+  useSyncExternalStore,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 import { usePathname } from "next/navigation";
-import { guardarEstado, idDaSecao, lerEstado } from "@/lib/estado-secao";
+import { assinarEstado, guardarEstado, idDaSecao, lerEstado } from "@/lib/estado-secao";
 
 /**
  * `useState` que sobrevive à troca de abas dentro da seção e é descartado ao
@@ -11,6 +17,10 @@ import { guardarEstado, idDaSecao, lerEstado } from "@/lib/estado-secao";
  * Seção e página saem do caminho, então a tela só declara o nome do campo, e
  * `campo` só precisa ser único dentro da própria página: duas abas da mesma
  * seção podem ter cada uma a sua `busca` sem uma enxergar a da outra.
+ *
+ * O valor vem do store por `useSyncExternalStore`, então duas instâncias do
+ * MESMO campo — os controles que a barra do shell renderiza e a página — veem
+ * e mudam o mesmo valor, em sincronia.
  */
 export function useEstadoSecao<T>(
   campo: string,
@@ -19,20 +29,25 @@ export function useEstadoSecao<T>(
   const pagina = usePathname();
   const secao = idDaSecao(pagina);
 
-  const [valor, setValor] = useState<T>(() => {
-    const guardado = lerEstado<T>(secao, pagina, campo);
-    return guardado === undefined ? inicial : guardado;
-  });
+  // Congela o inicial do primeiro render (igual ao initializer de useState):
+  // um literal `{}` na chamada não pode invalidar `definir` a cada render.
+  const [inicialFixo] = useState(inicial);
+
+  const guardado = useSyncExternalStore(
+    assinarEstado,
+    () => lerEstado<T>(secao, pagina, campo),
+    () => undefined
+  );
+  const valor = guardado === undefined ? inicialFixo : guardado;
 
   const definir = useCallback<Dispatch<SetStateAction<T>>>(
     (acao) => {
-      setValor((anterior) => {
-        const proximo = typeof acao === "function" ? (acao as (a: T) => T)(anterior) : acao;
-        guardarEstado(secao, pagina, campo, proximo);
-        return proximo;
-      });
+      const anterior = lerEstado<T>(secao, pagina, campo);
+      const base = anterior === undefined ? inicialFixo : anterior;
+      const proximo = typeof acao === "function" ? (acao as (a: T) => T)(base) : acao;
+      guardarEstado(secao, pagina, campo, proximo);
     },
-    [secao, pagina, campo]
+    [secao, pagina, campo, inicialFixo]
   );
 
   return [valor, definir];

@@ -12,6 +12,12 @@ interface Props {
   carregando?: boolean;
   /** Motivo de estar desabilitado, mostrado no lugar da instrução. */
   motivo?: string;
+  /**
+   * Nome do arquivo já escolhido. Quando presente, o controle vira "escolhido,
+   * clique para trocar" — escolher não processa nada; quem executa é o botão
+   * da barra ([[executar-com-botao]]).
+   */
+  nomeArquivo?: string | null;
 }
 
 /**
@@ -28,6 +34,7 @@ export function DropzoneArquivo({
   desabilitado,
   carregando,
   motivo,
+  nomeArquivo,
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [sobre, setSobre] = useState(false);
@@ -73,23 +80,23 @@ export function DropzoneArquivo({
     >
       {carregando ? (
         <Loader2 className="size-4 shrink-0 animate-spin text-muted" />
-      ) : sobre ? (
+      ) : sobre || nomeArquivo ? (
         <FileCheck2 className="size-4 shrink-0 text-ent" />
       ) : (
         <Paperclip className="size-4 shrink-0 text-muted" />
       )}
 
-      <span className="truncate">
+      <span className="max-w-56 truncate" title={nomeArquivo ?? undefined}>
         {carregando
           ? "Lendo o extrato…"
           : motivo
             ? motivo
             : sobre
-              ? "Solte para enviar"
-              : "Arraste ou escolha o extrato"}
+              ? "Solte para escolher"
+              : (nomeArquivo ?? "Arraste ou escolha o extrato")}
       </span>
 
-      {!carregando && !motivo && (
+      {!carregando && !motivo && !nomeArquivo && (
         <span className="ml-1 shrink-0 text-[11px] text-muted">
           {aceita.map((e) => e.replace(".", "").toUpperCase()).join(" · ")}
         </span>

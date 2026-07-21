@@ -18,6 +18,22 @@ import { secaoAtual } from "./fiscal-secoes";
  */
 const estados = new Map<string, unknown>();
 
+// Ouvintes do store: quem lê via useEstadoSecao re-renderiza quando qualquer
+// campo muda. É o que permite a barra do shell e a página compartilharem o
+// mesmo campo (a conta escolhida na barra aparece na página na hora).
+const ouvintes = new Set<() => void>();
+
+export function assinarEstado(fn: () => void): () => void {
+  ouvintes.add(fn);
+  return () => {
+    ouvintes.delete(fn);
+  };
+}
+
+function notificar(): void {
+  ouvintes.forEach((fn) => fn());
+}
+
 /**
  * Identidade da seção a que o caminho pertence. É o `path` da seção, não o
  * `id`, porque ids se repetem entre módulos e o caminho é único.
@@ -53,9 +69,11 @@ export function guardarEstado<T>(
   valor: T
 ): void {
   estados.set(chave(secao, pagina, campo), valor);
+  notificar();
 }
 
 export function limparEstadoSecao(secao: string): void {
   const prefixo = `${secao}${SEP}`;
   for (const k of estados.keys()) if (k.startsWith(prefixo)) estados.delete(k);
+  notificar();
 }

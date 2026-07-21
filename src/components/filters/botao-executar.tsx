@@ -17,19 +17,23 @@ export function BotaoExecutar({
   rotulo = "Executar",
   disabled = false,
   title,
+  executando: executandoExterno = false,
 }: {
   onClick: () => void;
   dirty: boolean;
   rotulo?: string;
   disabled?: boolean;
   title?: string;
+  /** Execução fora do React Query (ex.: POST do extrato) — soma ao spinner. */
+  executando?: boolean;
 }) {
   // Só consultas de dados contam — as de suporte da própria barra (lista de
   // empresas, contas do plano) não podem fazer o botão girar sozinho no mount.
-  const executando =
+  const executandoQueries =
     useIsFetching({
       predicate: (q) => q.queryKey[0] !== "empresas" && q.queryKey[0] !== "contas",
     }) > 0;
+  const executando = executandoExterno || executandoQueries;
   const travado = disabled || executando;
 
   return (

@@ -40,9 +40,13 @@ function presets() {
 export function ConfFilterBar({
   mostrarPeriodo = true,
   execucao = { imediata: false, rotulo: "Executar" },
+  extras,
 }: {
   mostrarPeriodo?: boolean;
   execucao?: { imediata: boolean; rotulo: string };
+  /** Controles que a aba põe NA LINHA da barra, ao lado da empresa (ex.: conta
+   *  e extrato na Conciliação). Compartilham estado com a página via seção. */
+  extras?: React.ReactNode;
 } = {}) {
   const { filtros, atualizar } = useFiltros();
   const { rascunho: rascunhoState, editar: editarRascunho, dirty, executar } =
@@ -205,6 +209,8 @@ export function ConfFilterBar({
           )}
         </Dropdown>
       )}
+
+      {extras}
 
       {!execucao.imediata && (
         <BotaoExecutar

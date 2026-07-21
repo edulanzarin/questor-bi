@@ -1,11 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Building2, Copy, Landmark, Search } from "lucide-react";
+import { Building2, Landmark, Search } from "lucide-react";
 import clsx from "clsx";
-import { ContaDropdown } from "@/components/conta-dropdown";
-import { ReplicarModal } from "@/components/replicar-modal";
 import { RegraExtratoLinha } from "@/components/regra-extrato-linha";
 import { useEstadoSecao } from "@/hooks/use-estado-secao";
 import { useFiltros } from "@/hooks/use-filters";
@@ -25,6 +23,11 @@ async function carregarConta(empresa: number, conta: number) {
   return corpo as ContaBanco;
 }
 
+/**
+ * Lista e cadastro das regras da conta escolhida. A conta se escolhe na linha
+ * da barra de filtros (controles do shell); barra e página compartilham o
+ * estado da seção, então a troca reflete aqui na hora.
+ */
 export default function RegrasPage() {
   const { filtros } = useFiltros();
   const queryClient = useQueryClient();
@@ -32,7 +35,6 @@ export default function RegrasPage() {
   const temEmpresa = filtros.empresas.length === 1;
 
   const [conta, setConta] = useEstadoSecao<number | null>("conta", null);
-  const [replicando, setReplicando] = useState<ContaBanco | null>(null);
   const [busca, setBusca] = useEstadoSecao("busca", "");
 
   // Contas que já têm cadastro: atalho para navegar entre elas.
@@ -78,50 +80,26 @@ export default function RegrasPage() {
 
   return (
     <>
-
-      <section className="card anim-fade-up flex flex-col gap-3 p-5">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-medium text-ink-2">Conta de banco</label>
-            <ContaDropdown
-              empresa={empresa}
-              valor={conta}
-              onMudar={setConta}
-              soBanco
-              placeholder="Escolher no plano de contas"
-            />
-          </div>
-          {atual && atual.regras.length > 0 && (
+      {!!comRegras?.length && (
+        <div className="anim-fade-up flex flex-wrap items-center gap-1.5">
+          <span className="text-[11px] text-muted">Já cadastradas:</span>
+          {comRegras.map((c) => (
             <button
-              onClick={() => setReplicando(atual)}
-              className="flex h-9 items-center gap-1.5 rounded-lg border border-hairline px-3 text-xs text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink"
+              key={c.conta}
+              onClick={() => setConta(c.conta)}
+              className={clsx(
+                "rounded-lg px-2 py-1 text-xs transition-colors",
+                c.conta === conta
+                  ? "bg-ent/12 font-medium text-ent"
+                  : "text-muted hover:bg-surface-2 hover:text-ink"
+              )}
             >
-              <Copy className="size-3.5" /> Replicar para outras contas
+              {c.conta} · {c.descricao}
+              <span className="ml-1 text-[10px]">({c.regras.length})</span>
             </button>
-          )}
+          ))}
         </div>
-
-        {!!comRegras?.length && (
-          <div className="flex flex-wrap items-center gap-1.5 border-t border-hairline pt-3">
-            <span className="text-[11px] text-muted">Já cadastradas:</span>
-            {comRegras.map((c) => (
-              <button
-                key={c.conta}
-                onClick={() => setConta(c.conta)}
-                className={clsx(
-                  "rounded-lg px-2 py-1 text-xs transition-colors",
-                  c.conta === conta
-                    ? "bg-ent/12 font-medium text-ent"
-                    : "text-muted hover:bg-surface-2 hover:text-ink"
-                )}
-              >
-                {c.conta} · {c.descricao}
-                <span className="ml-1 text-[10px]">({c.regras.length})</span>
-              </button>
-            ))}
-          </div>
-        )}
-      </section>
+      )}
 
       {conta == null ? (
         <section className="card grid place-items-center gap-3 px-6 py-14 text-center">
@@ -130,7 +108,7 @@ export default function RegrasPage() {
           </span>
           <p className="text-sm font-medium text-ink">Escolha uma conta de banco</p>
           <p className="max-w-md text-xs text-muted">
-            Escolha a conta no seletor acima para ver e cadastrar as regras dela.
+            Escolha a conta na barra acima para ver e cadastrar as regras dela.
           </p>
         </section>
       ) : isLoading || !atual ? (
@@ -206,19 +184,7 @@ export default function RegrasPage() {
               </tbody>
             </table>
           </div>
-
         </section>
-      )}
-
-      {replicando && (
-        <ReplicarModal
-          origem={replicando}
-          onFechar={() => setReplicando(null)}
-          onReplicado={() => {
-            setReplicando(null);
-            recarregar();
-          }}
-        />
       )}
     </>
   );
