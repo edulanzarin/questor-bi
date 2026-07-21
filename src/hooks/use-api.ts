@@ -29,6 +29,7 @@ import type {
   TributosCargaEmpresa,
   ConferenciaResp,
   PlanoResp,
+  BalanceteFiscalResp,
 } from "@/lib/types";
 
 async function fetchJson<T>(url: string): Promise<T> {
@@ -296,6 +297,13 @@ export const useConferencia = (qs: string, enabled = true) =>
   useApiQuery<ConferenciaResp>(
     ["conferencia", qs],
     `/api/contabil/conferencia?${qs}`,
+    enabled
+  );
+
+export const useBalanceteFiscal = (qs: string, enabled = true) =>
+  useApiQuery<BalanceteFiscalResp>(
+    ["balancete-fiscal", qs],
+    `/api/contabil/balancete-fiscal?${qs}`,
     enabled
   );
 
