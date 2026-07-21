@@ -69,7 +69,11 @@ export function DropzoneArquivo({
         }
       }}
       aria-disabled={bloqueado}
-      title={motivo}
+      title={
+        motivo ??
+        nomeArquivo ??
+        `Aceita ${aceita.map((e) => e.replace(".", "").toUpperCase()).join(", ")} — dá pra arrastar o arquivo aqui`
+      }
       className={clsx(
         "flex h-9 cursor-pointer items-center gap-2 rounded-lg border border-dashed px-3 text-sm transition-colors",
         bloqueado && "cursor-not-allowed opacity-60",
@@ -86,21 +90,15 @@ export function DropzoneArquivo({
         <Paperclip className="size-4 shrink-0 text-muted" />
       )}
 
-      <span className="max-w-56 truncate" title={nomeArquivo ?? undefined}>
+      <span className="max-w-56 truncate">
         {carregando
           ? "Lendo o extrato…"
           : motivo
             ? motivo
             : sobre
               ? "Solte para escolher"
-              : (nomeArquivo ?? "Arraste ou escolha o extrato")}
+              : (nomeArquivo ?? "Escolha o extrato")}
       </span>
-
-      {!carregando && !motivo && !nomeArquivo && (
-        <span className="ml-1 shrink-0 text-[11px] text-muted">
-          {aceita.map((e) => e.replace(".", "").toUpperCase()).join(" · ")}
-        </span>
-      )}
 
       <input
         ref={inputRef}
