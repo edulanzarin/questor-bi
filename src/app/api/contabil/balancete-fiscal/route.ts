@@ -24,13 +24,13 @@ export const GET = apiRoute(async (req) => {
   try {
     const p = [empresa, f.inicio, f.fim] as const;
 
-    // Movimento REAL de origem fiscal por conta (ME + MS), e as contas observadas.
-    const real = await client.query<{ conta: number; deb: number; cred: number }>(
-      `select contactbdeb::bigint conta, sum(valorlctoctb)::float deb, 0::float cred from lctoctb
+    // Movimento REAL de origem fiscal por conta (ME + MS), por natureza.
+    const real = await client.query<{ conta: number; natureza: number; valor: number }>(
+      `select contactbdeb conta, 1 natureza, sum(valorlctoctb)::float valor from lctoctb
         where codigoempresa=$1 and codigooriglctoctb='FI' and (chaveorigem like 'ME%' or chaveorigem like 'MS%')
           and datalctoctb between $2 and $3 and contactbdeb is not null group by contactbdeb
        union all
-       select contactbcred::bigint, 0::float, sum(valorlctoctb)::float from lctoctb
+       select contactbcred, -1, sum(valorlctoctb)::float from lctoctb
         where codigoempresa=$1 and codigooriglctoctb='FI' and (chaveorigem like 'ME%' or chaveorigem like 'MS%')
           and datalctoctb between $2 and $3 and contactbcred is not null group by contactbcred`,
       [...p]
@@ -38,12 +38,11 @@ export const GET = apiRoute(async (req) => {
     const realPorConta = new Map<number, { deb: number; cred: number }>();
     const observadas = new Set<string>();
     for (const r of real.rows) {
-      const m = realPorConta.get(r.conta) ?? { deb: 0, cred: 0 };
-      m.deb += r.deb;
-      m.cred += r.cred;
-      realPorConta.set(r.conta, m);
-      if (r.deb > 0) observadas.add(`1:${r.conta}`);
-      if (r.cred > 0) observadas.add(`-1:${r.conta}`);
+      const a = realPorConta.get(r.conta) ?? { deb: 0, cred: 0 };
+      if (r.natureza === 1) a.deb += r.valor;
+      else a.cred += r.valor;
+      realPorConta.set(r.conta, a);
+      observadas.add(`${r.natureza}:${r.conta}`);
     }
 
     // Movimento FISCAL (hipotético) — entradas + saídas.
@@ -60,6 +59,23 @@ export const GET = apiRoute(async (req) => {
         a.cred += m.credito;
         fiscalPorConta.set(conta, a);
       }
+    }
+    // Espelho: o que o motor NÃO tem regra pra gerar — contrapartida (fornecedor/
+    // cliente), NFSE de serviço, contas patrimoniais — entra no fiscal com o
+    // PRÓPRIO real. Não há erro de conta a detectar ali (é determinístico, por
+    // pessoa/manual). Só as contas que o motor gera (despesa/receita/imposto)
+    // mostram divergência — que é o objetivo.
+    const regrada = new Set<string>();
+    for (const [conta, m] of fiscalPorConta) {
+      if (m.deb > 0.005) regrada.add(`1:${conta}`);
+      if (m.cred > 0.005) regrada.add(`-1:${conta}`);
+    }
+    for (const r of real.rows) {
+      if (regrada.has(`${r.natureza}:${r.conta}`)) continue;
+      const a = fiscalPorConta.get(r.conta) ?? { deb: 0, cred: 0 };
+      if (r.natureza === 1) a.deb += r.valor;
+      else a.cred += r.valor;
+      fiscalPorConta.set(r.conta, a);
     }
 
     // Plano de contas (para nome, classificação e sintética × analítica).
