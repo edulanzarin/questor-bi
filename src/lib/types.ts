@@ -409,6 +409,27 @@ export interface PlanoCfop {
   aprendido?: { contabiliza: boolean; notas: number; contabilizadas: number } | null;
 }
 
+/** Uma linha do balancete fiscal: movimento hipotético (regras) × real (fiscal). */
+export interface BalanceteLinha {
+  conta: number;
+  /** Classificação hierárquica (ex.: "1.1.01.002"); o nível = nº de segmentos. */
+  classif: string;
+  nivel: number;
+  descricao: string;
+  sintetica: boolean;
+  fiscalDeb: number;
+  fiscalCred: number;
+  realDeb: number;
+  realCred: number;
+}
+
+export interface BalanceteFiscalResp {
+  /** Todas as contas com movimento, ordenadas por classificação (a tela corta por nível). */
+  linhas: BalanceteLinha[];
+  cobertura: { notas: number; componentesPulados: number };
+  nivelMax: number;
+}
+
 /** Estabelecimento (filial) da empresa — cada um tem CNPJ próprio. */
 export interface EstabInfo {
   codigo: number;
