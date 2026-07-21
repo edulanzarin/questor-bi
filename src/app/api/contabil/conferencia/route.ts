@@ -4,6 +4,7 @@ import { apiRoute } from "@/lib/api-route";
 import { parseFilters, FilterError } from "@/lib/fiscal-filters";
 import { planoQuestor } from "@/lib/plano-contabil";
 import { aplicarOverrides, listarOverrides } from "@/lib/plano-override";
+import { aprenderContabilizacao, buscarAutoContabiliza } from "@/lib/aprender-contabilizacao";
 import { conferirNota, type LancamentoReal, type ValoresNota } from "@/lib/divergencias";
 import type {
   ConferenciaResp,
@@ -227,24 +228,28 @@ async function conferir(
     listarOverrides(empresa),
   ]);
   const plano = aplicarOverrides(planoBruto, overrides);
+
+  // "Este CFOP contabiliza?" vem do cadastro aprendido do histórico (últimos 12
+  // meses) — não do mês da tela, que classificava tudo como "não exige" num mês
+  // ainda não fechado, nem da config do Questor, que erra dos dois lados. É
+  // semeado na primeira vez que a empresa é conferida; depois a aba Configuração
+  // permite atualizar/ajustar.
+  let autoContab = await buscarAutoContabiliza(empresa);
+  if (autoContab.size === 0) {
+    await aprenderContabilizacao(client, empresa);
+    autoContab = await buscarAutoContabiliza(empresa);
+  }
+
   const porChave = new Map<string, PlanoCfop>();
   const descrCfop = new Map<number, string>();
   for (const p of plano) {
+    // Precedência: override (já aplicado) > aprendido > config do Questor.
+    if (p.origem !== "override") {
+      const auto = autoContab.get(`${p.estab}:${p.cfop}`);
+      if (auto) p.contabiliza = auto.contabiliza;
+    }
     porChave.set(`${p.estab}:${p.cfop}`, p);
     if (p.descricao && !descrCfop.has(p.cfop)) descrCfop.set(p.cfop, p.descricao);
-  }
-
-  /**
-   * CFOPs que comprovadamente geram lançamento nesta empresa. O plano sozinho
-   * não basta: CFOPs de retorno/industrialização (1902, 1916, 1917, 1949…)
-   * vêm com tabela configurada mas o Questor nunca gera lançamento para eles —
-   * na 1200 foram 0 contabilizações em milhares de notas no ano. Cobrar essas
-   * notas como pendentes seria falso positivo em massa.
-   */
-  const cfopsComLancamento = new Set<number>();
-  for (const n of notas) {
-    if (!porNota.has(n.chave)) continue;
-    for (const cf of cfopsPorNota.get(n.chave) ?? []) cfopsComLancamento.add(cf);
   }
 
   const resumo: ConfResumo = { ...vazio.resumo };
@@ -272,8 +277,7 @@ async function conferir(
         .filter((p): p is PlanoCfop => p != null);
       // Nota sem item (serviço) não tem CFOP: assume-se que deve contabilizar.
       const deveContabilizar =
-        cfops.length === 0 ||
-        planoNota.some((p) => p.contabiliza && cfopsComLancamento.has(p.cfop));
+        cfops.length === 0 || planoNota.some((p) => p.contabiliza);
 
       if (lancamentos.length > 0) {
         resumo.contabilizadas += 1;

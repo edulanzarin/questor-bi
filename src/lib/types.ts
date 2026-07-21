@@ -401,6 +401,12 @@ export interface PlanoCfop {
   observacao?: string | null;
   /** Quantas notas usaram esse CFOP no período consultado. */
   usos?: number;
+  /**
+   * O que o histórico (12 meses) diz sobre esse CFOP contabilizar. É a fonte do
+   * `contabiliza` quando não há override — presente para a tela explicar o
+   * porquê ("lançou em 157 de 162 notas"). Ausente = ainda não aprendido.
+   */
+  aprendido?: { contabiliza: boolean; notas: number; contabilizadas: number } | null;
 }
 
 /** Estabelecimento (filial) da empresa — cada um tem CNPJ próprio. */

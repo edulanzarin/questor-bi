@@ -9,6 +9,7 @@ import {
   salvarOverride,
   type SalvarOverride,
 } from "@/lib/plano-override";
+import { aprenderContabilizacao, buscarAutoContabiliza } from "@/lib/aprender-contabilizacao";
 import type { EstabInfo, PlanoResp } from "@/lib/types";
 
 const POR_PAGINA = 50;
@@ -39,7 +40,23 @@ export const GET = apiRoute(async (req) => {
       listarOverrides(empresa),
     ]);
 
-    const todos = aplicarOverrides(planoBruto, overrides);
+    // "Contabiliza?" vem do cadastro aprendido do histórico (semeado na primeira
+    // vez). Override manda; senão vale o aprendido; sem aprendido, a config crua.
+    let autoContab = await buscarAutoContabiliza(empresa);
+    if (autoContab.size === 0) {
+      await aprenderContabilizacao(client, empresa);
+      autoContab = await buscarAutoContabiliza(empresa);
+    }
+
+    const todos = aplicarOverrides(planoBruto, overrides).map((p) => {
+      const auto = autoContab.get(`${p.estab}:${p.cfop}`);
+      const aprendido = auto
+        ? { contabiliza: auto.contabiliza, notas: auto.notas, contabilizadas: auto.contabilizadas }
+        : null;
+      const contabiliza =
+        p.origem === "override" ? p.contabiliza : (auto?.contabiliza ?? p.contabiliza);
+      return { ...p, contabiliza, aprendido };
+    });
 
     const filtrados = todos
       .filter((c) => {
