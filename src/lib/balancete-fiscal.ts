@@ -75,7 +75,14 @@ export async function balanceteFiscal(
   fim: string,
   tipo: "ent" | "sai",
   /** Restringe a estas chaves (para validar reprodução só nas notas contabilizadas). */
-  chavesFiltro?: number[]
+  chavesFiltro?: number[],
+  /**
+   * Contas que de fato recebem lançamento nota a nota no ME ("natureza:conta").
+   * Componente do plano cuja conta não está aqui NÃO é lançada por nota — vai na
+   * apuração mensal (IM). Sem este filtro o motor super-gera imposto no ME.
+   * A contrapartida variável (fornecedor/cliente) é sempre aceita.
+   */
+  observadas?: Set<string>
 ): Promise<BalanceteFiscalMov> {
   const c = LADO[tipo];
 
@@ -168,6 +175,10 @@ export async function balanceteFiscal(
           if (Math.abs(valor) < 0.005) continue;
           const conta = linha.contaVariavel ? CONTA_CONTRAPARTIDA : linha.conta;
           if (conta == null) continue;
+          // Conta que não é lançada nota a nota (vai na apuração mensal): não é ME.
+          if (observadas && conta !== CONTA_CONTRAPARTIDA && !observadas.has(`${linha.natureza}:${conta}`)) {
+            continue;
+          }
           add(conta, linha.natureza, valor);
         }
       }

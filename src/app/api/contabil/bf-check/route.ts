@@ -22,7 +22,6 @@ export const GET = apiRoute(async (req) => {
       [...p]
     );
     const chaves = booked.rows.map((r) => r.chave);
-    const mov = await balanceteFiscal(client, emp, f.inicio, f.fim, tipo, chaves);
 
     // real ME/MS por conta (deb e cred)
     const real = await client.query<{ conta: number; deb: number; cred: number }>(
@@ -36,6 +35,7 @@ export const GET = apiRoute(async (req) => {
       [...p]
     );
     const realPorConta = new Map<number, { deb: number; cred: number }>();
+    const observadas = new Set<string>();
     let realTotal = 0;
     for (const r of real.rows) {
       const m = realPorConta.get(r.conta) ?? { deb: 0, cred: 0 };
@@ -43,7 +43,11 @@ export const GET = apiRoute(async (req) => {
       m.cred += r.cred;
       realPorConta.set(r.conta, m);
       realTotal += r.deb + r.cred;
+      if (r.deb > 0) observadas.add(`1:${r.conta}`);
+      if (r.cred > 0) observadas.add(`-1:${r.conta}`);
     }
+
+    const mov = await balanceteFiscal(client, emp, f.inicio, f.fim, tipo, chaves, observadas);
 
     let engineFixo = 0;
     let contrapartida = 0;
