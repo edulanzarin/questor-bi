@@ -16,10 +16,11 @@ import {
 import clsx from "clsx";
 import { toast } from "sonner";
 import { Dropdown, ItemLista } from "@/components/ui/dropdown";
+import { BotaoExecutar } from "@/components/filters/botao-executar";
 import { GruposModal } from "@/components/grupos-modal";
 import { useEmpresas } from "@/hooks/use-api";
 import { useGruposLocais } from "@/hooks/use-grupos-locais";
-import { useFiltros } from "@/hooks/use-filters";
+import { useRascunhoFiltros } from "@/hooks/use-filters";
 import { dataBR, hojeISO, inicioDoMesISO } from "@/lib/format";
 import type { GrupoLocal } from "@/lib/types";
 
@@ -51,8 +52,12 @@ function presets() {
   ];
 }
 
+/**
+ * Barra de filtros do Fiscal. O usuário edita o rascunho à vontade; só o botão
+ * Executar aplica e dispara as consultas ([[executar-com-botao]]).
+ */
 export function FilterBar({ mostrarMetrica = true }: { mostrarMetrica?: boolean }) {
-  const { filtros, atualizar } = useFiltros();
+  const { rascunho, editar, dirty, executar } = useRascunhoFiltros();
   const { data: empresas } = useEmpresas();
   const { grupos } = useGruposLocais();
   const [buscaEmpresa, setBuscaEmpresa] = useState("");
@@ -63,7 +68,7 @@ export function FilterBar({ mostrarMetrica = true }: { mostrarMetrica?: boolean 
 
   const listaPresets = useMemo(() => presets(), []);
   const presetAtivo = listaPresets.find(
-    (p) => p.inicio === filtros.inicio && p.fim === filtros.fim
+    (p) => p.inicio === rascunho.inicio && p.fim === rascunho.fim
   );
 
   const empresasFiltradas = useMemo(() => {
@@ -77,7 +82,7 @@ export function FilterBar({ mostrarMetrica = true }: { mostrarMetrica?: boolean 
 
   // Um grupo está "ativo" quando todas as suas empresas estão na seleção atual.
   // Assim dá pra somar vários grupos (união) e desmarcar cada um.
-  const empresasSet = useMemo(() => new Set(filtros.empresas), [filtros.empresas]);
+  const empresasSet = useMemo(() => new Set(rascunho.empresas), [rascunho.empresas]);
   const grupoAtivo = (g: GrupoLocal) =>
     g.empresas.length > 0 && g.empresas.every((c) => empresasSet.has(c));
   const gruposAtivos = grupos.filter(grupoAtivo);
@@ -89,38 +94,38 @@ export function FilterBar({ mostrarMetrica = true }: { mostrarMetrica?: boolean 
   }, [grupos, buscaGrupo]);
 
   const rotuloEmpresas =
-    filtros.empresas.length === 0
+    rascunho.empresas.length === 0
       ? "Todas as empresas"
-      : filtros.empresas.length === 1
-        ? (empresas?.find((e) => e.codigo === filtros.empresas[0])?.nome ??
-          `Empresa ${filtros.empresas[0]}`)
-        : `${filtros.empresas.length} empresas`;
+      : rascunho.empresas.length === 1
+        ? (empresas?.find((e) => e.codigo === rascunho.empresas[0])?.nome ??
+          `Empresa ${rascunho.empresas[0]}`)
+        : `${rascunho.empresas.length} empresas`;
 
-  const temFiltro = filtros.empresas.length > 0 || filtros.especies.length > 0;
+  const temFiltro = rascunho.empresas.length > 0 || rascunho.especies.length > 0;
 
   const toggleEmpresa = (codigo: number) => {
-    const set = new Set(filtros.empresas);
+    const set = new Set(rascunho.empresas);
     if (set.has(codigo)) set.delete(codigo);
     else set.add(codigo);
-    atualizar({ empresas: [...set] });
+    editar({ empresas: [...set] });
   };
 
   // Marca/desmarca um grupo: adiciona suas empresas à seleção, ou remove se já estão todas
   const toggleGrupo = (g: GrupoLocal) => {
-    const set = new Set(filtros.empresas);
+    const set = new Set(rascunho.empresas);
     if (g.empresas.every((c) => set.has(c))) {
       g.empresas.forEach((c) => set.delete(c));
     } else {
       g.empresas.forEach((c) => set.add(c));
     }
-    atualizar({ empresas: [...set] });
+    editar({ empresas: [...set] });
   };
 
   // Vindo do modal de gerenciar: aplica o grupo somando à seleção
   const aplicarGrupo = (g: GrupoLocal) => {
-    const set = new Set(filtros.empresas);
+    const set = new Set(rascunho.empresas);
     g.empresas.forEach((c) => set.add(c));
-    atualizar({ empresas: [...set] });
+    editar({ empresas: [...set] });
   };
 
   return (
@@ -131,7 +136,7 @@ export function FilterBar({ mostrarMetrica = true }: { mostrarMetrica?: boolean 
         rotulo={
           presetAtivo
             ? presetAtivo.nome
-            : `${dataBR(filtros.inicio)} – ${dataBR(filtros.fim)}`
+            : `${dataBR(rascunho.inicio)} – ${dataBR(rascunho.fim)}`
         }
         ativo
         largura="w-64"
@@ -144,7 +149,7 @@ export function FilterBar({ mostrarMetrica = true }: { mostrarMetrica?: boolean 
                   key={p.nome}
                   selecionado={presetAtivo?.nome === p.nome}
                   onClick={() => {
-                    atualizar({ inicio: p.inicio, fim: p.fim });
+                    editar({ inicio: p.inicio, fim: p.fim });
                     fechar();
                   }}
                 >
@@ -160,27 +165,27 @@ export function FilterBar({ mostrarMetrica = true }: { mostrarMetrica?: boolean 
             <div className="border-t border-hairline p-3">
               <p className="mb-2 text-xs text-muted">Período personalizado (máx. 1 ano)</p>
               {/* Campos não-controlados (defaultValue + ref) e commit só no
-                  "Aplicar": nada vai pra URL enquanto digita, então dá pra
+                  "Definir": nada muda o rascunho enquanto digita, então dá pra
                   escrever o ano de 4 dígitos sem sobrescrever. O `key` remonta
                   os campos quando um preset muda as datas por fora. */}
               <div className="space-y-2">
                 <label className="flex items-center gap-2 text-xs text-muted">
                   <span className="w-8 shrink-0">De</span>
                   <input
-                    key={`ini-${filtros.inicio}`}
+                    key={`ini-${rascunho.inicio}`}
                     ref={iniRef}
                     type="date"
-                    defaultValue={filtros.inicio}
+                    defaultValue={rascunho.inicio}
                     className="h-8 w-full rounded-md border border-hairline bg-surface-2 px-2 text-xs text-ink"
                   />
                 </label>
                 <label className="flex items-center gap-2 text-xs text-muted">
                   <span className="w-8 shrink-0">Até</span>
                   <input
-                    key={`fim-${filtros.fim}`}
+                    key={`fim-${rascunho.fim}`}
                     ref={fimRef}
                     type="date"
-                    defaultValue={filtros.fim}
+                    defaultValue={rascunho.fim}
                     className="h-8 w-full rounded-md border border-hairline bg-surface-2 px-2 text-xs text-ink"
                   />
                 </label>
@@ -199,12 +204,12 @@ export function FilterBar({ mostrarMetrica = true }: { mostrarMetrica?: boolean 
                       fim = d.toISOString().slice(0, 10);
                       toast.info("Período limitado a 1 ano");
                     }
-                    atualizar({ inicio: ini, fim });
+                    editar({ inicio: ini, fim });
                     fechar();
                   }}
                   className="h-8 w-full rounded-md bg-ent text-xs font-medium text-white transition-opacity hover:opacity-90"
                 >
-                  Aplicar
+                  Definir período
                 </button>
               </div>
             </div>
@@ -215,7 +220,7 @@ export function FilterBar({ mostrarMetrica = true }: { mostrarMetrica?: boolean 
       <Dropdown
         icone={<Building2 className="size-4" />}
         rotulo={rotuloEmpresas}
-        ativo={filtros.empresas.length > 0}
+        ativo={rascunho.empresas.length > 0}
         largura="w-80"
       >
         {() => (
@@ -229,9 +234,9 @@ export function FilterBar({ mostrarMetrica = true }: { mostrarMetrica?: boolean 
                 placeholder="Buscar por nome ou código…"
                 className="w-full bg-transparent text-sm text-ink outline-none placeholder:text-muted"
               />
-              {filtros.empresas.length > 0 && (
+              {rascunho.empresas.length > 0 && (
                 <button
-                  onClick={() => atualizar({ empresas: [] })}
+                  onClick={() => editar({ empresas: [] })}
                   className="shrink-0 text-xs text-ent hover:underline"
                 >
                   Limpar
@@ -246,7 +251,7 @@ export function FilterBar({ mostrarMetrica = true }: { mostrarMetrica?: boolean 
                 <p className="px-3 py-2 text-sm text-muted">Nenhuma empresa encontrada</p>
               )}
               {empresasFiltradas.slice(0, 200).map((e) => {
-                const marcada = filtros.empresas.includes(e.codigo);
+                const marcada = rascunho.empresas.includes(e.codigo);
                 return (
                   <ItemLista
                     key={e.codigo}
@@ -302,9 +307,9 @@ export function FilterBar({ mostrarMetrica = true }: { mostrarMetrica?: boolean 
               {gruposAtivos.length > 0 && (
                 <button
                   onClick={() => {
-                    const set = new Set(filtros.empresas);
+                    const set = new Set(rascunho.empresas);
                     gruposAtivos.forEach((g) => g.empresas.forEach((c) => set.delete(c)));
-                    atualizar({ empresas: [...set] });
+                    editar({ empresas: [...set] });
                   }}
                   className="shrink-0 text-xs text-ent hover:underline"
                 >
@@ -353,26 +358,26 @@ export function FilterBar({ mostrarMetrica = true }: { mostrarMetrica?: boolean 
       <Dropdown
         icone={<Tags className="size-4" />}
         rotulo={
-          filtros.especies.length === 0
+          rascunho.especies.length === 0
             ? "Todas as espécies"
-            : filtros.especies.join(", ")
+            : rascunho.especies.join(", ")
         }
-        ativo={filtros.especies.length > 0}
+        ativo={rascunho.especies.length > 0}
         largura="w-56"
       >
         {() => (
           <div className="py-1">
             {ESPECIES.map((esp) => {
-              const marcada = filtros.especies.includes(esp);
+              const marcada = rascunho.especies.includes(esp);
               return (
                 <ItemLista
                   key={esp}
                   selecionado={marcada}
                   onClick={() => {
-                    const set = new Set(filtros.especies);
+                    const set = new Set(rascunho.especies);
                     if (set.has(esp)) set.delete(esp);
                     else set.add(esp);
-                    atualizar({ especies: [...set] });
+                    editar({ especies: [...set] });
                   }}
                 >
                   <span
@@ -393,7 +398,7 @@ export function FilterBar({ mostrarMetrica = true }: { mostrarMetrica?: boolean 
 
       {temFiltro && (
         <button
-          onClick={() => atualizar({ empresas: [], especies: [] })}
+          onClick={() => editar({ empresas: [], especies: [] })}
           className="flex h-9 items-center gap-1.5 rounded-lg px-3 text-sm text-muted transition-colors hover:bg-surface-2 hover:text-ink"
         >
           <X className="size-4" />
@@ -401,35 +406,39 @@ export function FilterBar({ mostrarMetrica = true }: { mostrarMetrica?: boolean 
         </button>
       )}
 
-      {/* Métrica global — só nas seções onde muda algo (Painel, Análises) */}
-      {mostrarMetrica && (
-        <div className="ml-auto flex rounded-lg border border-hairline bg-surface-2 p-0.5 text-xs">
-          <button
-            onClick={() => atualizar({ metrica: "valor" })}
-            className={clsx(
-              "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 transition-colors",
-              filtros.metrica === "valor"
-                ? "bg-surface font-medium text-ink shadow-sm"
-                : "text-muted hover:text-ink"
-            )}
-          >
-            <CircleDollarSign className="size-3.5" />
-            Valor
-          </button>
-          <button
-            onClick={() => atualizar({ metrica: "qtd" })}
-            className={clsx(
-              "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 transition-colors",
-              filtros.metrica === "qtd"
-                ? "bg-surface font-medium text-ink shadow-sm"
-                : "text-muted hover:text-ink"
-            )}
-          >
-            <Hash className="size-3.5" />
-            Quantidade
-          </button>
-        </div>
-      )}
+      <div className="ml-auto flex items-center gap-2">
+        {/* Métrica global — só nas seções onde muda algo (Painel, Análises) */}
+        {mostrarMetrica && (
+          <div className="flex rounded-lg border border-hairline bg-surface-2 p-0.5 text-xs">
+            <button
+              onClick={() => editar({ metrica: "valor" })}
+              className={clsx(
+                "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 transition-colors",
+                rascunho.metrica === "valor"
+                  ? "bg-surface font-medium text-ink shadow-sm"
+                  : "text-muted hover:text-ink"
+              )}
+            >
+              <CircleDollarSign className="size-3.5" />
+              Valor
+            </button>
+            <button
+              onClick={() => editar({ metrica: "qtd" })}
+              className={clsx(
+                "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 transition-colors",
+                rascunho.metrica === "qtd"
+                  ? "bg-surface font-medium text-ink shadow-sm"
+                  : "text-muted hover:text-ink"
+              )}
+            >
+              <Hash className="size-3.5" />
+              Quantidade
+            </button>
+          </div>
+        )}
+
+        <BotaoExecutar onClick={executar} dirty={dirty} />
+      </div>
 
       <GruposModal
         aberto={modalGrupos}

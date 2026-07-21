@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import { Loader2, Receipt } from "lucide-react";
 import { useIsFetching } from "@tanstack/react-query";
 import { FilterBar } from "@/components/filters/filter-bar";
+import { FiltroPendente } from "@/components/filtro-pendente";
 import { useFiltros } from "@/hooks/use-filters";
 import { limparEstadoSecao } from "@/lib/estado-secao";
 import { secaoAtual } from "@/lib/fiscal-secoes";
@@ -12,7 +13,7 @@ import { dataBR } from "@/lib/format";
 
 export function FiscalShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { filtros } = useFiltros();
+  const { filtros, aplicado } = useFiltros();
   const secao = secaoAtual(pathname);
   const carregando = useIsFetching() > 0;
 
@@ -51,7 +52,7 @@ export function FiscalShell({ children }: { children: React.ReactNode }) {
 
       <FilterBar mostrarMetrica={secao?.metrica ?? false} />
 
-      <div className="mt-5 space-y-4">{children}</div>
+      <div className="mt-5 space-y-4">{aplicado ? children : <FiltroPendente />}</div>
     </div>
   );
 }

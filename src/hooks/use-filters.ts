@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { hojeISO, inicioDoMesISO } from "@/lib/format";
 import type { Metrica } from "@/lib/types";
@@ -11,6 +11,17 @@ export interface FiltrosState {
   empresas: number[];
   especies: string[];
   metrica: Metrica;
+}
+
+/** Assinatura estável de um conjunto de filtros — para comparar aplicado × rascunho. */
+function assinatura(f: FiltrosState): string {
+  return [
+    f.inicio,
+    f.fim,
+    [...f.empresas].sort((a, b) => a - b).join(","),
+    [...f.especies].sort().join(","),
+    f.metrica,
+  ].join("|");
 }
 
 export function useFiltros() {
@@ -28,6 +39,10 @@ export function useFiltros() {
     [sp]
   );
 
+  // Marcador de "já executou": só o botão Executar (via `atualizar`) o liga. Antes
+  // disso, as telas não consultam nada — ver [[executar-com-botao]].
+  const aplicado = sp.get("ap") === "1";
+
   const atualizar = useCallback(
     (mudancas: Partial<FiltrosState>) => {
       const novo = { ...filtros, ...mudancas };
@@ -37,6 +52,7 @@ export function useFiltros() {
       if (novo.empresas.length) params.set("empresas", novo.empresas.join(","));
       if (novo.especies.length) params.set("especies", novo.especies.join(","));
       if (novo.metrica !== "valor") params.set("metrica", novo.metrica);
+      params.set("ap", "1");
       // replaceState nativo: o Next sincroniza useSearchParams e não refaz RSC
       window.history.replaceState(null, "", `${pathname}?${params.toString()}`);
     },
@@ -51,5 +67,36 @@ export function useFiltros() {
     return params.toString();
   }, [filtros]);
 
-  return { filtros, atualizar, qs };
+  return { filtros, atualizar, qs, aplicado };
+}
+
+/**
+ * Rascunho de filtros para o padrão "aplicar no botão": o usuário edita à
+ * vontade sem disparar consulta; só `executar()` comita para os filtros
+ * aplicados (a URL), e é aí que as queries rodam — nada executa sozinho ao
+ * mudar empresa/data ([[executar-com-botao]]). Um hook só, reusado pelas duas
+ * barras de filtro.
+ */
+export function useRascunhoFiltros() {
+  const { filtros, atualizar, aplicado } = useFiltros();
+  const aplicadoSig = assinatura(filtros);
+
+  const [rascunho, setRascunho] = useState<FiltrosState>(filtros);
+  const [sig, setSig] = useState(aplicadoSig);
+  // Ajuste de estado no render (padrão do React p/ derivar de prop): quando o
+  // aplicado muda por fora (navegação, reset), ressincroniza o rascunho.
+  if (sig !== aplicadoSig) {
+    setSig(aplicadoSig);
+    setRascunho(filtros);
+  }
+
+  const editar = useCallback(
+    (mudancas: Partial<FiltrosState>) => setRascunho((r) => ({ ...r, ...mudancas })),
+    []
+  );
+
+  const dirty = assinatura(rascunho) !== aplicadoSig;
+  const executar = useCallback(() => atualizar(rascunho), [atualizar, rascunho]);
+
+  return { rascunho, editar, dirty, executar, aplicado };
 }

@@ -7,6 +7,7 @@ import { useEffect } from "react";
 import { useIsFetching } from "@tanstack/react-query";
 import clsx from "clsx";
 import { ConfFilterBar } from "@/components/filters/conf-filter-bar";
+import { FiltroPendente } from "@/components/filtro-pendente";
 import { useFiltros } from "@/hooks/use-filters";
 import {
   abaContabilAtual,
@@ -20,7 +21,7 @@ import { dataBR } from "@/lib/format";
 export function ContabilShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const sp = useSearchParams();
-  const { filtros } = useFiltros();
+  const { filtros, aplicado } = useFiltros();
   const secao = secaoContabilAtual(pathname);
   const aba = abaContabilAtual(pathname);
   const abas = abasDaSecao(pathname);
@@ -93,7 +94,7 @@ export function ContabilShell({ children }: { children: React.ReactNode }) {
 
       <ConfFilterBar mostrarPeriodo={abaUsaPeriodo(pathname)} />
 
-      <div className="mt-5 space-y-4">{children}</div>
+      <div className="mt-5 space-y-4">{aplicado ? children : <FiltroPendente />}</div>
     </div>
   );
 }
