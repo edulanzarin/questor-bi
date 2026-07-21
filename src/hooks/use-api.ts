@@ -185,11 +185,14 @@ export const useContrapartes = (
 export const useNotaItens = (
   tipo: "ent" | "sai",
   empresa: number | null,
-  chave: string | null
+  chave: string | null,
+  // Cada módulo serve os itens pela sua própria rota (gate por módulo). A query
+  // é a mesma; muda só o caminho.
+  modulo: "fiscal" | "contabil" = "fiscal"
 ) =>
   useApiQuery<NotaItem[]>(
-    ["nota-itens", tipo, empresa, chave],
-    `/api/fiscal/nota-itens?tipo=${tipo}&empresa=${empresa}&chave=${chave}`,
+    ["nota-itens", modulo, tipo, empresa, chave],
+    `/api/${modulo}/nota-itens?tipo=${tipo}&empresa=${empresa}&chave=${chave}`,
     empresa != null && chave != null
   );
 

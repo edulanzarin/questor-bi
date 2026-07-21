@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronRight, Filter, Loader2, Search, Table2 } from "lucide-react";
 import clsx from "clsx";
 import { SeletorTipo } from "@/components/charts/top-bar-chart";
@@ -18,8 +18,20 @@ const SITUACOES: { id: Situacao; rotulo: string }[] = [
   { id: "canceladas", rotulo: "Canceladas" },
 ];
 
-function ItensNota({ tipo, empresa, chave }: { tipo: Tipo; empresa: number; chave: string }) {
-  const { data, isLoading } = useNotaItens(tipo, empresa, chave);
+/** Tabela de itens (produtos) de uma nota. Reusada no drill-down do Fiscal e no
+ *  modal de detalhe da Conferência (Contábil) — `modulo` só troca a rota. */
+export function ItensNota({
+  tipo,
+  empresa,
+  chave,
+  modulo = "fiscal",
+}: {
+  tipo: Tipo;
+  empresa: number;
+  chave: string;
+  modulo?: "fiscal" | "contabil";
+}) {
+  const { data, isLoading } = useNotaItens(tipo, empresa, chave, modulo);
   if (isLoading)
     return (
       <div className="flex items-center gap-2 px-4 py-3 text-xs text-muted">
@@ -86,10 +98,14 @@ export function NotasTabela({ qs, enabled, mostraEmpresa }: {
   }, [busca]);
 
   // volta pra página 1 quando muda filtro/busca/tipo/situação/contraparte
+  const recorte = `${qs}|${tipo}|${buscaDeb}|${situacao}|${pessoa?.codigo ?? ""}`;
+  const recorteAnterior = useRef(recorte);
   useEffect(() => {
+    if (recorteAnterior.current === recorte) return;
+    recorteAnterior.current = recorte;
     setPage(1);
     setAberta(null);
-  }, [qs, tipo, buscaDeb, situacao, pessoa]);
+  }, [recorte]);
 
   const { data, isLoading, isFetching } = useNotasLista(
     qs,

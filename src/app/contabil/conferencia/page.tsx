@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   ArrowUpDown,
@@ -22,11 +22,13 @@ import { SeletorTipo } from "@/components/charts/top-bar-chart";
 import { Kpi } from "@/components/kpi-conf";
 import { FacetaDropdown } from "@/components/filters/faceta-dropdown";
 import { Dropdown, ItemLista } from "@/components/ui/dropdown";
+import { NotaDetalheModal } from "@/components/nota-detalhe-modal";
+import { SituacaoBadge } from "@/components/situacao-badge";
 import { useEstadoSecao } from "@/hooks/use-estado-secao";
 import { useFiltros } from "@/hooks/use-filters";
 import { useConferencia } from "@/hooks/use-api";
-import { brl, brlCompact, dataBR, documento, num } from "@/lib/format";
-import type { NotaConferida, SituacaoNota, TipoDivergencia } from "@/lib/types";
+import { brl, brlCompact, dataBR, num } from "@/lib/format";
+import type { NotaConferida, SituacaoNota } from "@/lib/types";
 
 type Tipo = "ent" | "sai";
 type FiltroSituacao = "problema" | "todas" | SituacaoNota;
@@ -50,85 +52,46 @@ const ORDENS: { id: Ordem; rotulo: string }[] = [
   { id: "numero", rotulo: "Nº da nota" },
 ];
 
-const SIT_ROTULO: Record<SituacaoNota, string> = {
-  ok: "Correta",
-  divergente: "Conta errada",
-  pendente: "Não contabilizada",
-  nao_exige: "Não exige lançamento",
-  cancelada: "Cancelada",
-};
-
-const SIT_COR: Record<SituacaoNota, string> = {
-  ok: "bg-good/12 text-good",
-  divergente: "bg-critical/12 text-critical",
-  pendente: "bg-warn/12 text-warn",
-  nao_exige: "bg-surface-2 text-muted",
-  cancelada: "bg-surface-2 text-muted",
-};
-
-const DIV_ROTULO: Record<TipoDivergencia, string> = {
-  conta: "Conta fora do plano",
-  faltando: "Lançamento faltando",
-  valor: "Valor divergente",
-  natureza: "Natureza invertida",
-  extra: "Lançamento extra",
-};
-
-function Linha({ nota, rotuloContraparte }: { nota: NotaConferida; rotuloContraparte: string }) {
+// Linha enxuta de uma linha só: o detalhe (itens, divergências, doc/UF) mora no
+// modal, aberto ao clicar. A situação e a contagem de divergências ficam à vista
+// para não precisar abrir só para saber o que tem problema.
+function Linha({ nota, onAbrir }: { nota: NotaConferida; onAbrir: () => void }) {
   return (
-    <tr className="border-b border-hairline/60 align-top last:border-0 hover:bg-surface-2/50">
-      <td className="py-3 pr-3 tabular-nums">
+    <tr
+      onClick={onAbrir}
+      className="group cursor-pointer border-b border-hairline/60 transition-colors last:border-0 hover:bg-surface-2/60"
+    >
+      <td className="py-2.5 pr-3 tabular-nums whitespace-nowrap">
         {num(nota.numero)}
-        {nota.serie && <span className="text-muted"> / {nota.serie}</span>}
-        <span className="block text-[11px] text-muted">{dataBR(nota.data)}</span>
+        {nota.serie && <span className="text-muted">/{nota.serie}</span>}
+        <span className="ml-2 text-[11px] text-muted">{dataBR(nota.data)}</span>
       </td>
-      <td className="max-w-[220px] py-3 pr-3">
-        <span className="block truncate text-ink" title={nota.contraparte ?? rotuloContraparte}>
+      <td className="max-w-[260px] py-2.5 pr-3">
+        <span className="block truncate text-ink" title={nota.contraparte ?? ""}>
           {nota.contraparte ?? "—"}
         </span>
-        <span className="text-[11px] text-muted">
-          {[nota.especie, documento(nota.doc), nota.uf].filter(Boolean).join(" · ")}
-        </span>
       </td>
-      <td className="max-w-[130px] py-3 pr-3 text-xs text-muted" title={nota.cfops.join(", ")}>
+      <td
+        className="max-w-[130px] py-2.5 pr-3 text-xs text-muted"
+        title={nota.cfops.join(", ")}
+      >
         <span className="block truncate">{nota.cfops.join(", ") || "—"}</span>
-        {nota.lancamentos > 0 && (
-          <span className="text-[11px]">
-            {nota.lancamentos} {nota.lancamentos === 1 ? "lançamento" : "lançamentos"}
+      </td>
+      <td className="py-2.5 pr-3 whitespace-nowrap">
+        <SituacaoBadge situacao={nota.situacao} />
+        {nota.divergencias.length > 0 && (
+          <span className="ml-1.5 tabular-nums text-[11px] text-critical">
+            {nota.divergencias.length}{" "}
+            {nota.divergencias.length === 1 ? "divergência" : "divergências"}
           </span>
         )}
       </td>
-      <td className="py-3 pr-3">
-        <span
-          className={clsx(
-            "inline-block rounded px-1.5 py-0.5 text-[10px] font-medium",
-            SIT_COR[nota.situacao]
-          )}
-        >
-          {SIT_ROTULO[nota.situacao]}
-        </span>
-        {nota.divergencias.length > 0 && (
-          <ul className="mt-1.5 flex flex-col gap-1">
-            {nota.divergencias.map((d, i) => (
-              <li key={i} className="text-xs text-ink-2">
-                {/* Mesmo D/C do plano na Configuração: é por onde se começa a
-                    procurar no Questor. */}
-                <span
-                  className={clsx(
-                    "mr-1 font-semibold",
-                    d.natureza === 1 ? "text-ent" : "text-sai"
-                  )}
-                  title={d.natureza === 1 ? "Débito" : "Crédito"}
-                >
-                  {d.natureza === 1 ? "D" : "C"}
-                </span>
-                <span className="text-muted">{DIV_ROTULO[d.tipo]}:</span> {d.detalhe}
-              </li>
-            ))}
-          </ul>
-        )}
+      <td className="py-2.5 pr-3 text-right font-semibold tabular-nums text-ink">
+        {brl(nota.valor)}
       </td>
-      <td className="py-3 pl-3 text-right font-semibold tabular-nums text-ink">{brl(nota.valor)}</td>
+      <td className="w-6 py-2.5 pl-1 text-muted">
+        <ChevronRight className="size-4 opacity-0 transition-opacity group-hover:opacity-100" />
+      </td>
     </tr>
   );
 }
@@ -143,6 +106,8 @@ export default function ConferenciaPage() {
   const [cfops, setCfops] = useEstadoSecao<string[]>("cfops", []);
   const [ordem, setOrdem] = useEstadoSecao<Ordem>("ordem", "valor_desc");
   const [pagina, setPagina] = useEstadoSecao("pagina", 1);
+  // Nota aberta no modal de detalhe — efêmero, não sobrevive à navegação.
+  const [notaAberta, setNotaAberta] = useState<NotaConferida | null>(null);
   const temEmpresa = filtros.empresas.length === 1;
 
   // Digitar não dispara consulta a cada tecla.
@@ -252,7 +217,7 @@ export default function ConferenciaPage() {
               <h2 className="text-sm font-semibold">Notas do período</h2>
               <p className="mt-0.5 text-xs text-muted">
                 {dados
-                  ? `${num(dados.total)} ${dados.total === 1 ? "nota" : "notas"} no filtro`
+                  ? `${num(dados.total)} ${dados.total === 1 ? "nota" : "notas"} no filtro · clique para ver itens e detalhes`
                   : "…"}
                 {dados?.truncado && " · período grande, analisadas as 8.000 de maior valor"}
               </p>
@@ -388,16 +353,13 @@ export default function ConferenciaPage() {
                     </th>
                     <th className="py-2 pr-3 text-left font-medium">CFOP</th>
                     <th className="py-2 pr-3 text-left font-medium">Situação</th>
-                    <th className="py-2 pl-3 text-right font-medium">Valor</th>
+                    <th className="py-2 pr-3 text-right font-medium">Valor</th>
+                    <th className="w-6" />
                   </tr>
                 </thead>
                 <tbody>
                   {dados.notas.map((n) => (
-                    <Linha
-                      key={n.chave}
-                      nota={n}
-                      rotuloContraparte={tipo === "ent" ? "Fornecedor" : "Cliente"}
-                    />
+                    <Linha key={n.chave} nota={n} onAbrir={() => setNotaAberta(n)} />
                   ))}
                 </tbody>
               </table>
@@ -430,6 +392,12 @@ export default function ConferenciaPage() {
         )}
       </section>
 
+      <NotaDetalheModal
+        nota={notaAberta}
+        tipo={tipo}
+        empresa={filtros.empresas[0]}
+        onFechar={() => setNotaAberta(null)}
+      />
     </>
   );
 }
