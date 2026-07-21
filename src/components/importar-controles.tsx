@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { RefreshCw } from "lucide-react";
 import clsx from "clsx";
@@ -35,16 +34,6 @@ export function ImportarControles() {
   const [enviando, setEnviando] = useState(false);
   const [atualizando, setAtualizando] = useState(false);
   const [senha, setSenha] = useState("");
-
-  const { data: cadastro } = useQuery({
-    queryKey: ["extrato-regras", empresa, conta],
-    queryFn: async () => {
-      const res = await fetch(`/api/contabil/extrato-regras?empresa=${empresa}&conta=${conta}`);
-      if (!res.ok) throw new Error("Falha ao carregar regras");
-      return (await res.json()) as ContaBanco;
-    },
-    enabled: temEmpresa && conta != null,
-  });
 
   async function executar() {
     if (conta == null || !arquivo) return;
@@ -171,10 +160,6 @@ export function ImportarControles() {
           <RefreshCw className={clsx("size-3.5", atualizando && "animate-spin")} />
           Reaplicar regras
         </button>
-      )}
-
-      {conta != null && cadastro && cadastro.regras.length === 0 && (
-        <p className="text-[11px] text-warn">Esta conta ainda não tem regras</p>
       )}
     </>
   );
