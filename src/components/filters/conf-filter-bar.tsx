@@ -213,13 +213,16 @@ export function ConfFilterBar({
       {extras}
 
       {!execucao.imediata && (
-        <BotaoExecutar
-          onClick={executar}
-          dirty={dirty}
-          rotulo={execucao.rotulo}
-          disabled={empresaSel == null}
-          title={empresaSel == null ? "Selecione uma empresa" : undefined}
-        />
+        // Fixo na direita: não anda conforme a largura dos inputs.
+        <div className="ml-auto">
+          <BotaoExecutar
+            onClick={executar}
+            dirty={dirty}
+            rotulo={execucao.rotulo}
+            disabled={empresaSel == null}
+            title={empresaSel == null ? "Selecione uma empresa" : undefined}
+          />
+        </div>
       )}
     </div>
   );
