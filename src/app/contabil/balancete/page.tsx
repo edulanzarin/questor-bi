@@ -53,11 +53,14 @@ export default function BalanceteFiscalPage() {
             <h2 className="text-sm font-semibold">Balancete fiscal × contábil</h2>
             <p className="mt-0.5 text-xs text-muted">
               {dados
-                ? `${num(dados.cobertura.notas)} notas · movimento hipotético pelas regras vs o real do contábil`
+                ? `${num(dados.cobertura.notas)} notas · movimento esperado pelas regras × o real do contábil`
                 : "…"}
               {dados && dados.cobertura.componentesPulados > 0 && (
-                <span className="ml-1 text-warn">
-                  · {num(dados.cobertura.componentesPulados)} componentes fora da cobertura
+                <span
+                  className="ml-1 text-muted"
+                  title="Componentes de imposto ou serviço do plano (ISS, PIS/COFINS, retenções) cujo valor o motor ainda não calcula. As contas afetadas espelham o contábil real na comparação, então não distorcem a diferença."
+                >
+                  · {num(dados.cobertura.componentesPulados)} componentes de imposto/serviço não reproduzidos
                 </span>
               )}
             </p>
@@ -98,7 +101,7 @@ export default function BalanceteFiscalPage() {
                 <tr className="border-b border-hairline text-xs text-muted">
                   <th className="py-2 pr-3 text-left font-medium">Conta</th>
                   <th className="border-l border-hairline py-2 pl-3 pr-3 text-right font-medium" colSpan={2}>
-                    Fiscal (deveria)
+                    Fiscal (esperado)
                   </th>
                   <th className="border-l border-hairline py-2 pl-3 pr-3 text-right font-medium" colSpan={2}>
                     Contábil (real)

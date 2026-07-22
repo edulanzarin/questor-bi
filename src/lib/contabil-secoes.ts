@@ -80,13 +80,13 @@ export const SECOES_CONTABIL: SecaoContabil[] = [
     icone: Scale,
     path: "/contabil/balancete",
     metrica: false,
-    descricao: "Movimento que as notas deveriam gerar × o real do contábil",
+    descricao: "Movimento esperado pelas regras × o real do contábil",
     abas: [
       {
         id: "balancete",
         rotulo: "Balancete Fiscal",
         path: "/contabil/balancete",
-        descricao: "Balancete hipotético pelas regras, comparado ao contábil real",
+        descricao: "Balancete esperado pelas regras, comparado ao contábil real",
       },
     ],
   },
