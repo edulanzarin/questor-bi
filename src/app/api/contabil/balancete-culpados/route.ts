@@ -62,31 +62,38 @@ export const GET = apiRoute(async (req) => {
     await balanceteFiscal(client, empresa, f.inicio, f.fim, "ent", undefined, observadas, detEnt);
     await balanceteFiscal(client, empresa, f.inicio, f.fim, "sai", undefined, observadas, detSai);
 
-    // REAL (líquido, por nota) — débito − crédito lançado nas contas alvo pelas notas.
-    const realRows = (
-      await client.query<{ origem: string; chave: number; numero: number | null; contraparte: string | null; net: number }>(
-        `with r as (
-           select substring(l.chaveorigem for 2) origem,
-                  substring(l.chaveorigem from 3)::bigint chave,
-                  (case when l.contactbdeb = any($4::bigint[]) then coalesce(l.valorlctoctb,0) else 0 end
-                 - case when l.contactbcred = any($4::bigint[]) then coalesce(l.valorlctoctb,0) else 0 end)::float net
-             from lctoctb l
-            where l.codigoempresa=$1 and l.codigooriglctoctb='FI' and l.datalctoctb between $2 and $3
-              and l.chaveorigem ~ '^M[ES][0-9]+$'
-              and (l.contactbdeb = any($4::bigint[]) or l.contactbcred = any($4::bigint[]))
-         )
-         select r.origem, r.chave, sum(r.net)::float net,
-                coalesce(e.numeronf, s.numeronf) numero,
-                coalesce(pe.nomepessoa, ps.nomepessoa) contraparte
-           from r
-           left join lctofisent e on r.origem='ME' and e.codigoempresa=$1 and e.chavelctofisent=r.chave
-           left join lctofissai s on r.origem='MS' and s.codigoempresa=$1 and s.chavelctofissai=r.chave
-           left join pessoa pe on pe.codigopessoa=e.codigopessoa
-           left join pessoa ps on ps.codigopessoa=s.codigopessoa
-          group by r.origem, r.chave, e.numeronf, s.numeronf, pe.nomepessoa, ps.nomepessoa`,
-        [...p]
-      )
-    ).rows;
+    // Só as contas que o motor de fato REGRA entram na comparação: conta sem
+    // regra espelha o real (fiscal = real), então não tem diferença — incluí-la
+    // (numa sintética, p.ex.) contaria o real dela como falsa diferença.
+    const regradas = [...new Set<number>([...detEnt.regradas, ...detSai.regradas])];
+
+    // REAL (líquido, por nota) — débito − crédito lançado nas contas REGRADAS.
+    const realRows = !regradas.length
+      ? []
+      : (
+          await client.query<{ origem: string; chave: number; numero: number | null; contraparte: string | null; net: number }>(
+            `with r as (
+               select substring(l.chaveorigem for 2) origem,
+                      substring(l.chaveorigem from 3)::bigint chave,
+                      (case when l.contactbdeb = any($4::bigint[]) then coalesce(l.valorlctoctb,0) else 0 end
+                     - case when l.contactbcred = any($4::bigint[]) then coalesce(l.valorlctoctb,0) else 0 end)::float net
+                 from lctoctb l
+                where l.codigoempresa=$1 and l.codigooriglctoctb='FI' and l.datalctoctb between $2 and $3
+                  and l.chaveorigem ~ '^M[ES][0-9]+$'
+                  and (l.contactbdeb = any($4::bigint[]) or l.contactbcred = any($4::bigint[]))
+             )
+             select r.origem, r.chave, sum(r.net)::float net,
+                    coalesce(e.numeronf, s.numeronf) numero,
+                    coalesce(pe.nomepessoa, ps.nomepessoa) contraparte
+               from r
+               left join lctofisent e on r.origem='ME' and e.codigoempresa=$1 and e.chavelctofisent=r.chave
+               left join lctofissai s on r.origem='MS' and s.codigoempresa=$1 and s.chavelctofissai=r.chave
+               left join pessoa pe on pe.codigopessoa=e.codigopessoa
+               left join pessoa ps on ps.codigopessoa=s.codigopessoa
+              group by r.origem, r.chave, e.numeronf, s.numeronf, pe.nomepessoa, ps.nomepessoa`,
+            [empresa, f.inicio, f.fim, regradas]
+          )
+        ).rows;
 
     // Junta esperado × real por (origem, chave).
     type Ac = { origem: string; chave: number; numero: number | null; contraparte: string | null; esperado: number; real: number };
