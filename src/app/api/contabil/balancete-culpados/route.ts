@@ -73,10 +73,11 @@ export const GET = apiRoute(async (req) => {
     const realRows = !regradas.length
       ? []
       : (
-          await client.query<{ origem: string; chave: number; numero: number | null; especie: string | null; contraparte: string | null; net: number }>(
+          await client.query<{ origem: string; chave: number; conta: number; numero: number | null; especie: string | null; contraparte: string | null; net: number }>(
             `with r as (
                select substring(l.chaveorigem for 2) origem,
                       substring(l.chaveorigem from 3)::bigint chave,
+                      case when l.contactbdeb = any($4::bigint[]) then l.contactbdeb else l.contactbcred end conta,
                       (case when l.contactbdeb = any($4::bigint[]) then coalesce(l.valorlctoctb,0) else 0 end
                      - case when l.contactbcred = any($4::bigint[]) then coalesce(l.valorlctoctb,0) else 0 end)::float net
                  from lctoctb l
@@ -84,7 +85,7 @@ export const GET = apiRoute(async (req) => {
                   and l.chaveorigem ~ '^M[ES][0-9]+$'
                   and (l.contactbdeb = any($4::bigint[]) or l.contactbcred = any($4::bigint[]))
              )
-             select r.origem, r.chave, sum(r.net)::float net,
+             select r.origem, r.chave, r.conta, sum(r.net)::float net,
                     coalesce(e.numeronf, s.numeronf) numero,
                     upper(btrim(coalesce(e.especienf, s.especienf))) especie,
                     coalesce(pe.nomepessoa, ps.nomepessoa) contraparte
@@ -93,13 +94,26 @@ export const GET = apiRoute(async (req) => {
                left join lctofissai s on r.origem='MS' and s.codigoempresa=$1 and s.chavelctofissai=r.chave
                left join pessoa pe on pe.codigopessoa=e.codigopessoa
                left join pessoa ps on ps.codigopessoa=s.codigopessoa
-              group by r.origem, r.chave, e.numeronf, s.numeronf, e.especienf, s.especienf, pe.nomepessoa, ps.nomepessoa`,
+              group by r.origem, r.chave, r.conta, e.numeronf, s.numeronf, e.especienf, s.especienf, pe.nomepessoa, ps.nomepessoa`,
             [empresa, f.inicio, f.fim, regradas]
           )
         ).rows;
 
-    // Junta esperado × real por (origem, chave).
-    type Ac = { origem: string; chave: number; numero: number | null; especie: string | null; contraparte: string | null; esperado: number; real: number };
+    // Junta esperado × real por (origem, chave). `contaReal` = conta analítica onde
+    // a nota mais bate no real; `contaEsp` = onde o motor a esperou. Uma delas
+    // representa a nota no detalhe (útil ao abrir uma sintética).
+    type Ac = {
+      origem: string;
+      chave: number;
+      numero: number | null;
+      especie: string | null;
+      contraparte: string | null;
+      esperado: number;
+      real: number;
+      contaReal: number | null;
+      contaRealAbs: number;
+      contaEsp: number | null;
+    };
     const mapa = new Map<string, Ac>();
     const pega = (
       origem: string,
@@ -111,7 +125,7 @@ export const GET = apiRoute(async (req) => {
       const k = `${origem}:${chave}`;
       let a = mapa.get(k);
       if (!a) {
-        a = { origem, chave, numero, especie, contraparte, esperado: 0, real: 0 };
+        a = { origem, chave, numero, especie, contraparte, esperado: 0, real: 0, contaReal: null, contaRealAbs: 0, contaEsp: null };
         mapa.set(k, a);
       }
       if (a.numero == null && numero != null) a.numero = numero;
@@ -120,10 +134,20 @@ export const GET = apiRoute(async (req) => {
       return a;
     };
     for (const det of [detEnt, detSai]) {
-      for (const n of det.porNota.values())
-        pega(n.origem, n.chave, n.numero, n.especie, n.contraparte).esperado += n.valor;
+      for (const n of det.porNota.values()) {
+        const a = pega(n.origem, n.chave, n.numero, n.especie, n.contraparte);
+        a.esperado += n.valor;
+        if (a.contaEsp == null) a.contaEsp = n.conta;
+      }
     }
-    for (const r of realRows) pega(r.origem, r.chave, r.numero, r.especie, r.contraparte).real += r.net;
+    for (const r of realRows) {
+      const a = pega(r.origem, r.chave, r.numero, r.especie, r.contraparte);
+      a.real += r.net;
+      if (Math.abs(r.net) > a.contaRealAbs) {
+        a.contaRealAbs = Math.abs(r.net);
+        a.contaReal = r.conta;
+      }
+    }
 
     const culpados: BalanceteCulpado[] = [];
     for (const a of mapa.values()) {
@@ -145,6 +169,7 @@ export const GET = apiRoute(async (req) => {
         origem: a.origem,
         numero: a.numero,
         especie: a.especie,
+        conta: a.contaReal ?? a.contaEsp,
         contraparte: a.contraparte,
         esperado: a.esperado,
         real: a.real,

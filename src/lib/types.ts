@@ -503,6 +503,12 @@ export interface BalanceteCulpado {
   numero: number | null;
   /** Espécie da nota (NFE, NFSE, CTE…) — NFSE o motor não reproduz, exige olhar manual. */
   especie: string | null;
+  /**
+   * Conta analítica onde a nota bate dentro do alvo: a lançada (real) quando há
+   * lançamento, senão a esperada pela regra. Útil ao abrir uma sintética — diz em
+   * qual filha a nota está.
+   */
+  conta: number | null;
   contraparte: string | null;
   /** Líquido (débito − crédito) esperado na conta pela regra. */
   esperado: number;

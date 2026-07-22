@@ -59,6 +59,8 @@ export interface FiscalDetalheNota {
   contraparte: string | null;
   origem: "ME" | "MS";
   valor: number;
+  /** Conta alvo onde o motor esperou a maior parte do valor (para o detalhe da diferença). */
+  conta: number | null;
 }
 
 /**
@@ -281,6 +283,7 @@ export async function balanceteFiscal(
                 contraparte: n.contraparte,
                 origem: tipo === "ent" ? "ME" : "MS",
                 valor: v,
+                conta,
               });
           }
         }

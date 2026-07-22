@@ -69,12 +69,9 @@ export function CulpadosModal({
       );
 
   const totalDif = culpados.reduce((s, c) => s + c.diferenca, 0);
-  // "extra" = motor não reproduz a nota (NFSE/serviço) → provável não-erro. As
-  // demais (valor/faltando) são diferença de verdade, a investigar.
-  const semRegra = culpados.filter((c) => c.tipo === "extra");
-  const investigar = culpados.filter((c) => c.tipo !== "extra");
-  const difInvestigar = investigar.reduce((s, c) => s + c.diferenca, 0);
-  const temMix = semRegra.length > 0 && investigar.length > 0;
+  // Só numa sintética a coluna de conta agrega valor (diz em qual analítica-filha
+  // a nota bate); na analítica é sempre a própria, então não mostra.
+  const mostrarConta = alvo?.sintetica ?? false;
 
   return (
     <ListaModal
@@ -100,16 +97,7 @@ export function CulpadosModal({
               <span className="text-muted/70"> · maiores de {num(data?.total ?? 0)}</span>
             )}
           </span>
-          <span className="tabular-nums">
-            {temMix ? (
-              <>
-                <span className="text-muted">total {brl(totalDif)} · </span>
-                <span className="font-medium text-ink">a investigar {brl(difInvestigar)}</span>
-              </>
-            ) : (
-              <span className="font-medium text-ink">{brl(totalDif)}</span>
-            )}
-          </span>
+          <span className="tabular-nums font-medium text-ink">{brl(totalDif)}</span>
         </>
       }
     >
@@ -130,6 +118,7 @@ export function CulpadosModal({
               <th className="py-2 pl-6 pr-3 font-medium">Nº</th>
               <th className="py-2 pr-3 font-medium">Espécie</th>
               <th className="py-2 pr-3 font-medium">Contraparte</th>
+              {mostrarConta && <th className="py-2 pr-3 font-medium">Conta</th>}
               <th className="py-2 pr-3 font-medium">Situação</th>
               <th className="py-2 pr-3 text-right font-medium">Esperado</th>
               <th className="py-2 pr-3 text-right font-medium">Real</th>
@@ -163,6 +152,9 @@ export function CulpadosModal({
                   <td className="max-w-[280px] truncate py-1.5 pr-3" title={c.contraparte ?? ""}>
                     {c.contraparte ?? "—"}
                   </td>
+                  {mostrarConta && (
+                    <td className="py-1.5 pr-3 tabular-nums text-muted">{c.conta ?? "—"}</td>
+                  )}
                   <td className="py-1.5 pr-3">
                     {nfse && c.tipo === "extra" ? (
                       <span
