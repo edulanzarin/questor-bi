@@ -163,6 +163,20 @@ export async function balanceteFiscal(
   );
   for (const r of vcRes.rows) valoresCfop.set(`${r.chave}:${r.cfop}`, { cont: r.cont, icms: r.icms, ipi: r.ipi });
 
+  // (chave:cfop) que têm ICMS-ST na nota (valorsubtribut no produto — no cfopTab
+  // só existe ICMS/IPI). O componente de ST do plano só deve gerar lançamento
+  // quando a nota TEM ST; sem isto o motor dispara a ST pelo flag `apurasubtribut`
+  // do CFOP mesmo sem ST na nota e, como a tabela de ST costuma ser cópia da de
+  // mercadoria (mesma conta, mesmo vlrContICMS), DOBRA o valor contábil.
+  const temSt = new Set<string>();
+  const stRes = await client.query<{ chave: number; cfop: number }>(
+    `select ${c.chave} chave, codigocfop cfop from ${c.prod}
+      where codigoempresa=$1 and datalctofis between $2 and $3 and ${c.chave}=any($4::bigint[])
+      group by ${c.chave}, codigocfop having coalesce(sum(valorsubtribut),0) > 0.005`,
+    [empresa, inicio, fim, chaves]
+  );
+  for (const r of stRes.rows) temSt.add(`${r.chave}:${r.cfop}`);
+
   // Plano de contabilização (Questor + override + aprendido), igual à Conferência.
   const [planoBruto, overrides] = await Promise.all([
     planoQuestor(client, empresa, { cfops: [...todosCfops] }),
@@ -212,6 +226,8 @@ export async function balanceteFiscal(
         vlrFunRural: umCfop ? n.vlrfunrural : 0,
       } as ValoresNota;
       for (const comp of p.componentes) {
+        // ST só gera lançamento se a nota realmente tem ST — senão dobra a mercadoria.
+        if (comp.id === "st" && !temSt.has(`${n.chave}:${cf}`)) continue;
         for (const linha of comp.linhas) {
           const valor = avaliarRegra(linha.regraValor, valores);
           if (valor == null) {
