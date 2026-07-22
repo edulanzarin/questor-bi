@@ -26,6 +26,12 @@ const TIPO: Record<string, { rotulo: string; cor: string; titulo: string }> = {
     titulo:
       "Lançada em conta diferente da que o plano manda — veja a coluna Conta onde ela está",
   },
+  interno: {
+    rotulo: "Conta errada no grupo",
+    cor: "bg-warn/12 text-warn",
+    titulo:
+      "Lançada em outra conta DENTRO deste grupo (veja na coluna Conta: esperada → lançada). Não altera o total da sintética — por isso a diferença é zero —, mas as duas analíticas ficam erradas",
+  },
   extra: {
     rotulo: "Sem regra reproduzível",
     cor: "bg-surface-2 text-muted",
@@ -69,6 +75,7 @@ export function CulpadosModal({
       );
 
   const totalDif = culpados.reduce((s, c) => s + c.diferenca, 0);
+  const internos = culpados.filter((c) => c.tipo === "interno").length;
   // Só numa sintética a coluna de conta agrega valor (diz em qual analítica-filha
   // a nota bate); na analítica é sempre a própria, então não mostra.
   const mostrarConta = alvo?.sintetica ?? false;
@@ -92,7 +99,13 @@ export function CulpadosModal({
       rodape={
         <>
           <span>
-            {num(culpados.length)} {culpados.length === 1 ? "nota" : "notas"}
+            {num(culpados.length - internos)} {culpados.length - internos === 1 ? "nota" : "notas"}
+            {internos > 0 && (
+              <span className="text-muted/70">
+                {" "}
+                · {num(internos)} {internos === 1 ? "remanejo interno" : "remanejos internos"}
+              </span>
+            )}
             {(data?.total ?? 0) > todos.length && (
               <span className="text-muted/70"> · maiores de {num(data?.total ?? 0)}</span>
             )}
@@ -153,7 +166,15 @@ export function CulpadosModal({
                     {c.contraparte ?? "—"}
                   </td>
                   {mostrarConta && (
-                    <td className="py-1.5 pr-3 tabular-nums text-muted">{c.conta ?? "—"}</td>
+                    <td className="py-1.5 pr-3 tabular-nums text-muted">
+                      {c.contaEsperada != null && c.conta != null && c.contaEsperada !== c.conta ? (
+                        <span title={`Esperada em ${c.contaEsperada}, lançada em ${c.conta}`}>
+                          {c.contaEsperada} → {c.conta}
+                        </span>
+                      ) : (
+                        (c.conta ?? "—")
+                      )}
+                    </td>
                   )}
                   <td className="py-1.5 pr-3">
                     {nfse && c.tipo === "extra" ? (

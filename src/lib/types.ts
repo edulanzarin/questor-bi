@@ -516,15 +516,20 @@ export interface BalanceteCulpado {
   real: number;
   /** esperado − real (o quanto essa nota puxa a diferença). */
   diferenca: number;
+  /** Conta analítica onde a regra ESPERAVA a nota (quando o motor a esperou no alvo). */
+  contaEsperada: number | null;
   /**
    * - `valor`: lançada, mas com valor diferente do esperado (anomalia forte);
    * - `faltando`: esperada nesta conta e não lançada aqui (foi para outra);
    * - `conta_errada`: lançada aqui, mas o plano manda outra conta — o motor
    *   reproduziu a nota em conta diferente (anomalia de verdade);
+   * - `interno`: numa sintética, lançada em outra conta DENTRO do próprio grupo —
+   *   esperado = real no total (diferença 0), mas as duas analíticas ficam
+   *   erradas; mostrado à parte pra reconciliação continuar exata;
    * - `extra`: lançada sem o motor esperar E sem plano reproduzível (NFSE/serviço
    *   ou CFOP sem tabela) — o motor não reproduz de jeito nenhum, exige olhar manual.
    */
-  tipo: "valor" | "faltando" | "conta_errada" | "extra";
+  tipo: "valor" | "faltando" | "conta_errada" | "interno" | "extra";
 }
 
 export interface BalanceteCulpadosResp {

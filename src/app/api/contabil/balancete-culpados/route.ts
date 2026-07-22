@@ -171,29 +171,43 @@ export const GET = apiRoute(async (req) => {
     const culpados: BalanceteCulpado[] = [];
     for (const a of mapa.values()) {
       const diferenca = a.esperado - a.real;
-      if (Math.abs(diferenca) <= TOL) continue;
-      const temEsp = Math.abs(a.esperado) > TOL;
-      const temReal = Math.abs(a.real) > TOL; // líquido nas contas regradas
-      const lancadaNoAlvo = a.contaRealAbs > TOL; // tem lançamento em alguma conta do alvo
-      // Esperada aqui e sem líquido nas regradas: se mesmo assim foi lançada numa
-      // conta do alvo (sem regra), é conta errada (foi pra 4483, não sumiu); senão
-      // foi para fora do alvo = não lançada aqui. esp=0: conta errada se o motor a
-      // reproduz em alguma conta; senão sem plano reproduzível.
-      const tipo = temEsp
-        ? temReal
-          ? "valor"
-          : lancadaNoAlvo
+      let tipo: BalanceteCulpado["tipo"];
+      if (Math.abs(diferenca) <= TOL) {
+        // Diferença zero MAS em contas diferentes = remanejo INTERNO (só numa
+        // sintética): a nota está no grupo, na gaveta errada — não altera o total
+        // do grupo, mas as duas analíticas ficam erradas. Mostra à parte.
+        const interno =
+          Math.abs(a.esperado) > TOL &&
+          a.contaEsp != null &&
+          a.contaReal != null &&
+          a.contaEsp !== a.contaReal;
+        if (!interno) continue;
+        tipo = "interno";
+      } else {
+        const temEsp = Math.abs(a.esperado) > TOL;
+        const temReal = Math.abs(a.real) > TOL; // líquido nas contas do espelho
+        const lancadaNoAlvo = a.contaRealAbs > TOL; // tem lançamento em alguma conta do alvo
+        // Esperada aqui e sem líquido nas regradas: se mesmo assim foi lançada numa
+        // conta do alvo (sem regra), é conta errada (foi pra 4483, não sumiu); senão
+        // foi para fora do alvo = não lançada aqui. esp=0: conta errada se o motor a
+        // reproduz em alguma conta; senão sem plano reproduzível.
+        tipo = temEsp
+          ? temReal
+            ? "valor"
+            : lancadaNoAlvo
+              ? "conta_errada"
+              : "faltando"
+          : produzidas.has(`${a.origem}:${a.chave}`)
             ? "conta_errada"
-            : "faltando"
-        : produzidas.has(`${a.origem}:${a.chave}`)
-          ? "conta_errada"
-          : "extra";
+            : "extra";
+      }
       culpados.push({
         chave: a.chave,
         origem: a.origem,
         numero: a.numero,
         especie: a.especie,
         conta: a.contaReal ?? a.contaEsp,
+        contaEsperada: a.contaEsp,
         contraparte: a.contraparte,
         esperado: a.esperado,
         real: a.real,
@@ -201,11 +215,16 @@ export const GET = apiRoute(async (req) => {
         tipo,
       });
     }
-    // Primeiro as diferenças de verdade (valor/faltando/conta errada), depois as
-    // "sem regra" (NFSE/serviço que o motor não reproduz — provável não-erro).
-    const prio = (t: string) => (t === "extra" ? 2 : t === "valor" ? 0 : 1);
+    // Primeiro as diferenças de verdade (valor/faltando/conta errada), depois os
+    // remanejos internos (erro real, mas neutro pro total) e por fim as "sem
+    // regra" (NFSE/serviço que o motor não reproduz — provável não-erro).
+    const prio = (t: string) => (t === "extra" ? 3 : t === "interno" ? 2 : t === "valor" ? 0 : 1);
     culpados.sort(
-      (x, y) => prio(x.tipo) - prio(y.tipo) || Math.abs(y.diferenca) - Math.abs(x.diferenca)
+      (x, y) =>
+        prio(x.tipo) - prio(y.tipo) ||
+        Math.abs(y.diferenca) - Math.abs(x.diferenca) ||
+        // Internos têm diferença ~0 — ordena pelo tamanho do remanejo.
+        Math.abs(y.esperado) - Math.abs(x.esperado)
     );
 
     return {
