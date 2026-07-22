@@ -32,6 +32,7 @@ import type {
   BalanceteFiscalResp,
   BalanceteLancamentosResp,
   BalanceteCulpadosResp,
+  ReplicarPreviewResp,
 } from "@/lib/types";
 
 async function fetchJson<T>(url: string): Promise<T> {
@@ -379,3 +380,11 @@ export const useCancelamentosRanking = (
 /** Plano de contabilização: configuração fixa da empresa, sem período. */
 export const usePlano = (qs: string, enabled = true) =>
   useApiQuery<PlanoResp>(["plano", qs], `/api/contabil/plano?${qs}`, enabled);
+
+/** Preview da replicação de overrides: o que iria da origem pro destino. */
+export const useReplicarPreview = (origem: number | null, destino: number | null) =>
+  useApiQuery<ReplicarPreviewResp>(
+    ["plano-replicar", origem, destino],
+    `/api/contabil/plano/replicar?origem=${origem}&destino=${destino}`,
+    origem != null && destino != null
+  );

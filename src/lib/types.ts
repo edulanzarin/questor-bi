@@ -537,6 +537,31 @@ export interface BalanceteCulpadosResp {
   total: number;
 }
 
+/** Um override candidato a replicação para outra empresa. */
+export interface ReplicarItem {
+  cfop: number;
+  /** Estab de ORIGEM do override (informativo — no destino grava como geral/0). */
+  estab: number;
+  descricao: string | null;
+  contabiliza: boolean;
+  observacao: string | null;
+  linhas: LinhaPlano[];
+  /** Contas fixas das linhas que NÃO existem no plano de contas do destino. */
+  contasAusentes: number[];
+  /** O destino já tem override para este CFOP — replicar substitui. */
+  jaExiste: boolean;
+}
+
+export interface ReplicarPreviewResp {
+  itens: ReplicarItem[];
+}
+
+export interface ReplicarResp {
+  replicados: number;
+  /** CFOPs pulados por conta ausente no destino. */
+  pulados: number[];
+}
+
 /** Estabelecimento (filial) da empresa — cada um tem CNPJ próprio. */
 export interface EstabInfo {
   codigo: number;
