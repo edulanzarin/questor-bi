@@ -76,9 +76,21 @@ export function CulpadosModal({
 
   const totalDif = culpados.reduce((s, c) => s + c.diferenca, 0);
   const internos = culpados.filter((c) => c.tipo === "interno").length;
-  // Só numa sintética a coluna de conta agrega valor (diz em qual analítica-filha
-  // a nota bate); na analítica é sempre a própria, então não mostra.
-  const mostrarConta = alvo?.sintetica ?? false;
+  // O valor do rodapé é a CÉLULA clicada (a verdade da tabela). Em sintética
+  // grande, as milhares de notas conferidas (dentro da tolerância, não
+  // listadas) carregam resíduo de arredondamento — a soma das listadas pode
+  // divergir da célula em ~0,1%; o tooltip decompõe quando isso acontece.
+  const celula = alvo
+    ? alvo.fiscalDeb - alvo.fiscalCred - (alvo.realDeb - alvo.realCred)
+    : totalDif;
+  const residuo = celula - totalDif;
+  // Na sintética a coluna de conta diz em qual analítica-filha a nota bate; na
+  // analítica só aparece quando alguma nota tem o par certa → errada (aí a
+  // coluna é o que diz PRA ONDE a nota deveria ir).
+  const temPar = culpados.some(
+    (c) => c.contaEsperada != null && c.conta != null && c.contaEsperada !== c.conta
+  );
+  const mostrarConta = (alvo?.sintetica ?? false) || temPar;
 
   return (
     <ListaModal
@@ -110,7 +122,16 @@ export function CulpadosModal({
               <span className="text-muted/70"> · maiores de {num(data?.total ?? 0)}</span>
             )}
           </span>
-          <span className="tabular-nums font-medium text-ink">{brl(totalDif)}</span>
+          <span
+            className="tabular-nums font-medium text-ink"
+            title={
+              Math.abs(residuo) > 0.5
+                ? `Notas listadas: ${brl(totalDif)} · resíduo de arredondamento das notas conferidas (não listadas): ${brl(residuo)}`
+                : undefined
+            }
+          >
+            {brl(celula)}
+          </span>
         </>
       }
     >
@@ -168,8 +189,15 @@ export function CulpadosModal({
                   {mostrarConta && (
                     <td className="py-1.5 pr-3 tabular-nums text-muted">
                       {c.contaEsperada != null && c.conta != null && c.contaEsperada !== c.conta ? (
-                        <span title={`Esperada em ${c.contaEsperada}, lançada em ${c.conta}`}>
-                          {c.contaEsperada} → {c.conta}
+                        <span
+                          className="inline-flex items-center gap-1 whitespace-nowrap"
+                          title={`Certa pelo plano: ${c.contaEsperada} · Lançada (errada): ${c.conta}`}
+                        >
+                          <span className="font-medium text-good">{c.contaEsperada}</span>
+                          <span className="text-[9px] uppercase tracking-wide text-muted/70">certa</span>
+                          <span className="text-muted/50">→</span>
+                          <span className="font-medium text-critical">{c.conta}</span>
+                          <span className="text-[9px] uppercase tracking-wide text-muted/70">errada</span>
                         </span>
                       ) : (
                         (c.conta ?? "—")
@@ -196,7 +224,13 @@ export function CulpadosModal({
                   <td className="py-1.5 pr-3 text-right tabular-nums text-muted">{brl(c.esperado)}</td>
                   <td className="py-1.5 pr-3 text-right tabular-nums text-muted">{brl(c.real)}</td>
                   <td className="py-1.5 pr-6 text-right font-semibold tabular-nums text-ink">
-                    {brl(c.diferenca)}
+                    {c.tipo === "interno" ? (
+                      <span className="font-normal text-muted/50" title="Remanejo interno — não altera o total do grupo">
+                        —
+                      </span>
+                    ) : (
+                      brl(c.diferenca)
+                    )}
                   </td>
                 </tr>
               );

@@ -70,8 +70,10 @@ export const GET = apiRoute(async (req) => {
     });
     const detEnt = mk();
     const detSai = mk();
-    await balanceteFiscal(client, empresa, f.inicio, f.fim, "ent", undefined, observadas, detEnt, produzidas, lancadas);
-    await balanceteFiscal(client, empresa, f.inicio, f.fim, "sai", undefined, observadas, detSai, produzidas, lancadas);
+    // Conta que o plano manda por nota — a "certa", mesmo fora do alvo.
+    const producao = new Map<string, { conta: number; valor: number }>();
+    await balanceteFiscal(client, empresa, f.inicio, f.fim, "ent", undefined, observadas, detEnt, produzidas, lancadas, producao);
+    await balanceteFiscal(client, empresa, f.inicio, f.fim, "sai", undefined, observadas, detSai, produzidas, lancadas, producao);
 
     // Só as contas que o motor de fato REGRA entram na comparação: conta sem
     // regra espelha o real (fiscal = real), então não tem diferença — incluí-la
@@ -183,6 +185,9 @@ export const GET = apiRoute(async (req) => {
           a.contaEsp !== a.contaReal;
         if (!interno) continue;
         tipo = "interno";
+        // Mantém o resíduo sub-tolerância REAL: ele pertence à célula (é o
+        // arredondamento dos pares) e zerá-lo quebra a reconciliação exata em
+        // sintética com centenas de internos. A UI é que mostra "—" na coluna.
       } else {
         const temEsp = Math.abs(a.esperado) > TOL;
         const temReal = Math.abs(a.real) > TOL; // líquido nas contas do espelho
@@ -207,7 +212,9 @@ export const GET = apiRoute(async (req) => {
         numero: a.numero,
         especie: a.especie,
         conta: a.contaReal ?? a.contaEsp,
-        contaEsperada: a.contaEsp,
+        // A esperada no alvo quando o motor a esperou aqui; senão a conta que o
+        // plano manda (pode ser fora do alvo) — é o "deveria estar em X".
+        contaEsperada: a.contaEsp ?? producao.get(`${a.origem}:${a.chave}`)?.conta ?? null,
         contraparte: a.contraparte,
         esperado: a.esperado,
         real: a.real,

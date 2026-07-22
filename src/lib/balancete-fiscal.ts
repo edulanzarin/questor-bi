@@ -125,7 +125,14 @@ export async function balanceteFiscal(
    * pra conta errada, e o motor precisa produzir a conta certa pra diferença
    * aparecer. Nota consolidada (MOV) ou pendente fica de fora (o espelho cuida).
    */
-  lancadas?: Set<string>
+  lancadas?: Set<string>,
+  /**
+   * Se presente, registra por nota ("origem:chave") a conta FIXA que o plano
+   * manda no componente principal — a "conta certa" segundo a regra, ANTES do
+   * gate (mesmo quando o motor não a produz). Em multi-CFOP fica a de maior
+   * valor. Serve pro detalhe da diferença dizer "deveria estar em X".
+   */
+  producao?: Map<string, { conta: number; valor: number }>
 ): Promise<BalanceteFiscalMov> {
   const c = LADO[tipo];
 
@@ -272,6 +279,15 @@ export async function balanceteFiscal(
           // de sem-plano no detalhe da diferença).
           if (produzidas && conta !== CONTA_CONTRAPARTIDA) {
             produzidas.add(`${origem}:${n.chave}`);
+          }
+          // A conta que o plano MANDA no componente principal (pré-gate): é a
+          // "certa" pela regra, mesmo quando o motor não chega a produzi-la.
+          if (producao && conta !== CONTA_CONTRAPARTIDA && comp.id === "vlrcontabil") {
+            const k = `${origem}:${n.chave}`;
+            const atual = producao.get(k);
+            if (!atual || Math.abs(valor) > atual.valor) {
+              producao.set(k, { conta, valor: Math.abs(valor) });
+            }
           }
           // Conta que não é lançada nota a nota (vai na apuração mensal): não é ME.
           // Exceção: o componente PRINCIPAL de nota lançada por nota fura o gate —
