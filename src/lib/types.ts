@@ -465,10 +465,10 @@ export interface BalanceteFiscalResp {
   nivelMax: number;
 }
 
-/** Um lançamento real que compõe o movimento de uma conta (drill-down). */
+/** Um lançamento que compõe o movimento de uma conta (drill-down). */
 export interface BalanceteLancamento {
   data: string;
-  /** Prefixo da origem: ME/MS (nota), IM (apuração), RE (retenção). */
+  /** Prefixo da origem: ME/MS (nota), IM (apuração), RE (retenção), MOV (consolidação). */
   origem: string;
   /** Chave da nota — null em apuração/retenção (IM/RE), que não têm nota. */
   chave: number | null;
@@ -477,6 +477,12 @@ export interface BalanceteLancamento {
   historico: string;
   numero: number | null;
   contraparte: string | null;
+  /**
+   * Só no drill-down do lado FISCAL: `regra` = valor esperado que o motor gerou
+   * para a nota; `espelho` = movimento real espelhado (consolidação/apuração ou
+   * conta sem regra). Ausente no drill-down do lado real.
+   */
+  tipo?: "regra" | "espelho";
 }
 
 export interface BalanceteLancamentosResp {

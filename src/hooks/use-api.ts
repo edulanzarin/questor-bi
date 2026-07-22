@@ -311,11 +311,16 @@ export const useBalanceteFiscal = (qs: string, enabled = true) =>
 export const useBalanceteLancamentos = (
   qs: string,
   classif: string | null,
-  natureza: 1 | -1
+  natureza: 1 | -1,
+  // "real" = lançamentos do contábil; "fiscal" = o esperado pelas regras (motor).
+  lado: "real" | "fiscal" = "real",
+  // Linha analítica escopa pela própria conta; sintética, pela subárvore.
+  conta = 0,
+  sintetica = false
 ) =>
   useApiQuery<BalanceteLancamentosResp>(
-    ["balancete-lancamentos", qs, classif, natureza],
-    `/api/contabil/balancete-lancamentos?${qs}&classif=${encodeURIComponent(classif ?? "")}&natureza=${natureza}`,
+    ["balancete-lancamentos", lado, qs, classif, natureza, conta, sintetica],
+    `/api/contabil/balancete${lado === "fiscal" ? "-fiscal" : ""}-lancamentos?${qs}&classif=${encodeURIComponent(classif ?? "")}&natureza=${natureza}&conta=${conta}&sintetica=${sintetica ? 1 : 0}`,
     classif != null
   );
 

@@ -12,10 +12,32 @@ import {
 import { brl, num } from "@/lib/format";
 import type { BalanceteLinha } from "@/lib/types";
 
-/** Valor de coluna: em branco quando zero, pra não poluir. */
-function Val({ v, forte }: { v: number; forte?: boolean }) {
+/** Valor de coluna clicável (drill-down) quando não é zero; em branco quando zero. */
+function ValLink({
+  v,
+  natureza,
+  lado,
+  forte,
+  onDrill,
+}: {
+  v: number;
+  natureza: 1 | -1;
+  lado: "real" | "fiscal";
+  forte?: boolean;
+  onDrill: (lado: "real" | "fiscal", n: 1 | -1) => void;
+}) {
   if (Math.abs(v) < 0.005) return <span className="text-muted/40">—</span>;
-  return <span className={clsx("tabular-nums", forte && "font-medium")}>{brl(v)}</span>;
+  return (
+    <button
+      onClick={() => onDrill(lado, natureza)}
+      className={clsx(
+        "tabular-nums text-ink transition-colors hover:text-ent hover:underline",
+        forte && "font-medium"
+      )}
+    >
+      {brl(v)}
+    </button>
+  );
 }
 
 export default function BalanceteFiscalPage() {
@@ -122,8 +144,15 @@ export default function BalanceteFiscalPage() {
                   <Linha
                     key={`${l.classif}-${l.conta}`}
                     l={l}
-                    onDrill={(natureza) =>
-                      setAlvo({ classif: l.classif, natureza, descricao: `${l.conta} · ${l.descricao}` })
+                    onDrill={(lado, natureza) =>
+                      setAlvo({
+                        classif: l.classif,
+                        natureza,
+                        lado,
+                        conta: l.conta,
+                        sintetica: l.sintetica,
+                        descricao: `${l.conta} · ${l.descricao}`,
+                      })
                     }
                   />
                 ))}
@@ -138,20 +167,13 @@ export default function BalanceteFiscalPage() {
   );
 }
 
-/** Valor real clicável (drill-down) quando não é zero. */
-function ValReal({ v, natureza, onDrill }: { v: number; natureza: 1 | -1; onDrill: (n: 1 | -1) => void }) {
-  if (Math.abs(v) < 0.005) return <span className="text-muted/40">—</span>;
-  return (
-    <button
-      onClick={() => onDrill(natureza)}
-      className="tabular-nums text-ink transition-colors hover:text-ent hover:underline"
-    >
-      {brl(v)}
-    </button>
-  );
-}
-
-function Linha({ l, onDrill }: { l: BalanceteLinha; onDrill: (natureza: 1 | -1) => void }) {
+function Linha({
+  l,
+  onDrill,
+}: {
+  l: BalanceteLinha;
+  onDrill: (lado: "real" | "fiscal", natureza: 1 | -1) => void;
+}) {
   const difNet = l.fiscalDeb - l.fiscalCred - (l.realDeb - l.realCred);
   const temDif = Math.abs(difNet) > 0.5;
   const grande = Math.abs(difNet) > 100;
@@ -169,16 +191,16 @@ function Linha({ l, onDrill }: { l: BalanceteLinha; onDrill: (natureza: 1 | -1) 
         </span>
       </td>
       <td className="border-l border-hairline/50 py-1.5 pl-3 pr-3 text-right">
-        <Val v={l.fiscalDeb} forte={l.sintetica} />
+        <ValLink v={l.fiscalDeb} natureza={1} lado="fiscal" forte={l.sintetica} onDrill={onDrill} />
       </td>
       <td className="py-1.5 pr-3 text-right">
-        <Val v={l.fiscalCred} forte={l.sintetica} />
+        <ValLink v={l.fiscalCred} natureza={-1} lado="fiscal" forte={l.sintetica} onDrill={onDrill} />
       </td>
       <td className="border-l border-hairline/50 py-1.5 pl-3 pr-3 text-right">
-        <ValReal v={l.realDeb} natureza={1} onDrill={onDrill} />
+        <ValLink v={l.realDeb} natureza={1} lado="real" onDrill={onDrill} />
       </td>
       <td className="py-1.5 pr-3 text-right">
-        <ValReal v={l.realCred} natureza={-1} onDrill={onDrill} />
+        <ValLink v={l.realCred} natureza={-1} lado="real" onDrill={onDrill} />
       </td>
       <td
         className={clsx(

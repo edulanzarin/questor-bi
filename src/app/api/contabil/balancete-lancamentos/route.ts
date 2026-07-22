@@ -1,6 +1,7 @@
 import { pool } from "@/lib/db";
 import { apiRoute } from "@/lib/api-route";
 import { parseFilters, FilterError } from "@/lib/fiscal-filters";
+import { contasDoAlvo } from "@/lib/plano-contabil";
 import type { BalanceteLancamento, BalanceteLancamentosResp } from "@/lib/types";
 
 /**
@@ -18,18 +19,12 @@ export const GET = apiRoute(async (req) => {
   if (!classif) throw new FilterError("classif é obrigatório");
   const natureza = sp.get("natureza") === "-1" ? -1 : 1;
   const natCol = natureza === 1 ? "contactbdeb" : "contactbcred";
+  const conta = Number(sp.get("conta") ?? 0);
+  const sintetica = sp.get("sintetica") === "1";
 
   const client = await pool.connect();
   try {
-    // Contas analíticas em/abaixo da classificação clicada.
-    const contas = (
-      await client.query<{ conta: number }>(
-        `select contactb conta from planoespec
-          where codigoempresa=$1 and tipoconta=2
-            and (classifconta = $2 or classifconta like $2 || '.%')`,
-        [empresa, classif]
-      )
-    ).rows.map((r) => r.conta);
+    const contas = await contasDoAlvo(client, empresa, classif, sintetica, conta);
     if (!contas.length) {
       return { lancamentos: [], total: 0 } satisfies BalanceteLancamentosResp;
     }
@@ -37,7 +32,8 @@ export const GET = apiRoute(async (req) => {
     const rows = await client.query<BalanceteLancamento>(
       `with lc as (
          select to_char(l.datalctoctb,'YYYY-MM-DD') data,
-                substring(l.chaveorigem from 1 for 2) origem,
+                case when l.chaveorigem like 'MOV%' then 'MOV'
+                     else substring(l.chaveorigem from 1 for 2) end origem,
                 -- só ME/MS têm chave de nota; IM (apuração, ex.: 'IMP01') / RE não.
                 case when l.chaveorigem ~ '^M[ES][0-9]+$'
                      then substring(l.chaveorigem from 3)::bigint end chave,

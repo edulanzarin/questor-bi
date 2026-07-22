@@ -41,11 +41,37 @@ export interface BalanceteFiscalMov {
 interface NotaRow {
   chave: number;
   estab: number;
+  numero: number | null;
+  data: string;
+  contraparte: string | null;
   vlrcontabil: number;
   vlripi: number;
   vlrfunrural: number;
   vlrconticms: number;
   vlricms: number;
+}
+
+/** Contribuição de uma nota (pelo motor) ao movimento fiscal de uma conta. */
+export interface FiscalDetalheNota {
+  chave: number;
+  numero: number | null;
+  data: string;
+  contraparte: string | null;
+  origem: "ME" | "MS";
+  valor: number;
+}
+
+/**
+ * Coletor do drill-down do lado Fiscal: quando presente, o motor registra, por
+ * nota, quanto gerou nas `contas` alvo na `natureza` alvo — é a lista de notas
+ * por trás do valor hipotético. `regradas` marca as contas que o motor de fato
+ * movimentou (o chamador usa para decidir o que espelhar do real).
+ */
+export interface DetalheFiscal {
+  contas: Set<number>;
+  natureza: 1 | -1;
+  porNota: Map<number, FiscalDetalheNota>;
+  regradas: Set<number>;
 }
 
 const LADO = {
@@ -82,7 +108,9 @@ export async function balanceteFiscal(
    * apuração mensal (IM). Sem este filtro o motor super-gera imposto no ME.
    * A contrapartida variável (fornecedor/cliente) é sempre aceita.
    */
-  observadas?: Set<string>
+  observadas?: Set<string>,
+  /** Coletor do drill-down do lado Fiscal (opcional) — ver DetalheFiscal. */
+  detalhe?: DetalheFiscal
 ): Promise<BalanceteFiscalMov> {
   const c = LADO[tipo];
 
@@ -96,6 +124,7 @@ export async function balanceteFiscal(
   const notas = (
     await client.query<NotaRow>(
       `select f.${c.chave} chave, f.codigoestab estab,
+              f.numeronf numero, to_char(f.datalctofis,'YYYY-MM-DD') data, p.nomepessoa contraparte,
               coalesce(f.valorcontabil,0)::float vlrcontabil,
               coalesce(f.valoripi,0)::float vlripi,
               ${c.funrural}::float vlrfunrural,
@@ -104,6 +133,7 @@ export async function balanceteFiscal(
               coalesce((select sum(x.valorimposto) from ${c.cfopTab} x
                          where x.codigoempresa=f.codigoempresa and x.${c.chave}=f.${c.chave} and x.tipoimposto=1),0)::float vlricms
          from ${c.tabela} f
+         left join pessoa p on p.codigopessoa = f.codigopessoa
         where f.codigoempresa=$1 and f.datalctofis between $2 and $3 and f.cancelada <> '1' ${filtroChaves}`,
       params
     )
@@ -180,6 +210,26 @@ export async function balanceteFiscal(
             continue;
           }
           add(conta, linha.natureza, valor);
+          // Drill-down do Fiscal: registra a contribuição desta nota à conta alvo.
+          if (
+            detalhe &&
+            conta !== CONTA_CONTRAPARTIDA &&
+            linha.natureza === detalhe.natureza &&
+            detalhe.contas.has(conta)
+          ) {
+            detalhe.regradas.add(conta);
+            const ex = detalhe.porNota.get(n.chave);
+            if (ex) ex.valor += valor;
+            else
+              detalhe.porNota.set(n.chave, {
+                chave: n.chave,
+                numero: n.numero,
+                data: n.data,
+                contraparte: n.contraparte,
+                origem: tipo === "ent" ? "ME" : "MS",
+                valor,
+              });
+          }
         }
       }
     }

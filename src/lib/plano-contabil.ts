@@ -177,6 +177,30 @@ function montarLinha(l: LinhaRow, nomes: Map<number, string>): LinhaPlano {
   };
 }
 
+/**
+ * Contas analíticas por trás de uma linha do balancete, para o drill-down.
+ * Linha SINTÉTICA soma a subárvore (classif e descendentes); linha ANALÍTICA é a
+ * própria conta — e só ela, porque no Questor várias contas distintas (cada
+ * cliente/fornecedor) dividem a MESMA `classifconta`, então escopar por classif
+ * somaria todas as irmãs.
+ */
+export async function contasDoAlvo(
+  client: PoolClient,
+  empresa: number,
+  classif: string,
+  sintetica: boolean,
+  conta: number
+): Promise<number[]> {
+  if (!sintetica) return Number.isInteger(conta) && conta > 0 ? [conta] : [];
+  const { rows } = await client.query<{ conta: number }>(
+    `select contactb conta from planoespec
+      where codigoempresa=$1 and tipoconta=2
+        and (classifconta = $2 or classifconta like $2 || '.%')`,
+    [empresa, classif]
+  );
+  return rows.map((r) => r.conta);
+}
+
 export async function nomesDeContas(
   client: PoolClient,
   empresa: number,

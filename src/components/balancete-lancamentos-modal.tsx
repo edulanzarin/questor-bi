@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Loader2, Search } from "lucide-react";
+import clsx from "clsx";
 import { Modal } from "@/components/ui/modal";
 import { useBalanceteLancamentos } from "@/hooks/use-api";
 import { brl, dataBR, num } from "@/lib/format";
@@ -10,6 +11,10 @@ export interface AlvoBalancete {
   classif: string;
   natureza: 1 | -1;
   descricao: string;
+  /** "real" = lançamentos do contábil; "fiscal" = o esperado pelas regras (motor). */
+  lado?: "real" | "fiscal";
+  conta: number;
+  sintetica: boolean;
 }
 
 const ORIGEM: Record<string, string> = {
@@ -17,6 +22,7 @@ const ORIGEM: Record<string, string> = {
   MS: "Nota saída",
   IM: "Apuração",
   RE: "Retenção",
+  MOV: "Consolidação",
 };
 
 /** Lançamentos por página — a lista pode ter centenas, então pagina em vez de rolar tudo. */
@@ -38,10 +44,14 @@ export function BalanceteLancamentosModal({
 }) {
   const [busca, setBusca] = useState("");
   const [pagina, setPagina] = useState(1);
+  const lado = alvo?.lado ?? "real";
   const { data, isLoading } = useBalanceteLancamentos(
     qs,
     alvo?.classif ?? null,
-    alvo?.natureza ?? 1
+    alvo?.natureza ?? 1,
+    lado,
+    alvo?.conta ?? 0,
+    alvo?.sintetica ?? false
   );
 
   const linhas = useMemo(() => {
@@ -65,6 +75,9 @@ export function BalanceteLancamentosModal({
   }
 
   const total = linhas.reduce((s, l) => s + l.valor, 0);
+  // Resposta truncada no servidor: a lista (e a soma) é parcial — sinaliza.
+  const carregados = data?.lancamentos.length ?? 0;
+  const truncado = (data?.total ?? 0) > carregados;
   const totalPaginas = Math.max(1, Math.ceil(linhas.length / POR_PAGINA));
   const pag = Math.min(pagina, totalPaginas);
   const visiveis = linhas.slice((pag - 1) * POR_PAGINA, pag * POR_PAGINA);
@@ -80,7 +93,9 @@ export function BalanceteLancamentosModal({
           {alvo?.descricao}
         </h3>
       }
-      subtitulo={`Lançamentos ${alvo?.natureza === 1 ? "a débito" : "a crédito"} · origem fiscal`}
+      subtitulo={`Lançamentos ${alvo?.natureza === 1 ? "a débito" : "a crédito"} · ${
+        lado === "fiscal" ? "esperado pelas regras" : "origem fiscal"
+      }`}
     >
       <div className="flex items-center gap-2 border-b border-hairline px-6 py-3">
         <Search className="size-4 text-muted" />
@@ -106,6 +121,7 @@ export function BalanceteLancamentosModal({
             <thead className="sticky top-0 bg-surface text-left text-muted">
               <tr className="border-b border-hairline">
                 <th className="py-2 pl-6 pr-3 font-medium">Data</th>
+                {lado === "fiscal" && <th className="py-2 pr-3 font-medium">Tipo</th>}
                 <th className="py-2 pr-3 font-medium">Origem</th>
                 <th className="py-2 pr-3 font-medium">Nº</th>
                 <th className="py-2 pr-3 font-medium">Contraparte</th>
@@ -116,6 +132,25 @@ export function BalanceteLancamentosModal({
               {visiveis.map((l, i) => (
                 <tr key={i} className="border-b border-hairline/50 last:border-0">
                   <td className="tnum py-1.5 pl-6 pr-3 whitespace-nowrap">{dataBR(l.data)}</td>
+                  {lado === "fiscal" && (
+                    <td className="py-1.5 pr-3">
+                      <span
+                        className={clsx(
+                          "rounded px-1.5 py-0.5 text-[10px] font-medium",
+                          l.tipo === "espelho"
+                            ? "bg-surface-2 text-muted"
+                            : "bg-ent/12 text-ent"
+                        )}
+                        title={
+                          l.tipo === "espelho"
+                            ? "Espelhado do contábil real (consolidação, apuração ou conta sem regra)"
+                            : "Valor esperado que o motor gerou para a nota"
+                        }
+                      >
+                        {l.tipo === "espelho" ? "Espelho" : "Regra"}
+                      </span>
+                    </td>
+                  )}
                   <td className="py-1.5 pr-3 text-muted">{ORIGEM[l.origem] ?? l.origem}</td>
                   <td className="tnum py-1.5 pr-3">{l.numero ?? "—"}</td>
                   <td className="max-w-[240px] truncate py-1.5 pr-3" title={l.contraparte ?? ""}>
@@ -130,7 +165,12 @@ export function BalanceteLancamentosModal({
       </div>
 
       <footer className="flex items-center justify-between gap-3 border-t border-hairline px-6 py-3 text-xs text-muted">
-        <span>{num(linhas.length)} lançamentos</span>
+        <span>
+          {num(linhas.length)} lançamentos
+          {truncado && !busca && (
+            <span className="text-muted/70"> · maiores de {num(data?.total ?? 0)} (soma parcial)</span>
+          )}
+        </span>
         {totalPaginas > 1 && (
           <div className="flex items-center gap-1">
             <button
