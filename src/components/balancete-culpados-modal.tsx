@@ -24,7 +24,7 @@ const TIPO: Record<string, { rotulo: string; cor: string; titulo: string }> = {
     rotulo: "Conta errada",
     cor: "bg-critical/12 text-critical",
     titulo:
-      "Lançada nesta conta, mas o plano manda outra — o motor reproduziu a nota em conta diferente",
+      "Lançada em conta diferente da que o plano manda — veja a coluna Conta onde ela está",
   },
   extra: {
     rotulo: "Sem regra reproduzível",

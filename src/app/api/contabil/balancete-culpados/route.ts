@@ -67,36 +67,38 @@ export const GET = apiRoute(async (req) => {
     // Só as contas que o motor de fato REGRA entram na comparação: conta sem
     // regra espelha o real (fiscal = real), então não tem diferença — incluí-la
     // (numa sintética, p.ex.) contaria o real dela como falsa diferença.
-    const regradas = [...new Set<number>([...detEnt.regradas, ...detSai.regradas])];
+    const regradasSet = new Set<number>([...detEnt.regradas, ...detSai.regradas]);
 
-    // REAL (líquido, por nota) — débito − crédito lançado nas contas REGRADAS.
-    const realRows = !regradas.length
-      ? []
-      : (
-          await client.query<{ origem: string; chave: number; conta: number; numero: number | null; especie: string | null; contraparte: string | null; net: number }>(
-            `with r as (
-               select substring(l.chaveorigem for 2) origem,
-                      substring(l.chaveorigem from 3)::bigint chave,
-                      case when l.contactbdeb = any($4::bigint[]) then l.contactbdeb else l.contactbcred end conta,
-                      (case when l.contactbdeb = any($4::bigint[]) then coalesce(l.valorlctoctb,0) else 0 end
-                     - case when l.contactbcred = any($4::bigint[]) then coalesce(l.valorlctoctb,0) else 0 end)::float net
-                 from lctoctb l
-                where l.codigoempresa=$1 and l.codigooriglctoctb='FI' and l.datalctoctb between $2 and $3
-                  and l.chaveorigem ~ '^M[ES][0-9]+$'
-                  and (l.contactbdeb = any($4::bigint[]) or l.contactbcred = any($4::bigint[]))
-             )
-             select r.origem, r.chave, r.conta, sum(r.net)::float net,
-                    coalesce(e.numeronf, s.numeronf) numero,
-                    upper(btrim(coalesce(e.especienf, s.especienf))) especie,
-                    coalesce(pe.nomepessoa, ps.nomepessoa) contraparte
-               from r
-               left join lctofisent e on r.origem='ME' and e.codigoempresa=$1 and e.chavelctofisent=r.chave
-               left join lctofissai s on r.origem='MS' and s.codigoempresa=$1 and s.chavelctofissai=r.chave
-               left join pessoa pe on pe.codigopessoa=e.codigopessoa
-               left join pessoa ps on ps.codigopessoa=s.codigopessoa
-              group by r.origem, r.chave, r.conta, e.numeronf, s.numeronf, e.especienf, s.especienf, pe.nomepessoa, ps.nomepessoa`,
-            [empresa, f.inicio, f.fim, regradas]
-          )
+    // REAL por nota, itemizado por conta, em TODAS as contas alvo (não só as
+    // regradas): o líquido (para a diferença) só conta as regradas — conta sem
+    // regra espelha o real —, mas a CONTA onde a nota bate vem de todas, pra
+    // mostrar que um "faltando" na verdade foi lançado numa conta-sem-regra do
+    // mesmo alvo (conta errada), não sumiu.
+    const realRows = (
+      await client.query<{ origem: string; chave: number; conta: number; numero: number | null; especie: string | null; contraparte: string | null; net: number }>(
+        `with r as (
+           select substring(l.chaveorigem for 2) origem,
+                  substring(l.chaveorigem from 3)::bigint chave,
+                  case when l.contactbdeb = any($4::bigint[]) then l.contactbdeb else l.contactbcred end conta,
+                  (case when l.contactbdeb = any($4::bigint[]) then coalesce(l.valorlctoctb,0) else 0 end
+                 - case when l.contactbcred = any($4::bigint[]) then coalesce(l.valorlctoctb,0) else 0 end)::float net
+             from lctoctb l
+            where l.codigoempresa=$1 and l.codigooriglctoctb='FI' and l.datalctoctb between $2 and $3
+              and l.chaveorigem ~ '^M[ES][0-9]+$'
+              and (l.contactbdeb = any($4::bigint[]) or l.contactbcred = any($4::bigint[]))
+         )
+         select r.origem, r.chave, r.conta, sum(r.net)::float net,
+                coalesce(e.numeronf, s.numeronf) numero,
+                upper(btrim(coalesce(e.especienf, s.especienf))) especie,
+                coalesce(pe.nomepessoa, ps.nomepessoa) contraparte
+           from r
+           left join lctofisent e on r.origem='ME' and e.codigoempresa=$1 and e.chavelctofisent=r.chave
+           left join lctofissai s on r.origem='MS' and s.codigoempresa=$1 and s.chavelctofissai=r.chave
+           left join pessoa pe on pe.codigopessoa=e.codigopessoa
+           left join pessoa ps on ps.codigopessoa=s.codigopessoa
+          group by r.origem, r.chave, r.conta, e.numeronf, s.numeronf, e.especienf, s.especienf, pe.nomepessoa, ps.nomepessoa`,
+        [empresa, f.inicio, f.fim, contas]
+      )
         ).rows;
 
     // Junta esperado × real por (origem, chave). `contaReal` = conta analítica onde
@@ -142,7 +144,9 @@ export const GET = apiRoute(async (req) => {
     }
     for (const r of realRows) {
       const a = pega(r.origem, r.chave, r.numero, r.especie, r.contraparte);
-      a.real += r.net;
+      // Líquido só das regradas (mantém a reconciliação com a célula)…
+      if (regradasSet.has(r.conta)) a.real += r.net;
+      // …mas a conta onde a nota mais bate vem de TODAS as contas alvo.
       if (Math.abs(r.net) > a.contaRealAbs) {
         a.contaRealAbs = Math.abs(r.net);
         a.contaReal = r.conta;
@@ -154,13 +158,18 @@ export const GET = apiRoute(async (req) => {
       const diferenca = a.esperado - a.real;
       if (Math.abs(diferenca) <= TOL) continue;
       const temEsp = Math.abs(a.esperado) > TOL;
-      const temReal = Math.abs(a.real) > TOL;
-      // esp=0 aqui: se o motor reproduziu a nota em ALGUMA conta, é conta errada
-      // (foi lançada aqui, mas o plano manda outra); senão, sem plano reproduzível.
+      const temReal = Math.abs(a.real) > TOL; // líquido nas contas regradas
+      const lancadaNoAlvo = a.contaRealAbs > TOL; // tem lançamento em alguma conta do alvo
+      // Esperada aqui e sem líquido nas regradas: se mesmo assim foi lançada numa
+      // conta do alvo (sem regra), é conta errada (foi pra 4483, não sumiu); senão
+      // foi para fora do alvo = não lançada aqui. esp=0: conta errada se o motor a
+      // reproduz em alguma conta; senão sem plano reproduzível.
       const tipo = temEsp
         ? temReal
           ? "valor"
-          : "faltando"
+          : lancadaNoAlvo
+            ? "conta_errada"
+            : "faltando"
         : produzidas.has(`${a.origem}:${a.chave}`)
           ? "conta_errada"
           : "extra";
