@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BarChart3 } from "lucide-react";
+import Image from "next/image";
 import { MODULOS, type ModuloId } from "@/lib/modulos";
 import { ThemeToggle } from "./theme-toggle";
 
@@ -28,9 +28,7 @@ export function Launcher({
     <div className="flex min-h-screen flex-col">
       <header className="flex items-center justify-between px-6 py-5">
         <div className="flex items-center gap-2.5">
-          <span className="grid size-9 place-items-center rounded-xl bg-ent/15 text-ent">
-            <BarChart3 className="size-5" />
-          </span>
+          <Image src="/logo.png" alt="Questor Hub" width={36} height={36} className="size-9" />
           <p className="text-sm font-semibold tracking-tight">Questor Hub</p>
         </div>
         <ThemeToggle label={false} />
@@ -42,8 +40,6 @@ export function Launcher({
 
         <div className="mt-8 grid gap-5 sm:grid-cols-2">
           {visiveis.map((m) => {
-            const Icone = m.icone;
-
             if (!m.ativo) {
               return (
                 <div
@@ -52,9 +48,13 @@ export function Launcher({
                   aria-disabled
                   className="card anim-scale-in flex flex-col items-center gap-4 px-6 py-8 text-center opacity-55"
                 >
-                  <span className="grid size-16 place-items-center rounded-2xl bg-surface-2 text-muted">
-                    <Icone className="size-8" />
-                  </span>
+                  <Image
+                    src="/logo.png"
+                    alt=""
+                    width={64}
+                    height={64}
+                    className="size-16 opacity-60 grayscale"
+                  />
                   <div>
                     <p className="text-base font-semibold">{m.titulo}</p>
                     <span className="mt-1 inline-block text-[10px] font-medium uppercase tracking-wide text-muted">
@@ -72,9 +72,13 @@ export function Launcher({
                 title={m.descricao}
                 className="card anim-scale-in group flex flex-col items-center gap-4 px-6 py-8 text-center transition-colors hover:border-ent/40 hover:bg-surface-2"
               >
-                <span className="grid size-16 place-items-center rounded-2xl bg-ent/12 text-ent transition-colors group-hover:bg-ent/20">
-                  <Icone className="size-8" />
-                </span>
+                <Image
+                  src="/logo.png"
+                  alt=""
+                  width={64}
+                  height={64}
+                  className="size-16 transition-transform group-hover:scale-105"
+                />
                 <p className="text-base font-semibold">{m.titulo}</p>
               </Link>
             );

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useSearchParams } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import clsx from "clsx";
@@ -22,7 +23,6 @@ export function ModuloSidebar({ moduloId }: { moduloId: ModuloId }) {
   const modulo = getModulo(moduloId);
   const secoes = secoesDoModulo(moduloId);
   if (!modulo) return null;
-  const Icone = modulo.icone;
 
   return (
     <aside className="sticky top-0 flex h-screen w-60 shrink-0 flex-col border-r border-hairline bg-surface px-3 py-5">
@@ -35,9 +35,7 @@ export function ModuloSidebar({ moduloId }: { moduloId: ModuloId }) {
       </Link>
 
       <div className="mt-3 flex items-center gap-2.5 px-2">
-        <span className="grid size-9 place-items-center rounded-xl bg-ent/15 text-ent">
-          <Icone className="size-5" />
-        </span>
+        <Image src="/logo.png" alt="" width={36} height={36} className="size-9" />
         <div className="leading-tight">
           <p className="text-sm font-semibold tracking-tight">{modulo.titulo}</p>
           <p className="text-[11px] text-muted">Questor Hub</p>
