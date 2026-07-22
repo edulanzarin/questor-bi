@@ -29,14 +29,16 @@
 :root[data-theme="dark"] {
   color-scheme: dark;
   --page: #0d0d0d;
-  --surface: #1a1a19;
-  --surface-2: #242422;
+  --surface: #1c1c1b;
+  --surface-2: #272725;
   --ink: #ffffff;
-  --ink-2: #c3c2b7;
-  --muted: #898781;
-  --grid: #2c2c2a;
-  --baseline: #383835;
-  --hairline: rgba(255, 255, 255, 0.1);
+  --ink-2: #cbcabf;
+  /* Mais claro que no tema claro de propósito: no fundo escuro o mesmo cinza
+     perde contraste perceptual e texto secundário ficava difícil de ler. */
+  --muted: #a3a19a;
+  --grid: #31312e;
+  --baseline: #3e3e3a;
+  --hairline: rgba(255, 255, 255, 0.15);
   --ent: #3987e5;
   --sai: #00a300;
   --esp-1: #d55181;
