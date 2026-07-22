@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Loader2, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Search } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { useBalanceteLancamentos } from "@/hooks/use-api";
 import { brl, dataBR, num } from "@/lib/format";
@@ -19,10 +19,13 @@ const ORIGEM: Record<string, string> = {
   RE: "Retenção",
 };
 
+/** Lançamentos por página — a lista pode ter centenas, então pagina em vez de rolar tudo. */
+const POR_PAGINA = 50;
+
 /**
  * Drill-down de uma conta do balancete: os lançamentos reais (origem fiscal)
  * que compõem aquele valor, com a nota de origem e busca. Abre ao clicar num
- * valor da coluna Contábil.
+ * valor da coluna Contábil. Usa a casca comum de modal (ver `components/ui/modal`).
  */
 export function BalanceteLancamentosModal({
   qs,
@@ -34,6 +37,7 @@ export function BalanceteLancamentosModal({
   onFechar: () => void;
 }) {
   const [busca, setBusca] = useState("");
+  const [pagina, setPagina] = useState(1);
   const { data, isLoading } = useBalanceteLancamentos(
     qs,
     alvo?.classif ?? null,
@@ -51,7 +55,19 @@ export function BalanceteLancamentosModal({
     );
   }, [data, busca]);
 
+  // Trocar de conta ou de busca recomeça na primeira página — ajuste em render
+  // (via chave anterior), não em efeito, pra não disparar render em cascata.
+  const chave = `${alvo?.classif ?? ""}:${alvo?.natureza ?? ""}:${busca}`;
+  const [chaveAnterior, setChaveAnterior] = useState(chave);
+  if (chave !== chaveAnterior) {
+    setChaveAnterior(chave);
+    setPagina(1);
+  }
+
   const total = linhas.reduce((s, l) => s + l.valor, 0);
+  const totalPaginas = Math.max(1, Math.ceil(linhas.length / POR_PAGINA));
+  const pag = Math.min(pagina, totalPaginas);
+  const visiveis = linhas.slice((pag - 1) * POR_PAGINA, pag * POR_PAGINA);
 
   return (
     <Modal
@@ -97,7 +113,7 @@ export function BalanceteLancamentosModal({
               </tr>
             </thead>
             <tbody>
-              {linhas.map((l, i) => (
+              {visiveis.map((l, i) => (
                 <tr key={i} className="border-b border-hairline/50 last:border-0">
                   <td className="tnum py-1.5 pl-6 pr-3 whitespace-nowrap">{dataBR(l.data)}</td>
                   <td className="py-1.5 pr-3 text-muted">{ORIGEM[l.origem] ?? l.origem}</td>
@@ -113,8 +129,29 @@ export function BalanceteLancamentosModal({
         )}
       </div>
 
-      <footer className="flex items-center justify-between border-t border-hairline px-6 py-3 text-xs text-muted">
+      <footer className="flex items-center justify-between gap-3 border-t border-hairline px-6 py-3 text-xs text-muted">
         <span>{num(linhas.length)} lançamentos</span>
+        {totalPaginas > 1 && (
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setPagina((p) => Math.max(1, p - 1))}
+              disabled={pag <= 1}
+              className="flex items-center gap-1 rounded-lg px-2 py-1 hover:bg-surface-2 hover:text-ink disabled:opacity-40 disabled:hover:bg-transparent"
+            >
+              <ChevronLeft className="size-3.5" /> Anterior
+            </button>
+            <span className="tnum px-1">
+              {pag} / {num(totalPaginas)}
+            </span>
+            <button
+              onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))}
+              disabled={pag >= totalPaginas}
+              className="flex items-center gap-1 rounded-lg px-2 py-1 hover:bg-surface-2 hover:text-ink disabled:opacity-40 disabled:hover:bg-transparent"
+            >
+              Próxima <ChevronRight className="size-3.5" />
+            </button>
+          </div>
+        )}
         <span className="tnum font-medium text-ink">{brl(total)}</span>
       </footer>
     </Modal>
