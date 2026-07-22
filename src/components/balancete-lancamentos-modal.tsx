@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, Loader2, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import clsx from "clsx";
-import { Modal } from "@/components/ui/modal";
+import { ListaModal } from "@/components/lista-modal";
 import { useBalanceteLancamentos } from "@/hooks/use-api";
 import { brl, dataBR, num } from "@/lib/format";
 
@@ -83,7 +83,7 @@ export function BalanceteLancamentosModal({
   const visiveis = linhas.slice((pag - 1) * POR_PAGINA, pag * POR_PAGINA);
 
   return (
-    <Modal
+    <ListaModal
       aberto={alvo != null}
       onFechar={onFechar}
       largura="max-w-4xl"
@@ -96,28 +96,50 @@ export function BalanceteLancamentosModal({
       subtitulo={`Lançamentos ${alvo?.natureza === 1 ? "a débito" : "a crédito"} · ${
         lado === "fiscal" ? "esperado pelas regras" : "origem fiscal"
       }`}
+      busca={busca}
+      onBusca={setBusca}
+      carregando={isLoading}
+      rodape={
+        <>
+          <span>
+            {num(linhas.length)} lançamentos
+            {truncado && !busca && (
+              <span className="text-muted/70"> · maiores de {num(data?.total ?? 0)} (soma parcial)</span>
+            )}
+          </span>
+          {totalPaginas > 1 && (
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setPagina((p) => Math.max(1, p - 1))}
+                disabled={pag <= 1}
+                className="flex items-center gap-1 rounded-lg px-2 py-1 hover:bg-surface-2 hover:text-ink disabled:opacity-40 disabled:hover:bg-transparent"
+              >
+                <ChevronLeft className="size-3.5" /> Anterior
+              </button>
+              <span className="tnum px-1">
+                {pag} / {num(totalPaginas)}
+              </span>
+              <button
+                onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))}
+                disabled={pag >= totalPaginas}
+                className="flex items-center gap-1 rounded-lg px-2 py-1 hover:bg-surface-2 hover:text-ink disabled:opacity-40 disabled:hover:bg-transparent"
+              >
+                Próxima <ChevronRight className="size-3.5" />
+              </button>
+            </div>
+          )}
+          <span className="tnum font-medium text-ink">{brl(total)}</span>
+        </>
+      }
     >
-      <div className="flex items-center gap-2 border-b border-hairline px-6 py-3">
-        <Search className="size-4 text-muted" />
-        <input
-          autoFocus
-          value={busca}
-          onChange={(e) => setBusca(e.target.value)}
-          placeholder="Nº da nota ou contraparte…"
-          className="w-full bg-transparent text-sm text-ink outline-none placeholder:text-muted"
-        />
-        {isLoading && <Loader2 className="size-4 shrink-0 animate-spin text-muted" />}
-      </div>
-
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        {isLoading ? (
-          <div className="p-6">
-            <div className="skeleton h-40 w-full" />
-          </div>
-        ) : linhas.length === 0 ? (
-          <p className="py-10 text-center text-sm text-muted">Nenhum lançamento.</p>
-        ) : (
-          <table className="w-full min-w-[720px] text-xs">
+      {isLoading ? (
+        <div className="p-6">
+          <div className="skeleton h-40 w-full" />
+        </div>
+      ) : linhas.length === 0 ? (
+        <p className="py-10 text-center text-sm text-muted">Nenhum lançamento.</p>
+      ) : (
+        <table className="w-full min-w-[720px] text-xs">
             <thead className="sticky top-0 bg-surface text-left text-muted">
               <tr className="border-b border-hairline">
                 <th className="py-2 pl-6 pr-3 font-medium">Data</th>
@@ -182,38 +204,6 @@ export function BalanceteLancamentosModal({
             </tbody>
           </table>
         )}
-      </div>
-
-      <footer className="flex items-center justify-between gap-3 border-t border-hairline px-6 py-3 text-xs text-muted">
-        <span>
-          {num(linhas.length)} lançamentos
-          {truncado && !busca && (
-            <span className="text-muted/70"> · maiores de {num(data?.total ?? 0)} (soma parcial)</span>
-          )}
-        </span>
-        {totalPaginas > 1 && (
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => setPagina((p) => Math.max(1, p - 1))}
-              disabled={pag <= 1}
-              className="flex items-center gap-1 rounded-lg px-2 py-1 hover:bg-surface-2 hover:text-ink disabled:opacity-40 disabled:hover:bg-transparent"
-            >
-              <ChevronLeft className="size-3.5" /> Anterior
-            </button>
-            <span className="tnum px-1">
-              {pag} / {num(totalPaginas)}
-            </span>
-            <button
-              onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))}
-              disabled={pag >= totalPaginas}
-              className="flex items-center gap-1 rounded-lg px-2 py-1 hover:bg-surface-2 hover:text-ink disabled:opacity-40 disabled:hover:bg-transparent"
-            >
-              Próxima <ChevronRight className="size-3.5" />
-            </button>
-          </div>
-        )}
-        <span className="tnum font-medium text-ink">{brl(total)}</span>
-      </footer>
-    </Modal>
+    </ListaModal>
   );
 }
