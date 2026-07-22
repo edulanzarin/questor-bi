@@ -47,8 +47,6 @@ interface NotaRow {
   vlrcontabil: number;
   vlripi: number;
   vlrfunrural: number;
-  vlrconticms: number;
-  vlricms: number;
 }
 
 /** Contribuição de uma nota (pelo motor) ao movimento fiscal de uma conta. */
@@ -85,21 +83,6 @@ const LADO = {
   sai: { tabela: "lctofissai", chave: "chavelctofissai", cfopTab: "lctofissaicfop", prod: "lctofissaiproduto", funrural: "0" },
 } as const;
 
-/**
- * Monta o dicionário de valores da nota que o `avaliarRegra` consome. As chaves
- * são os tokens das fórmulas do Questor. Tokens ausentes fazem a fórmula não ser
- * avaliada (o componente é pulado) — é assim que os itens de fase 2 se auto-excluem.
- */
-function valoresDaNota(n: NotaRow): ValoresNota {
-  return {
-    vlrContabil: n.vlrcontabil,
-    vlrContICMS: n.vlrconticms || n.vlrcontabil, // sem ICMS destacado, é o contábil cheio
-    vlrICMS: n.vlricms,
-    vlrIPI: n.vlripi,
-    vlrFunRural: n.vlrfunrural,
-  } as ValoresNota;
-}
-
 export async function balanceteFiscal(
   client: PoolClient,
   empresa: number,
@@ -133,11 +116,7 @@ export async function balanceteFiscal(
               f.numeronf numero, to_char(f.datalctofis,'YYYY-MM-DD') data, p.nomepessoa contraparte,
               coalesce(f.valorcontabil,0)::float vlrcontabil,
               coalesce(f.valoripi,0)::float vlripi,
-              ${c.funrural}::float vlrfunrural,
-              coalesce((select sum(x.valorcontabilimposto) from ${c.cfopTab} x
-                         where x.codigoempresa=f.codigoempresa and x.${c.chave}=f.${c.chave} and x.tipoimposto=1),0)::float vlrconticms,
-              coalesce((select sum(x.valorimposto) from ${c.cfopTab} x
-                         where x.codigoempresa=f.codigoempresa and x.${c.chave}=f.${c.chave} and x.tipoimposto=1),0)::float vlricms
+              ${c.funrural}::float vlrfunrural
          from ${c.tabela} f
          left join pessoa p on p.codigopessoa = f.codigopessoa
         where f.codigoempresa=$1 and f.datalctofis between $2 and $3 and f.cancelada <> '1' ${filtroChaves}`,
@@ -162,6 +141,24 @@ export async function balanceteFiscal(
     if (l) l.push(r.cfop);
     else cfopsPorNota.set(r.chave, [r.cfop]);
   }
+
+  // Valores POR CFOP — uma nota se reparte por CFOP no `lctofis*cfop` (cada CFOP
+  // com a sua parcela do valor contábil), então usar o total da nota em cada CFOP
+  // dobra/tripa o esperado em nota multi-CFOP. `valorcontabilimposto` do ICMS
+  // (tipoimposto 1) é a parcela contábil de cada CFOP; some ao total da nota.
+  // Nulo quando o CFOP não tem ICMS destacado — aí cai no total (nota de 1 CFOP).
+  const valoresCfop = new Map<string, { cont: number | null; icms: number; ipi: number }>();
+  const vcRes = await client.query<{ chave: number; cfop: number; cont: number | null; icms: number; ipi: number }>(
+    `select ${c.chave} chave, codigocfop cfop,
+            sum(valorcontabilimposto) filter (where tipoimposto=1)::float cont,
+            coalesce(sum(valorimposto) filter (where tipoimposto=1),0)::float icms,
+            coalesce(sum(valorimposto) filter (where tipoimposto=2),0)::float ipi
+       from ${c.cfopTab}
+      where codigoempresa=$1 and datalctofis between $2 and $3 and ${c.chave}=any($4::bigint[])
+      group by ${c.chave}, codigocfop`,
+    [empresa, inicio, fim, chaves]
+  );
+  for (const r of vcRes.rows) valoresCfop.set(`${r.chave}:${r.cfop}`, { cont: r.cont, icms: r.icms, ipi: r.ipi });
 
   // Plano de contabilização (Questor + override + aprendido), igual à Conferência.
   const [planoBruto, overrides] = await Promise.all([
@@ -196,11 +193,21 @@ export async function balanceteFiscal(
   };
 
   for (const n of notas) {
-    const valores = valoresDaNota(n);
     const cfops = cfopsPorNota.get(n.chave) ?? [];
+    const umCfop = cfops.length === 1;
     for (const cf of cfops) {
       const p = porChave.get(`${n.estab}:${cf}`);
       if (!p || !p.contabiliza) continue;
+      // Valores da PARCELA deste CFOP (não o total da nota — senão dobra em multi-CFOP).
+      const vc = valoresCfop.get(`${n.chave}:${cf}`);
+      const cont = vc?.cont ?? (umCfop ? n.vlrcontabil : 0);
+      const valores = {
+        vlrContabil: cont,
+        vlrContICMS: cont,
+        vlrICMS: vc?.icms ?? 0,
+        vlrIPI: vc?.ipi ?? (umCfop ? n.vlripi : 0),
+        vlrFunRural: umCfop ? n.vlrfunrural : 0,
+      } as ValoresNota;
       for (const comp of p.componentes) {
         for (const linha of comp.linhas) {
           const valor = avaliarRegra(linha.regraValor, valores);
