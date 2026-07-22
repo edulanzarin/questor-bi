@@ -109,8 +109,23 @@ export async function balanceteFiscal(
    * ALGUMA conta fixa (não a contrapartida). Serve para distinguir, no detalhe da
    * diferença, "conta errada" (a nota foi reproduzida em outra conta) de "sem
    * plano" (o motor não reproduz de jeito nenhum).
+   *
+   * Além disso registra "origem:chave:natureza" quando o motor DE FATO somou em
+   * conta fixa (pós-gate). O chamador usa para o espelho por NOTA: o real de uma
+   * nota reproduzida não é espelhado — a versão do motor a substitui — e é isso
+   * que faz conta errada aparecer no balancete (a conta certa fica com a nota a
+   * mais, a errada com a nota a menos), sem dobrar o valor.
    */
-  produzidas?: Set<string>
+  produzidas?: Set<string>,
+  /**
+   * Chaves ("ME:chave"/"MS:chave") das notas que TÊM lançamento nota a nota no
+   * real. Para elas o componente PRINCIPAL (valor contábil) fura o gate
+   * `observadas`: a despesa/receita de uma nota lançada por nota existe em
+   * algum lugar do contábil — se a conta do plano nunca é usada, é porque foi
+   * pra conta errada, e o motor precisa produzir a conta certa pra diferença
+   * aparecer. Nota consolidada (MOV) ou pendente fica de fora (o espelho cuida).
+   */
+  lancadas?: Set<string>
 ): Promise<BalanceteFiscalMov> {
   const c = LADO[tipo];
 
@@ -250,16 +265,30 @@ export async function balanceteFiscal(
           if (Math.abs(valor) < 0.005) continue;
           const conta = linha.contaVariavel ? CONTA_CONTRAPARTIDA : linha.conta;
           if (conta == null) continue;
+          const origem = tipo === "ent" ? "ME" : "MS";
           // Registra ANTES do gate `observadas`: a nota tem plano que gera esta
           // conta fixa, mesmo que essa conta não receba lançamento por nota (aí o
           // motor não a soma, mas ela É reproduzível — é o que separa conta errada
           // de sem-plano no detalhe da diferença).
           if (produzidas && conta !== CONTA_CONTRAPARTIDA) {
-            produzidas.add(`${tipo === "ent" ? "ME" : "MS"}:${n.chave}`);
+            produzidas.add(`${origem}:${n.chave}`);
           }
           // Conta que não é lançada nota a nota (vai na apuração mensal): não é ME.
+          // Exceção: o componente PRINCIPAL de nota lançada por nota fura o gate —
+          // a despesa/receita dela existe no contábil; se a conta do plano nunca é
+          // usada, foi pra conta errada, e produzir a certa expõe a diferença.
           if (observadas && conta !== CONTA_CONTRAPARTIDA && !observadas.has(`${linha.natureza}:${conta}`)) {
-            continue;
+            const notaLancada = lancadas?.has(`${origem}:${n.chave}`) ?? false;
+            if (!(comp.id === "vlrcontabil" && notaLancada)) continue;
+            // Bypass disparou: a nota foi lançada, mas a conta do plano nunca
+            // recebe nota — o lançamento real dela (nesta natureza) está em conta
+            // errada e sai do espelho (a versão do motor o substitui). SÓ no
+            // bypass: quando o principal cai em conta observada, a comparação por
+            // conta já cuida, e excluir aqui varreria componentes irmãos que o
+            // motor não reproduz (PIS/COFINS a recuperar etc.) → fantasma.
+            if (produzidas) {
+              produzidas.add(`${origem}:${n.chave}:${linha.natureza}`);
+            }
           }
           add(conta, linha.natureza, valor);
           // Drill-down do Fiscal: registra a contribuição desta nota à conta alvo.

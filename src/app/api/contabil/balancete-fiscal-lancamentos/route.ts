@@ -38,18 +38,33 @@ export const GET = apiRoute(async (req) => {
     const contasSet = new Set(contas);
     const p3 = [empresa, f.inicio, f.fim, contas] as const;
 
-    // Contas (na natureza alvo) que RECEBEM lançamento por nota (ME/MS) — calibra
-    // o motor: componente cuja conta não aparece aqui vai na apuração, não na nota.
+    // Contas que RECEBEM lançamento por nota (ME/MS) — calibra o motor: componente
+    // cuja conta não aparece aqui vai na apuração, não na nota. Da empresa INTEIRA
+    // (não só o alvo), pra o motor rodar idêntico ao da célula do balancete; a
+    // mesma query dá as `lancadas` (notas com lançamento por nota — o gate do
+    // componente principal fura pra elas).
     const notaContas = (
-      await client.query<{ conta: number }>(
-        `select ${natCol} conta from lctoctb
+      await client.query<{ conta: number; natureza: number; chaveorigem: string }>(
+        `select contactbdeb conta, 1 natureza, chaveorigem from lctoctb
           where codigoempresa=$1 and codigooriglctoctb='FI' and datalctoctb between $2 and $3
-            and ${natCol} = any($4::bigint[]) and chaveorigem ~ '^M[ES][0-9]+$'
-          group by ${natCol}`,
-        [...p3]
+            and contactbdeb is not null and chaveorigem ~ '^M[ES][0-9]+$'
+          group by contactbdeb, chaveorigem
+         union all
+         select contactbcred, -1, chaveorigem from lctoctb
+          where codigoempresa=$1 and codigooriglctoctb='FI' and datalctoctb between $2 and $3
+            and contactbcred is not null and chaveorigem ~ '^M[ES][0-9]+$'
+          group by contactbcred, chaveorigem`,
+        [empresa, f.inicio, f.fim]
       )
     ).rows;
-    const observadas = new Set(notaContas.map((r) => `${natureza}:${r.conta}`));
+    const NOTA_RE = /^(M[ES])0*(\d+)$/;
+    const observadas = new Set<string>();
+    const lancadas = new Set<string>();
+    for (const r of notaContas) {
+      observadas.add(`${r.natureza}:${r.conta}`);
+      const m = NOTA_RE.exec(r.chaveorigem);
+      if (m) lancadas.add(`${m[1]}:${m[2]}`);
+    }
 
     // Lançamentos REAIS (itemizados) da conta, para o espelho e a origem.
     const realRows = (
@@ -82,10 +97,13 @@ export const GET = apiRoute(async (req) => {
     ).rows;
 
     // Lado ESPERADO: o motor "replaya" cada nota; coleta a contribuição por nota.
+    // `produzidas` recebe "origem:chave:natureza" das notas reproduzidas — o
+    // espelho as exclui (a versão do motor substitui o real da nota).
+    const produzidas = new Set<string>();
     const detEnt: DetalheFiscal = { contas: contasSet, natureza, porNota: new Map(), regradas: new Set() };
     const detSai: DetalheFiscal = { contas: contasSet, natureza, porNota: new Map(), regradas: new Set() };
-    await balanceteFiscal(client, empresa, f.inicio, f.fim, "ent", undefined, observadas, detEnt);
-    await balanceteFiscal(client, empresa, f.inicio, f.fim, "sai", undefined, observadas, detSai);
+    await balanceteFiscal(client, empresa, f.inicio, f.fim, "ent", undefined, observadas, detEnt, produzidas, lancadas);
+    await balanceteFiscal(client, empresa, f.inicio, f.fim, "sai", undefined, observadas, detSai, produzidas, lancadas);
     const regradas = new Set<number>([...detEnt.regradas, ...detSai.regradas]);
 
     const regra: BalanceteLancamento[] = [...detEnt.porNota.values(), ...detSai.porNota.values()].map(
@@ -103,12 +121,21 @@ export const GET = apiRoute(async (req) => {
       })
     );
 
-    // Espelho: real que o balancete NÃO substitui pelo motor — nota em conta
-    // regrada é coberta pelo motor (não espelha); o resto (MOV/IM/RE, e nota em
-    // conta sem regra) espelha.
+    // Espelho: real que o balancete NÃO substitui pelo motor — sai do espelho a
+    // nota em conta regrada E a nota que o motor reproduziu nesta natureza (em
+    // qualquer conta: se foi lançada em conta errada, a versão do motor a
+    // substitui — mesma regra da célula). O resto (MOV/IM/RE, nota sem regra)
+    // espelha.
     const ehNota = (o: string) => o === "ME" || o === "MS";
     const espelho: BalanceteLancamento[] = realRows
-      .filter((r) => !(ehNota(r.origem) && regradas.has(r.conta)))
+      .filter(
+        (r) =>
+          !(
+            ehNota(r.origem) &&
+            (regradas.has(r.conta) ||
+              (r.chave != null && produzidas.has(`${r.origem}:${r.chave}:${natureza}`)))
+          )
+      )
       .map((r) => ({ ...r, tipo: "espelho" as const }));
 
     const todos = [...regra, ...espelho].sort((a, b) => b.valor - a.valor);

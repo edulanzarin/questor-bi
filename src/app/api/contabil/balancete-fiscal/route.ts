@@ -24,24 +24,27 @@ export const GET = apiRoute(async (req) => {
   try {
     const p = [empresa, f.inicio, f.fim] as const;
 
-    // Movimento REAL de TODA origem fiscal por conta (notas ME/MS + consolidações
-    // MOV + apuração IM + retenção RE) — pra o Contábil ficar completo: varejo
-    // vende muito por cupom consolidado (origem MOV), que não é nota individual.
-    const real = await client.query<{ conta: number; natureza: number; origem: string; valor: number }>(
-      `select contactbdeb conta, 1 natureza, substring(chaveorigem for 2) origem, sum(valorlctoctb)::float valor
+    // Movimento REAL de TODA origem fiscal (notas ME/MS + consolidações MOV +
+    // apuração IM + retenção RE) — pra o Contábil ficar completo: varejo vende
+    // muito por cupom consolidado (origem MOV), que não é nota individual. Por
+    // CHAVE (não só por conta): o espelho decide por NOTA o que espelhar.
+    const real = await client.query<{ conta: number; natureza: number; chaveorigem: string; valor: number }>(
+      `select contactbdeb conta, 1 natureza, chaveorigem, sum(valorlctoctb)::float valor
          from lctoctb where codigoempresa=$1 and codigooriglctoctb='FI'
            and datalctoctb between $2 and $3 and contactbdeb is not null
-        group by contactbdeb, substring(chaveorigem for 2)
+        group by contactbdeb, chaveorigem
        union all
-       select contactbcred, -1, substring(chaveorigem for 2), sum(valorlctoctb)::float
+       select contactbcred, -1, chaveorigem, sum(valorlctoctb)::float
          from lctoctb where codigoempresa=$1 and codigooriglctoctb='FI'
            and datalctoctb between $2 and $3 and contactbcred is not null
-        group by contactbcred, substring(chaveorigem for 2)`,
+        group by contactbcred, chaveorigem`,
       [...p]
     );
-    const ehNota = (o: string) => o === "ME" || o === "MS";
+    const NOTA_RE = /^(M[ES])0*(\d+)$/;
     const realPorConta = new Map<number, { deb: number; cred: number }>();
     const observadas = new Set<string>();
+    // Notas COM lançamento por nota no real (ME/MS) — consolidada/pendente ficam fora.
+    const lancadas = new Set<string>();
     for (const r of real.rows) {
       const a = realPorConta.get(r.conta) ?? { deb: 0, cred: 0 };
       if (r.natureza === 1) a.deb += r.valor;
@@ -49,13 +52,19 @@ export const GET = apiRoute(async (req) => {
       realPorConta.set(r.conta, a);
       // Só as NOTAS calibram o motor. Apuração/consolidação ficam fora, senão o
       // motor geraria imposto que na verdade é da apuração mensal.
-      if (ehNota(r.origem)) observadas.add(`${r.natureza}:${r.conta}`);
+      const m = NOTA_RE.exec(r.chaveorigem);
+      if (m) {
+        observadas.add(`${r.natureza}:${r.conta}`);
+        lancadas.add(`${m[1]}:${m[2]}`);
+      }
     }
 
-    // Movimento FISCAL (hipotético) — entradas + saídas.
+    // Movimento FISCAL (hipotético) — entradas + saídas. `produzidas` recebe
+    // "origem:chave:natureza" das notas que o motor reproduziu (o espelho as usa).
+    const produzidas = new Set<string>();
     const [ent, sai] = await Promise.all([
-      balanceteFiscal(client, empresa, f.inicio, f.fim, "ent", undefined, observadas),
-      balanceteFiscal(client, empresa, f.inicio, f.fim, "sai", undefined, observadas),
+      balanceteFiscal(client, empresa, f.inicio, f.fim, "ent", undefined, observadas, undefined, produzidas, lancadas),
+      balanceteFiscal(client, empresa, f.inicio, f.fim, "sai", undefined, observadas, undefined, produzidas, lancadas),
     ]);
     const fiscalPorConta = new Map<number, { deb: number; cred: number }>();
     for (const mov of [ent, sai]) {
@@ -67,19 +76,30 @@ export const GET = apiRoute(async (req) => {
         fiscalPorConta.set(conta, a);
       }
     }
-    // Espelho por ORIGEM do movimento (não por conta): movimento de NOTA numa
-    // conta que o motor gera é a comparação (não espelha — pode ter erro de
-    // conta). Todo o resto entra no fiscal com o próprio real: consolidação
-    // (MOV), apuração (IM), retenção (RE), e o movimento de nota em conta sem
-    // regra (contrapartida fornecedor/cliente, NFSE). Assim uma receita que tem
-    // nota + cupom consolidado bate (nota pelo motor, cupom espelhado).
+    // Espelho do real no fiscal — o que o motor NÃO reproduz entra com o próprio
+    // real (fiscal = real, sem falso positivo): consolidação (MOV), apuração
+    // (IM), retenção (RE), contrapartida fornecedor/cliente, NFSE sem fórmula.
+    // Duas exclusões, por natureza:
+    // 1. Por CONTA: conta que o motor movimenta é comparação, não espelho.
+    // 2. Por NOTA: nota que o motor reproduziu não é espelhada em conta NENHUMA —
+    //    a versão do motor a substitui. É o que faz conta errada aparecer: a
+    //    conta do plano fica com a nota a mais (+), a conta onde o contábil de
+    //    fato lançou fica com ela a menos (−), e as duas se anulam no total
+    //    (o dinheiro não some, muda de conta) sem dobrar o débito.
     const regrada = new Set<string>();
     for (const [conta, m] of fiscalPorConta) {
       if (m.deb > 0.005) regrada.add(`1:${conta}`);
       if (m.cred > 0.005) regrada.add(`-1:${conta}`);
     }
     for (const r of real.rows) {
-      if (ehNota(r.origem) && regrada.has(`${r.natureza}:${r.conta}`)) continue;
+      const m = NOTA_RE.exec(r.chaveorigem);
+      if (
+        m &&
+        (regrada.has(`${r.natureza}:${r.conta}`) ||
+          produzidas.has(`${m[1]}:${m[2]}:${r.natureza}`))
+      ) {
+        continue;
+      }
       const a = fiscalPorConta.get(r.conta) ?? { deb: 0, cred: 0 };
       if (r.natureza === 1) a.deb += r.valor;
       else a.cred += r.valor;

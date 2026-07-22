@@ -31,25 +31,34 @@ export const GET = apiRoute(async (req) => {
   try {
     const contas = await contasDoAlvo(client, empresa, classif, sintetica, conta);
     if (!contas.length) return { culpados: [], total: 0 } satisfies BalanceteCulpadosResp;
-    const p = [empresa, f.inicio, f.fim, contas] as const;
 
     // Contas (por natureza) que recebem lançamento por nota — calibra o motor.
-    const obsRows = await client.query<{ conta: number; nat: number }>(
-      `select contactbdeb conta, 1 nat from lctoctb
+    // Da empresa INTEIRA (não só o alvo), pra rodar idêntico ao da célula do
+    // balancete; a mesma query dá as `lancadas` (notas lançadas por nota).
+    const obsRows = await client.query<{ conta: number; nat: number; chaveorigem: string }>(
+      `select contactbdeb conta, 1 nat, chaveorigem from lctoctb
          where codigoempresa=$1 and codigooriglctoctb='FI' and datalctoctb between $2 and $3
-           and contactbdeb = any($4::bigint[]) and chaveorigem ~ '^M[ES][0-9]+$'
-        group by contactbdeb
-       union
-       select contactbcred, -1 from lctoctb
+           and contactbdeb is not null and chaveorigem ~ '^M[ES][0-9]+$'
+        group by contactbdeb, chaveorigem
+       union all
+       select contactbcred, -1, chaveorigem from lctoctb
          where codigoempresa=$1 and codigooriglctoctb='FI' and datalctoctb between $2 and $3
-           and contactbcred = any($4::bigint[]) and chaveorigem ~ '^M[ES][0-9]+$'
-        group by contactbcred`,
-      [...p]
+           and contactbcred is not null and chaveorigem ~ '^M[ES][0-9]+$'
+        group by contactbcred, chaveorigem`,
+      [empresa, f.inicio, f.fim]
     );
-    const observadas = new Set(obsRows.rows.map((r) => `${r.nat}:${r.conta}`));
+    const NOTA_RE = /^(M[ES])0*(\d+)$/;
+    const observadas = new Set<string>();
+    const lancadas = new Set<string>();
+    for (const r of obsRows.rows) {
+      observadas.add(`${r.nat}:${r.conta}`);
+      const m = NOTA_RE.exec(r.chaveorigem);
+      if (m) lancadas.add(`${m[1]}:${m[2]}`);
+    }
 
     // ESPERADO (líquido, por nota) — o motor replaya cada nota nas contas alvo.
-    // `produzidas` acumula "origem:chave" de nota reproduzida em qualquer conta.
+    // `produzidas` acumula "origem:chave" de nota reproduzida em qualquer conta
+    // (e "origem:chave:natureza" quando de fato produziu — o espelho por nota).
     const contasSet = new Set(contas);
     const produzidas = new Set<string>();
     const mk = (): DetalheFiscal => ({
@@ -61,33 +70,36 @@ export const GET = apiRoute(async (req) => {
     });
     const detEnt = mk();
     const detSai = mk();
-    await balanceteFiscal(client, empresa, f.inicio, f.fim, "ent", undefined, observadas, detEnt, produzidas);
-    await balanceteFiscal(client, empresa, f.inicio, f.fim, "sai", undefined, observadas, detSai, produzidas);
+    await balanceteFiscal(client, empresa, f.inicio, f.fim, "ent", undefined, observadas, detEnt, produzidas, lancadas);
+    await balanceteFiscal(client, empresa, f.inicio, f.fim, "sai", undefined, observadas, detSai, produzidas, lancadas);
 
     // Só as contas que o motor de fato REGRA entram na comparação: conta sem
     // regra espelha o real (fiscal = real), então não tem diferença — incluí-la
     // (numa sintética, p.ex.) contaria o real dela como falsa diferença.
     const regradasSet = new Set<number>([...detEnt.regradas, ...detSai.regradas]);
 
-    // REAL por nota, itemizado por conta, em TODAS as contas alvo (não só as
-    // regradas): o líquido (para a diferença) só conta as regradas — conta sem
-    // regra espelha o real —, mas a CONTA onde a nota bate vem de todas, pra
-    // mostrar que um "faltando" na verdade foi lançado numa conta-sem-regra do
-    // mesmo alvo (conta errada), não sumiu.
+    // REAL por nota, itemizado por conta E natureza, em TODAS as contas alvo (não
+    // só as regradas): o líquido (para a diferença) segue a MESMA regra do espelho
+    // da célula — conta regrada OU nota que o motor reproduziu naquela natureza —,
+    // e a CONTA onde a nota bate vem de todas, pra mostrar que um "faltando" na
+    // verdade foi lançado noutra conta do alvo (conta errada), não sumiu.
     const realRows = (
-      await client.query<{ origem: string; chave: number; conta: number; numero: number | null; especie: string | null; contraparte: string | null; net: number }>(
+      await client.query<{ origem: string; chave: number; conta: number; nat: number; numero: number | null; especie: string | null; contraparte: string | null; net: number }>(
         `with r as (
            select substring(l.chaveorigem for 2) origem,
                   substring(l.chaveorigem from 3)::bigint chave,
-                  case when l.contactbdeb = any($4::bigint[]) then l.contactbdeb else l.contactbcred end conta,
-                  (case when l.contactbdeb = any($4::bigint[]) then coalesce(l.valorlctoctb,0) else 0 end
-                 - case when l.contactbcred = any($4::bigint[]) then coalesce(l.valorlctoctb,0) else 0 end)::float net
+                  l.contactbdeb conta, 1 nat, coalesce(l.valorlctoctb,0)::float net
              from lctoctb l
             where l.codigoempresa=$1 and l.codigooriglctoctb='FI' and l.datalctoctb between $2 and $3
-              and l.chaveorigem ~ '^M[ES][0-9]+$'
-              and (l.contactbdeb = any($4::bigint[]) or l.contactbcred = any($4::bigint[]))
+              and l.chaveorigem ~ '^M[ES][0-9]+$' and l.contactbdeb = any($4::bigint[])
+           union all
+           select substring(l.chaveorigem for 2), substring(l.chaveorigem from 3)::bigint,
+                  l.contactbcred, -1, -coalesce(l.valorlctoctb,0)::float
+             from lctoctb l
+            where l.codigoempresa=$1 and l.codigooriglctoctb='FI' and l.datalctoctb between $2 and $3
+              and l.chaveorigem ~ '^M[ES][0-9]+$' and l.contactbcred = any($4::bigint[])
          )
-         select r.origem, r.chave, r.conta, sum(r.net)::float net,
+         select r.origem, r.chave, r.conta, r.nat, sum(r.net)::float net,
                 coalesce(e.numeronf, s.numeronf) numero,
                 upper(btrim(coalesce(e.especienf, s.especienf))) especie,
                 coalesce(pe.nomepessoa, ps.nomepessoa) contraparte
@@ -96,7 +108,7 @@ export const GET = apiRoute(async (req) => {
            left join lctofissai s on r.origem='MS' and s.codigoempresa=$1 and s.chavelctofissai=r.chave
            left join pessoa pe on pe.codigopessoa=e.codigopessoa
            left join pessoa ps on ps.codigopessoa=s.codigopessoa
-          group by r.origem, r.chave, r.conta, e.numeronf, s.numeronf, e.especienf, s.especienf, pe.nomepessoa, ps.nomepessoa`,
+          group by r.origem, r.chave, r.conta, r.nat, e.numeronf, s.numeronf, e.especienf, s.especienf, pe.nomepessoa, ps.nomepessoa`,
         [empresa, f.inicio, f.fim, contas]
       )
         ).rows;
@@ -144,9 +156,12 @@ export const GET = apiRoute(async (req) => {
     }
     for (const r of realRows) {
       const a = pega(r.origem, r.chave, r.numero, r.especie, r.contraparte);
-      // Líquido só das regradas (mantém a reconciliação com a célula)…
-      if (regradasSet.has(r.conta)) a.real += r.net;
-      // …mas a conta onde a nota mais bate vem de TODAS as contas alvo.
+      // Líquido pela MESMA regra do espelho da célula: conta regrada OU nota que
+      // o motor reproduziu nesta natureza (mantém a reconciliação exata)…
+      if (regradasSet.has(r.conta) || produzidas.has(`${r.origem}:${r.chave}:${r.nat}`)) {
+        a.real += r.net;
+      }
+      // …e a conta onde a nota mais bate vem de TODAS as contas alvo.
       if (Math.abs(r.net) > a.contaRealAbs) {
         a.contaRealAbs = Math.abs(r.net);
         a.contaReal = r.conta;
