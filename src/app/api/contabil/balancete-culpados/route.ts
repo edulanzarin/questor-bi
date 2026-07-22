@@ -131,7 +131,12 @@ export const GET = apiRoute(async (req) => {
         tipo: temEsp && temReal ? "valor" : temEsp ? "faltando" : "extra",
       });
     }
-    culpados.sort((x, y) => Math.abs(y.diferenca) - Math.abs(x.diferenca));
+    // Primeiro as diferenças de verdade (valor/faltando), depois as "sem regra"
+    // (NFSE/serviço que o motor não reproduz — provável não-erro), cada grupo por valor.
+    const prio = (t: string) => (t === "extra" ? 2 : t === "faltando" ? 1 : 0);
+    culpados.sort(
+      (x, y) => prio(x.tipo) - prio(y.tipo) || Math.abs(y.diferenca) - Math.abs(x.diferenca)
+    );
 
     return {
       culpados: culpados.slice(0, 500),

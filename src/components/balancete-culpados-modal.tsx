@@ -51,9 +51,13 @@ export function CulpadosModal({
   );
   const culpados = data?.culpados ?? [];
   const totalDif = culpados.reduce((s, c) => s + c.diferenca, 0);
-  // Diferença explicada só por notas que o motor não reproduz: provável
-  // incompletude (NFSE/serviço), não erro de contabilização.
-  const soMotorIncompleto = culpados.length > 0 && culpados.every((c) => c.tipo === "extra");
+  // "extra" = motor não reproduz a nota (NFSE/serviço) → provável não-erro. As
+  // demais (valor/faltando) são diferença de verdade, a investigar.
+  const semRegra = culpados.filter((c) => c.tipo === "extra");
+  const investigar = culpados.filter((c) => c.tipo !== "extra");
+  const difInvestigar = investigar.reduce((s, c) => s + c.diferenca, 0);
+  const soMotorIncompleto = culpados.length > 0 && investigar.length === 0;
+  const temMix = semRegra.length > 0 && investigar.length > 0;
 
   return (
     <Modal
@@ -84,6 +88,15 @@ export function CulpadosModal({
                 Toda a diferença vem de notas lançadas sem o motor esperar — típico de
                 NFSE/serviço, que o motor ainda não reproduz. Provavelmente não é erro de
                 contabilização; confira pela Conferência de Contas.
+              </p>
+            )}
+            {temMix && (
+              <p className="border-b border-hairline bg-surface-2/60 px-6 py-3 text-xs text-muted">
+                As <span className="font-medium text-ink-2">{num(investigar.length)}</span> de cima
+                são diferença de verdade (a investigar). As{" "}
+                <span className="font-medium text-ink-2">{num(semRegra.length)}</span> marcadas
+                &ldquo;sem regra reproduzível&rdquo; são NFSE/serviço que o motor não reproduz —
+                provável não-erro.
               </p>
             )}
             <table className="w-full min-w-[680px] text-xs">
@@ -136,7 +149,16 @@ export function CulpadosModal({
           )}
         </span>
         {isLoading && <Loader2 className="size-4 shrink-0 animate-spin text-muted" />}
-        <span className="tabular-nums font-medium text-ink">{brl(totalDif)}</span>
+        <span className="tabular-nums">
+          {temMix ? (
+            <>
+              <span className="text-muted">total {brl(totalDif)} · </span>
+              <span className="font-medium text-ink">a investigar {brl(difInvestigar)}</span>
+            </>
+          ) : (
+            <span className="font-medium text-ink">{brl(totalDif)}</span>
+          )}
+        </span>
       </footer>
     </Modal>
   );
