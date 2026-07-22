@@ -101,7 +101,14 @@ export async function balanceteFiscal(
    */
   observadas?: Set<string>,
   /** Coletor do drill-down do lado Fiscal (opcional) — ver DetalheFiscal. */
-  detalhe?: DetalheFiscal
+  detalhe?: DetalheFiscal,
+  /**
+   * Se presente, registra "origem:chave" de toda nota que o motor produziu em
+   * ALGUMA conta fixa (não a contrapartida). Serve para distinguir, no detalhe da
+   * diferença, "conta errada" (a nota foi reproduzida em outra conta) de "sem
+   * plano" (o motor não reproduz de jeito nenhum).
+   */
+  produzidas?: Set<string>
 ): Promise<BalanceteFiscalMov> {
   const c = LADO[tipo];
 
@@ -241,6 +248,13 @@ export async function balanceteFiscal(
           if (Math.abs(valor) < 0.005) continue;
           const conta = linha.contaVariavel ? CONTA_CONTRAPARTIDA : linha.conta;
           if (conta == null) continue;
+          // Registra ANTES do gate `observadas`: a nota tem plano que gera esta
+          // conta fixa, mesmo que essa conta não receba lançamento por nota (aí o
+          // motor não a soma, mas ela É reproduzível — é o que separa conta errada
+          // de sem-plano no detalhe da diferença).
+          if (produzidas && conta !== CONTA_CONTRAPARTIDA) {
+            produzidas.add(`${tipo === "ent" ? "ME" : "MS"}:${n.chave}`);
+          }
           // Conta que não é lançada nota a nota (vai na apuração mensal): não é ME.
           if (observadas && conta !== CONTA_CONTRAPARTIDA && !observadas.has(`${linha.natureza}:${conta}`)) {
             continue;

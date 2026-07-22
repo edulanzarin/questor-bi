@@ -20,11 +20,17 @@ const TIPO: Record<string, { rotulo: string; cor: string; titulo: string }> = {
     cor: "bg-warn/12 text-warn",
     titulo: "Esperada nesta conta pela regra, mas não lançada aqui (foi para outra)",
   },
+  conta_errada: {
+    rotulo: "Conta errada",
+    cor: "bg-critical/12 text-critical",
+    titulo:
+      "Lançada nesta conta, mas o plano manda outra — o motor reproduziu a nota em conta diferente",
+  },
   extra: {
     rotulo: "Sem regra reproduzível",
     cor: "bg-surface-2 text-muted",
     titulo:
-      "Lançada sem o motor esperar — pode ser conta errada, mas também nota que o motor não reproduz (NFSE/serviço)",
+      "Lançada sem o motor esperar e sem plano reproduzível (NFSE/serviço ou CFOP sem tabela) — confira manualmente",
   },
 };
 

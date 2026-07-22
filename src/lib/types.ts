@@ -513,10 +513,12 @@ export interface BalanceteCulpado {
   /**
    * - `valor`: lançada, mas com valor diferente do esperado (anomalia forte);
    * - `faltando`: esperada nesta conta e não lançada aqui (foi para outra);
-   * - `extra`: lançada sem o motor esperar — pode ser conta errada, mas também
-   *   nota que o motor não reproduz (NFSE/serviço), então exige olhar.
+   * - `conta_errada`: lançada aqui, mas o plano manda outra conta — o motor
+   *   reproduziu a nota em conta diferente (anomalia de verdade);
+   * - `extra`: lançada sem o motor esperar E sem plano reproduzível (NFSE/serviço
+   *   ou CFOP sem tabela) — o motor não reproduz de jeito nenhum, exige olhar manual.
    */
-  tipo: "valor" | "faltando" | "extra";
+  tipo: "valor" | "faltando" | "conta_errada" | "extra";
 }
 
 export interface BalanceteCulpadosResp {

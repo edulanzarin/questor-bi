@@ -49,7 +49,9 @@ export const GET = apiRoute(async (req) => {
     const observadas = new Set(obsRows.rows.map((r) => `${r.nat}:${r.conta}`));
 
     // ESPERADO (líquido, por nota) — o motor replaya cada nota nas contas alvo.
+    // `produzidas` acumula "origem:chave" de nota reproduzida em qualquer conta.
     const contasSet = new Set(contas);
+    const produzidas = new Set<string>();
     const mk = (): DetalheFiscal => ({
       contas: contasSet,
       natureza: 1,
@@ -59,8 +61,8 @@ export const GET = apiRoute(async (req) => {
     });
     const detEnt = mk();
     const detSai = mk();
-    await balanceteFiscal(client, empresa, f.inicio, f.fim, "ent", undefined, observadas, detEnt);
-    await balanceteFiscal(client, empresa, f.inicio, f.fim, "sai", undefined, observadas, detSai);
+    await balanceteFiscal(client, empresa, f.inicio, f.fim, "ent", undefined, observadas, detEnt, produzidas);
+    await balanceteFiscal(client, empresa, f.inicio, f.fim, "sai", undefined, observadas, detSai, produzidas);
 
     // Só as contas que o motor de fato REGRA entram na comparação: conta sem
     // regra espelha o real (fiscal = real), então não tem diferença — incluí-la
@@ -129,6 +131,15 @@ export const GET = apiRoute(async (req) => {
       if (Math.abs(diferenca) <= TOL) continue;
       const temEsp = Math.abs(a.esperado) > TOL;
       const temReal = Math.abs(a.real) > TOL;
+      // esp=0 aqui: se o motor reproduziu a nota em ALGUMA conta, é conta errada
+      // (foi lançada aqui, mas o plano manda outra); senão, sem plano reproduzível.
+      const tipo = temEsp
+        ? temReal
+          ? "valor"
+          : "faltando"
+        : produzidas.has(`${a.origem}:${a.chave}`)
+          ? "conta_errada"
+          : "extra";
       culpados.push({
         chave: a.chave,
         origem: a.origem,
@@ -138,12 +149,12 @@ export const GET = apiRoute(async (req) => {
         esperado: a.esperado,
         real: a.real,
         diferenca,
-        tipo: temEsp && temReal ? "valor" : temEsp ? "faltando" : "extra",
+        tipo,
       });
     }
-    // Primeiro as diferenças de verdade (valor/faltando), depois as "sem regra"
-    // (NFSE/serviço que o motor não reproduz — provável não-erro), cada grupo por valor.
-    const prio = (t: string) => (t === "extra" ? 2 : t === "faltando" ? 1 : 0);
+    // Primeiro as diferenças de verdade (valor/faltando/conta errada), depois as
+    // "sem regra" (NFSE/serviço que o motor não reproduz — provável não-erro).
+    const prio = (t: string) => (t === "extra" ? 2 : t === "valor" ? 0 : 1);
     culpados.sort(
       (x, y) => prio(x.tipo) - prio(y.tipo) || Math.abs(y.diferenca) - Math.abs(x.diferenca)
     );
