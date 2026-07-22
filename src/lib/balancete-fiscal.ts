@@ -70,6 +70,12 @@ export interface FiscalDetalheNota {
 export interface DetalheFiscal {
   contas: Set<number>;
   natureza: 1 | -1;
+  /**
+   * Modo LÍQUIDO (auditoria de diferença): coleta débito − crédito por nota nas
+   * `contas`, ignorando `natureza`. Sem isto, coleta só a `natureza` pedida (o
+   * drill-down de uma célula débito ou crédito).
+   */
+  net?: boolean;
   porNota: Map<number, FiscalDetalheNota>;
   regradas: Set<number>;
 }
@@ -214,12 +220,14 @@ export async function balanceteFiscal(
           if (
             detalhe &&
             conta !== CONTA_CONTRAPARTIDA &&
-            linha.natureza === detalhe.natureza &&
-            detalhe.contas.has(conta)
+            detalhe.contas.has(conta) &&
+            (detalhe.net || linha.natureza === detalhe.natureza)
           ) {
             detalhe.regradas.add(conta);
+            // No modo líquido, débito soma e crédito subtrai; senão o valor cru.
+            const v = detalhe.net && linha.natureza === -1 ? -valor : valor;
             const ex = detalhe.porNota.get(n.chave);
-            if (ex) ex.valor += valor;
+            if (ex) ex.valor += v;
             else
               detalhe.porNota.set(n.chave, {
                 chave: n.chave,
@@ -227,7 +235,7 @@ export async function balanceteFiscal(
                 data: n.data,
                 contraparte: n.contraparte,
                 origem: tipo === "ent" ? "ME" : "MS",
-                valor,
+                valor: v,
               });
           }
         }

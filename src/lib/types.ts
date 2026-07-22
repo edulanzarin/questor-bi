@@ -490,6 +490,36 @@ export interface BalanceteLancamentosResp {
   total: number;
 }
 
+/**
+ * Uma nota "culpada" pela diferença de uma conta no balancete: o líquido que o
+ * motor esperava nela × o que o contábil de fato lançou. A soma das `diferenca`
+ * fecha com a diferença da conta.
+ */
+export interface BalanceteCulpado {
+  chave: number | null;
+  origem: string;
+  numero: number | null;
+  contraparte: string | null;
+  /** Líquido (débito − crédito) esperado na conta pela regra. */
+  esperado: number;
+  /** Líquido (débito − crédito) real lançado na conta. */
+  real: number;
+  /** esperado − real (o quanto essa nota puxa a diferença). */
+  diferenca: number;
+  /**
+   * - `valor`: lançada, mas com valor diferente do esperado (anomalia forte);
+   * - `faltando`: esperada nesta conta e não lançada aqui (foi para outra);
+   * - `extra`: lançada sem o motor esperar — pode ser conta errada, mas também
+   *   nota que o motor não reproduz (NFSE/serviço), então exige olhar.
+   */
+  tipo: "valor" | "faltando" | "extra";
+}
+
+export interface BalanceteCulpadosResp {
+  culpados: BalanceteCulpado[];
+  total: number;
+}
+
 /** Estabelecimento (filial) da empresa — cada um tem CNPJ próprio. */
 export interface EstabInfo {
   codigo: number;

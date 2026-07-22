@@ -88,6 +88,12 @@ export const SECOES_CONTABIL: SecaoContabil[] = [
         path: "/contabil/balancete",
         descricao: "Balancete esperado pelas regras, comparado ao contábil real",
       },
+      {
+        id: "diferencas",
+        rotulo: "Diferenças",
+        path: "/contabil/balancete/diferencas",
+        descricao: "Contas onde o esperado não bate com o real, e as notas por trás",
+      },
     ],
   },
   {

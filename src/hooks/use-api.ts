@@ -31,6 +31,7 @@ import type {
   PlanoResp,
   BalanceteFiscalResp,
   BalanceteLancamentosResp,
+  BalanceteCulpadosResp,
 } from "@/lib/types";
 
 async function fetchJson<T>(url: string): Promise<T> {
@@ -321,6 +322,18 @@ export const useBalanceteLancamentos = (
   useApiQuery<BalanceteLancamentosResp>(
     ["balancete-lancamentos", lado, qs, classif, natureza, conta, sintetica],
     `/api/contabil/balancete${lado === "fiscal" ? "-fiscal" : ""}-lancamentos?${qs}&classif=${encodeURIComponent(classif ?? "")}&natureza=${natureza}&conta=${conta}&sintetica=${sintetica ? 1 : 0}`,
+    classif != null
+  );
+
+export const useBalanceteCulpados = (
+  qs: string,
+  classif: string | null,
+  conta: number,
+  sintetica: boolean
+) =>
+  useApiQuery<BalanceteCulpadosResp>(
+    ["balancete-culpados", qs, classif, conta, sintetica],
+    `/api/contabil/balancete-culpados?${qs}&classif=${encodeURIComponent(classif ?? "")}&conta=${conta}&sintetica=${sintetica ? 1 : 0}`,
     classif != null
   );
 
