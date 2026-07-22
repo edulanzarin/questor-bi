@@ -24,17 +24,22 @@ export const GET = apiRoute(async (req) => {
   try {
     const p = [empresa, f.inicio, f.fim] as const;
 
-    // Movimento REAL de origem fiscal por conta (ME + MS), por natureza.
-    const real = await client.query<{ conta: number; natureza: number; valor: number }>(
-      `select contactbdeb conta, 1 natureza, sum(valorlctoctb)::float valor from lctoctb
-        where codigoempresa=$1 and codigooriglctoctb='FI' and (chaveorigem like 'ME%' or chaveorigem like 'MS%')
-          and datalctoctb between $2 and $3 and contactbdeb is not null group by contactbdeb
+    // Movimento REAL de TODA origem fiscal por conta (notas ME/MS + consolidações
+    // MOV + apuração IM + retenção RE) — pra o Contábil ficar completo: varejo
+    // vende muito por cupom consolidado (origem MOV), que não é nota individual.
+    const real = await client.query<{ conta: number; natureza: number; origem: string; valor: number }>(
+      `select contactbdeb conta, 1 natureza, substring(chaveorigem for 2) origem, sum(valorlctoctb)::float valor
+         from lctoctb where codigoempresa=$1 and codigooriglctoctb='FI'
+           and datalctoctb between $2 and $3 and contactbdeb is not null
+        group by contactbdeb, substring(chaveorigem for 2)
        union all
-       select contactbcred, -1, sum(valorlctoctb)::float from lctoctb
-        where codigoempresa=$1 and codigooriglctoctb='FI' and (chaveorigem like 'ME%' or chaveorigem like 'MS%')
-          and datalctoctb between $2 and $3 and contactbcred is not null group by contactbcred`,
+       select contactbcred, -1, substring(chaveorigem for 2), sum(valorlctoctb)::float
+         from lctoctb where codigoempresa=$1 and codigooriglctoctb='FI'
+           and datalctoctb between $2 and $3 and contactbcred is not null
+        group by contactbcred, substring(chaveorigem for 2)`,
       [...p]
     );
+    const ehNota = (o: string) => o === "ME" || o === "MS";
     const realPorConta = new Map<number, { deb: number; cred: number }>();
     const observadas = new Set<string>();
     for (const r of real.rows) {
@@ -42,7 +47,9 @@ export const GET = apiRoute(async (req) => {
       if (r.natureza === 1) a.deb += r.valor;
       else a.cred += r.valor;
       realPorConta.set(r.conta, a);
-      observadas.add(`${r.natureza}:${r.conta}`);
+      // Só as NOTAS calibram o motor. Apuração/consolidação ficam fora, senão o
+      // motor geraria imposto que na verdade é da apuração mensal.
+      if (ehNota(r.origem)) observadas.add(`${r.natureza}:${r.conta}`);
     }
 
     // Movimento FISCAL (hipotético) — entradas + saídas.
@@ -60,18 +67,19 @@ export const GET = apiRoute(async (req) => {
         fiscalPorConta.set(conta, a);
       }
     }
-    // Espelho: o que o motor NÃO tem regra pra gerar — contrapartida (fornecedor/
-    // cliente), NFSE de serviço, contas patrimoniais — entra no fiscal com o
-    // PRÓPRIO real. Não há erro de conta a detectar ali (é determinístico, por
-    // pessoa/manual). Só as contas que o motor gera (despesa/receita/imposto)
-    // mostram divergência — que é o objetivo.
+    // Espelho por ORIGEM do movimento (não por conta): movimento de NOTA numa
+    // conta que o motor gera é a comparação (não espelha — pode ter erro de
+    // conta). Todo o resto entra no fiscal com o próprio real: consolidação
+    // (MOV), apuração (IM), retenção (RE), e o movimento de nota em conta sem
+    // regra (contrapartida fornecedor/cliente, NFSE). Assim uma receita que tem
+    // nota + cupom consolidado bate (nota pelo motor, cupom espelhado).
     const regrada = new Set<string>();
     for (const [conta, m] of fiscalPorConta) {
       if (m.deb > 0.005) regrada.add(`1:${conta}`);
       if (m.cred > 0.005) regrada.add(`-1:${conta}`);
     }
     for (const r of real.rows) {
-      if (regrada.has(`${r.natureza}:${r.conta}`)) continue;
+      if (ehNota(r.origem) && regrada.has(`${r.natureza}:${r.conta}`)) continue;
       const a = fiscalPorConta.get(r.conta) ?? { deb: 0, cred: 0 };
       if (r.natureza === 1) a.deb += r.valor;
       else a.cred += r.valor;
