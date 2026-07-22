@@ -32,6 +32,25 @@ export interface SecaoContabil extends SecaoFiscal {
  * caminho da seção (a Configuração do plano de contabilização, por exemplo).
  */
 export const SECOES_CONTABIL: SecaoContabil[] = [
+  // Notas primeiro: é a consulta de apoio — o dado bruto que se abre o tempo
+  // todo enquanto se trabalha nas outras telas.
+  {
+    id: "notas",
+    rotulo: "Notas",
+    icone: Table2,
+    path: "/contabil/notas",
+    metrica: false,
+    descricao: "Explorador de notas fiscais",
+    // Uma tela só: seção própria na sidebar (como o Dados do Fiscal), sem abas.
+    abas: [
+      {
+        id: "notas",
+        rotulo: "Notas",
+        path: "/contabil/notas",
+        descricao: "Todas as notas do período, com itens e produtos",
+      },
+    ],
+  },
   {
     id: "conferencia",
     rotulo: "Conferência Fiscal",
@@ -54,23 +73,6 @@ export const SECOES_CONTABIL: SecaoContabil[] = [
         semPeriodo: true,
         // Só traz o plano pronto do Questor, não computa nada: "Carregar".
         execucao: "Carregar",
-      },
-    ],
-  },
-  {
-    id: "notas",
-    rotulo: "Notas",
-    icone: Table2,
-    path: "/contabil/notas",
-    metrica: false,
-    descricao: "Explorador de notas fiscais",
-    // Uma tela só: seção própria na sidebar (como o Dados do Fiscal), sem abas.
-    abas: [
-      {
-        id: "notas",
-        rotulo: "Notas",
-        path: "/contabil/notas",
-        descricao: "Todas as notas do período, com itens e produtos",
       },
     ],
   },
