@@ -71,7 +71,7 @@ export const GET = apiRoute(async (req) => {
     const realRows = !regradas.length
       ? []
       : (
-          await client.query<{ origem: string; chave: number; numero: number | null; contraparte: string | null; net: number }>(
+          await client.query<{ origem: string; chave: number; numero: number | null; especie: string | null; contraparte: string | null; net: number }>(
             `with r as (
                select substring(l.chaveorigem for 2) origem,
                       substring(l.chaveorigem from 3)::bigint chave,
@@ -84,35 +84,44 @@ export const GET = apiRoute(async (req) => {
              )
              select r.origem, r.chave, sum(r.net)::float net,
                     coalesce(e.numeronf, s.numeronf) numero,
+                    upper(btrim(coalesce(e.especienf, s.especienf))) especie,
                     coalesce(pe.nomepessoa, ps.nomepessoa) contraparte
                from r
                left join lctofisent e on r.origem='ME' and e.codigoempresa=$1 and e.chavelctofisent=r.chave
                left join lctofissai s on r.origem='MS' and s.codigoempresa=$1 and s.chavelctofissai=r.chave
                left join pessoa pe on pe.codigopessoa=e.codigopessoa
                left join pessoa ps on ps.codigopessoa=s.codigopessoa
-              group by r.origem, r.chave, e.numeronf, s.numeronf, pe.nomepessoa, ps.nomepessoa`,
+              group by r.origem, r.chave, e.numeronf, s.numeronf, e.especienf, s.especienf, pe.nomepessoa, ps.nomepessoa`,
             [empresa, f.inicio, f.fim, regradas]
           )
         ).rows;
 
     // Junta esperado × real por (origem, chave).
-    type Ac = { origem: string; chave: number; numero: number | null; contraparte: string | null; esperado: number; real: number };
+    type Ac = { origem: string; chave: number; numero: number | null; especie: string | null; contraparte: string | null; esperado: number; real: number };
     const mapa = new Map<string, Ac>();
-    const pega = (origem: string, chave: number, numero: number | null, contraparte: string | null) => {
+    const pega = (
+      origem: string,
+      chave: number,
+      numero: number | null,
+      especie: string | null,
+      contraparte: string | null
+    ) => {
       const k = `${origem}:${chave}`;
       let a = mapa.get(k);
       if (!a) {
-        a = { origem, chave, numero, contraparte, esperado: 0, real: 0 };
+        a = { origem, chave, numero, especie, contraparte, esperado: 0, real: 0 };
         mapa.set(k, a);
       }
       if (a.numero == null && numero != null) a.numero = numero;
+      if (!a.especie && especie) a.especie = especie;
       if (!a.contraparte && contraparte) a.contraparte = contraparte;
       return a;
     };
     for (const det of [detEnt, detSai]) {
-      for (const n of det.porNota.values()) pega(n.origem, n.chave, n.numero, n.contraparte).esperado += n.valor;
+      for (const n of det.porNota.values())
+        pega(n.origem, n.chave, n.numero, n.especie, n.contraparte).esperado += n.valor;
     }
-    for (const r of realRows) pega(r.origem, r.chave, r.numero, r.contraparte).real += r.net;
+    for (const r of realRows) pega(r.origem, r.chave, r.numero, r.especie, r.contraparte).real += r.net;
 
     const culpados: BalanceteCulpado[] = [];
     for (const a of mapa.values()) {
@@ -124,6 +133,7 @@ export const GET = apiRoute(async (req) => {
         chave: a.chave,
         origem: a.origem,
         numero: a.numero,
+        especie: a.especie,
         contraparte: a.contraparte,
         esperado: a.esperado,
         real: a.real,

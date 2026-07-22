@@ -63,7 +63,7 @@ export function CulpadosModal({
     <Modal
       aberto={alvo != null}
       onFechar={onFechar}
-      largura="max-w-3xl"
+      largura="max-w-5xl"
       ariaLabel="Notas da diferença"
       titulo={
         <h3 className="truncate text-lg font-semibold" title={alvo?.descricao}>
@@ -99,42 +99,70 @@ export function CulpadosModal({
                 provável não-erro.
               </p>
             )}
-            <table className="w-full min-w-[680px] text-xs">
+            <table className="w-full min-w-[820px] text-xs">
               <thead className="sticky top-0 bg-surface text-left text-muted">
                 <tr className="border-b border-hairline">
                   <th className="py-2 pl-6 pr-3 font-medium">Nº</th>
+                  <th className="py-2 pr-3 font-medium">Espécie</th>
                   <th className="py-2 pr-3 font-medium">Contraparte</th>
-                  <th className="py-2 pr-3 font-medium">Tipo</th>
+                  <th className="py-2 pr-3 font-medium">Situação</th>
                   <th className="py-2 pr-3 text-right font-medium">Esperado</th>
                   <th className="py-2 pr-3 text-right font-medium">Real</th>
                   <th className="py-2 pr-6 text-right font-medium">Diferença</th>
                 </tr>
               </thead>
               <tbody>
-                {culpados.map((c, i) => (
-                  <tr key={i} className="border-b border-hairline/50 last:border-0">
-                    <td className="py-1.5 pl-6 pr-3 tabular-nums whitespace-nowrap">
-                      {c.numero ?? "—"}
-                      <span className="ml-1.5 text-[10px] text-muted">{ORIGEM[c.origem] ?? c.origem}</span>
-                    </td>
-                    <td className="max-w-[220px] truncate py-1.5 pr-3" title={c.contraparte ?? ""}>
-                      {c.contraparte ?? "—"}
-                    </td>
-                    <td className="py-1.5 pr-3">
-                      <span
-                        className={clsx("rounded px-1.5 py-0.5 text-[10px] font-medium", TIPO[c.tipo].cor)}
-                        title={TIPO[c.tipo].titulo}
-                      >
-                        {TIPO[c.tipo].rotulo}
-                      </span>
-                    </td>
-                    <td className="py-1.5 pr-3 text-right tabular-nums text-muted">{brl(c.esperado)}</td>
-                    <td className="py-1.5 pr-3 text-right tabular-nums text-muted">{brl(c.real)}</td>
-                    <td className="py-1.5 pr-6 text-right font-semibold tabular-nums text-ink">
-                      {brl(c.diferenca)}
-                    </td>
-                  </tr>
-                ))}
+                {culpados.map((c, i) => {
+                  const nfse = c.especie === "NFSE";
+                  return (
+                    <tr key={i} className="border-b border-hairline/50 last:border-0">
+                      <td className="py-1.5 pl-6 pr-3 tabular-nums whitespace-nowrap">
+                        {c.numero ?? "—"}
+                        <span className="ml-1.5 text-[10px] text-muted">{ORIGEM[c.origem] ?? c.origem}</span>
+                      </td>
+                      <td className="py-1.5 pr-3">
+                        {c.especie ? (
+                          <span
+                            className={clsx(
+                              "rounded px-1.5 py-0.5 text-[10px] font-medium",
+                              nfse ? "bg-warn/12 text-warn" : "bg-surface-2 text-muted"
+                            )}
+                            title={nfse ? "NFSE (serviço) — o motor não reproduz; confira manualmente" : c.especie}
+                          >
+                            {c.especie}
+                          </span>
+                        ) : (
+                          <span className="text-muted">—</span>
+                        )}
+                      </td>
+                      <td className="max-w-[280px] truncate py-1.5 pr-3" title={c.contraparte ?? ""}>
+                        {c.contraparte ?? "—"}
+                      </td>
+                      <td className="py-1.5 pr-3">
+                        {nfse && c.tipo === "extra" ? (
+                          <span
+                            className="rounded bg-warn/12 px-1.5 py-0.5 text-[10px] font-medium text-warn"
+                            title="Serviço (NFSE) — o motor não reproduz; confira a contabilização manualmente"
+                          >
+                            Verificar manual
+                          </span>
+                        ) : (
+                          <span
+                            className={clsx("rounded px-1.5 py-0.5 text-[10px] font-medium", TIPO[c.tipo].cor)}
+                            title={TIPO[c.tipo].titulo}
+                          >
+                            {TIPO[c.tipo].rotulo}
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-1.5 pr-3 text-right tabular-nums text-muted">{brl(c.esperado)}</td>
+                      <td className="py-1.5 pr-3 text-right tabular-nums text-muted">{brl(c.real)}</td>
+                      <td className="py-1.5 pr-6 text-right font-semibold tabular-nums text-ink">
+                        {brl(c.diferenca)}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </>

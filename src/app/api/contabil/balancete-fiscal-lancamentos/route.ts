@@ -68,6 +68,7 @@ export const GET = apiRoute(async (req) => {
          select lc.data, lc.origem, lc.chave, lc.valor, lc.conta,
                 coalesce(nullif(lc.hist,''), '') historico,
                 coalesce(e.numeronf, s.numeronf) numero,
+                upper(btrim(coalesce(e.especienf, s.especienf))) especie,
                 coalesce(pe.nomepessoa, ps.nomepessoa) contraparte
            from lc
            left join lctofisent e on lc.origem='ME' and e.codigoempresa=$1 and e.chavelctofisent=lc.chave
@@ -97,6 +98,7 @@ export const GET = apiRoute(async (req) => {
         valor: n.valor,
         historico: "",
         numero: n.numero,
+        especie: n.especie,
         contraparte: n.contraparte,
       })
     );

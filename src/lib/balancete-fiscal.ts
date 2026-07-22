@@ -42,6 +42,7 @@ interface NotaRow {
   chave: number;
   estab: number;
   numero: number | null;
+  especie: string;
   data: string;
   contraparte: string | null;
   vlrcontabil: number;
@@ -53,6 +54,7 @@ interface NotaRow {
 export interface FiscalDetalheNota {
   chave: number;
   numero: number | null;
+  especie: string;
   data: string;
   contraparte: string | null;
   origem: "ME" | "MS";
@@ -113,7 +115,8 @@ export async function balanceteFiscal(
   const notas = (
     await client.query<NotaRow>(
       `select f.${c.chave} chave, f.codigoestab estab,
-              f.numeronf numero, to_char(f.datalctofis,'YYYY-MM-DD') data, p.nomepessoa contraparte,
+              f.numeronf numero, upper(btrim(f.especienf)) especie,
+              to_char(f.datalctofis,'YYYY-MM-DD') data, p.nomepessoa contraparte,
               coalesce(f.valorcontabil,0)::float vlrcontabil,
               coalesce(f.valoripi,0)::float vlripi,
               ${c.funrural}::float vlrfunrural
@@ -239,6 +242,7 @@ export async function balanceteFiscal(
               detalhe.porNota.set(n.chave, {
                 chave: n.chave,
                 numero: n.numero,
+                especie: n.especie,
                 data: n.data,
                 contraparte: n.contraparte,
                 origem: tipo === "ent" ? "ME" : "MS",

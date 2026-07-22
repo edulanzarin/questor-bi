@@ -86,7 +86,7 @@ export function BalanceteLancamentosModal({
     <Modal
       aberto={alvo != null}
       onFechar={onFechar}
-      largura="max-w-3xl"
+      largura="max-w-4xl"
       ariaLabel="Lançamentos da conta"
       titulo={
         <h3 className="truncate text-lg font-semibold" title={alvo?.descricao}>
@@ -117,13 +117,14 @@ export function BalanceteLancamentosModal({
         ) : linhas.length === 0 ? (
           <p className="py-10 text-center text-sm text-muted">Nenhum lançamento.</p>
         ) : (
-          <table className="w-full min-w-[600px] text-xs">
+          <table className="w-full min-w-[720px] text-xs">
             <thead className="sticky top-0 bg-surface text-left text-muted">
               <tr className="border-b border-hairline">
                 <th className="py-2 pl-6 pr-3 font-medium">Data</th>
                 {lado === "fiscal" && <th className="py-2 pr-3 font-medium">Tipo</th>}
                 <th className="py-2 pr-3 font-medium">Origem</th>
                 <th className="py-2 pr-3 font-medium">Nº</th>
+                <th className="py-2 pr-3 font-medium">Espécie</th>
                 <th className="py-2 pr-3 font-medium">Contraparte</th>
                 <th className="py-2 pr-6 text-right font-medium">Valor</th>
               </tr>
@@ -153,6 +154,25 @@ export function BalanceteLancamentosModal({
                   )}
                   <td className="py-1.5 pr-3 text-muted">{ORIGEM[l.origem] ?? l.origem}</td>
                   <td className="tnum py-1.5 pr-3">{l.numero ?? "—"}</td>
+                  <td className="py-1.5 pr-3">
+                    {l.especie ? (
+                      <span
+                        className={clsx(
+                          "rounded px-1.5 py-0.5 text-[10px] font-medium",
+                          l.especie === "NFSE" ? "bg-warn/12 text-warn" : "bg-surface-2 text-muted"
+                        )}
+                        title={
+                          l.especie === "NFSE"
+                            ? "NFSE (serviço) — o motor não reproduz; confira manualmente"
+                            : l.especie
+                        }
+                      >
+                        {l.especie}
+                      </span>
+                    ) : (
+                      <span className="text-muted">—</span>
+                    )}
+                  </td>
                   <td className="max-w-[240px] truncate py-1.5 pr-3" title={l.contraparte ?? ""}>
                     {l.contraparte ?? (l.historico || "—")}
                   </td>

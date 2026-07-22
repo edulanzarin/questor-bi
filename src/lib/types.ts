@@ -477,6 +477,8 @@ export interface BalanceteLancamento {
   historico: string;
   numero: number | null;
   contraparte: string | null;
+  /** Espécie da nota (NFE, NFSE, CTE…) — null em apuração/retenção. */
+  especie: string | null;
   /**
    * Só no drill-down do lado FISCAL: `regra` = valor esperado que o motor gerou
    * para a nota; `espelho` = movimento real espelhado (consolidação/apuração ou
@@ -499,6 +501,8 @@ export interface BalanceteCulpado {
   chave: number | null;
   origem: string;
   numero: number | null;
+  /** Espécie da nota (NFE, NFSE, CTE…) — NFSE o motor não reproduz, exige olhar manual. */
+  especie: string | null;
   contraparte: string | null;
   /** Líquido (débito − crédito) esperado na conta pela regra. */
   esperado: number;
