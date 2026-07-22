@@ -81,18 +81,15 @@ export const SECOES_CONTABIL: SecaoContabil[] = [
     path: "/contabil/balancete",
     metrica: false,
     descricao: "Movimento esperado pelas regras × o real do contábil",
+    // Uma tela só: o balancete tem o filtro "Só diferenças" embutido (que era a
+    // aba Diferenças). A coluna Diferença já é o próprio drill — não faz sentido
+    // duas telas pro mesmo dado.
     abas: [
       {
         id: "balancete",
         rotulo: "Balancete Fiscal",
         path: "/contabil/balancete",
         descricao: "Balancete esperado pelas regras, comparado ao contábil real",
-      },
-      {
-        id: "diferencas",
-        rotulo: "Diferenças",
-        path: "/contabil/balancete/diferencas",
-        descricao: "Contas onde o esperado não bate com o real, e as notas por trás",
       },
     ],
   },

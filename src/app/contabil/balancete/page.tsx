@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { AlertTriangle, Building2, Layers } from "lucide-react";
+import { AlertTriangle, Building2, CheckCircle2, Filter, Layers } from "lucide-react";
 import clsx from "clsx";
 import { useFiltros } from "@/hooks/use-filters";
 import { useBalanceteFiscal } from "@/hooks/use-api";
@@ -12,6 +12,10 @@ import {
 import { CulpadosModal } from "@/components/balancete-culpados-modal";
 import { brl, num } from "@/lib/format";
 import type { BalanceteLinha } from "@/lib/types";
+
+/** Diferença líquida da conta: (débito − crédito) esperado − o mesmo no real. */
+const netDif = (l: BalanceteLinha) => l.fiscalDeb - l.fiscalCred - (l.realDeb - l.realCred);
+const TOL = 0.5;
 
 /** Valor de coluna clicável (drill-down) quando não é zero; em branco quando zero. */
 function ValLink({
@@ -45,6 +49,7 @@ export default function BalanceteFiscalPage() {
   const { filtros, qs } = useFiltros();
   const temEmpresa = filtros.empresas.length === 1;
   const [nivel, setNivel] = useState(3);
+  const [soDif, setSoDif] = useState(false);
   const [alvo, setAlvo] = useState<AlvoBalancete | null>(null);
   const [culpados, setCulpados] = useState<BalanceteLinha | null>(null);
 
@@ -52,10 +57,18 @@ export default function BalanceteFiscalPage() {
   const dados = bal.data;
   const nivelMax = dados?.nivelMax ?? 5;
 
-  const linhas = useMemo(
-    () => (dados?.linhas ?? []).filter((l) => l.nivel <= nivel),
-    [dados, nivel]
-  );
+  // Modo "Só diferenças": as analíticas (folhas) onde o esperado não bate com o
+  // real, do maior desvio pro menor — o que a aba Diferenças mostrava, agora aqui.
+  // Modo árvore: o balancete inteiro, cortado pelo nível.
+  const linhas = useMemo(() => {
+    const todas = dados?.linhas ?? [];
+    if (soDif) {
+      return todas
+        .filter((l) => !l.sintetica && Math.abs(netDif(l)) > TOL)
+        .sort((a, b) => Math.abs(netDif(b)) - Math.abs(netDif(a)));
+    }
+    return todas.filter((l) => l.nivel <= nivel);
+  }, [dados, nivel, soDif]);
 
   if (!temEmpresa) {
     return (
@@ -77,9 +90,11 @@ export default function BalanceteFiscalPage() {
             <h2 className="text-sm font-semibold">Balancete fiscal × contábil</h2>
             <p className="mt-0.5 text-xs text-muted">
               {dados
-                ? `${num(dados.cobertura.notas)} notas · movimento esperado pelas regras × o real do contábil`
+                ? soDif
+                  ? `${num(linhas.length)} ${linhas.length === 1 ? "conta onde" : "contas onde"} o esperado não bate com o real · clique na diferença pra ver as notas`
+                  : `${num(dados.cobertura.notas)} notas · movimento esperado pelas regras × o real do contábil`
                 : "…"}
-              {dados && dados.cobertura.componentesPulados > 0 && (
+              {dados && !soDif && dados.cobertura.componentesPulados > 0 && (
                 <span
                   className="ml-1 text-muted"
                   title="Componentes de imposto ou serviço do plano (ISS, PIS/COFINS, retenções) cujo valor o motor ainda não calcula. As contas afetadas espelham o contábil real na comparação, então não distorcem a diferença."
@@ -90,25 +105,49 @@ export default function BalanceteFiscalPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <span className="flex items-center gap-1.5 text-xs text-muted">
-              <Layers className="size-3.5" /> Nível
-            </span>
             <div className="flex rounded-lg border border-hairline bg-surface-2 p-0.5 text-xs">
-              {Array.from({ length: nivelMax }, (_, i) => i + 1).map((n) => (
-                <button
-                  key={n}
-                  onClick={() => setNivel(n)}
-                  className={clsx(
-                    "rounded-md px-2.5 py-1 tabular-nums transition-colors",
-                    nivel === n
-                      ? "bg-surface font-medium text-ink shadow-sm"
-                      : "text-muted hover:text-ink"
-                  )}
-                >
-                  {n}
-                </button>
-              ))}
+              <button
+                onClick={() => setSoDif(false)}
+                className={clsx(
+                  "rounded-md px-2.5 py-1 transition-colors",
+                  !soDif ? "bg-surface font-medium text-ink shadow-sm" : "text-muted hover:text-ink"
+                )}
+              >
+                Todas
+              </button>
+              <button
+                onClick={() => setSoDif(true)}
+                className={clsx(
+                  "inline-flex items-center gap-1 rounded-md px-2.5 py-1 transition-colors",
+                  soDif ? "bg-surface font-medium text-ink shadow-sm" : "text-muted hover:text-ink"
+                )}
+              >
+                <Filter className="size-3" /> Só diferenças
+              </button>
             </div>
+            {!soDif && (
+              <>
+                <span className="flex items-center gap-1.5 text-xs text-muted">
+                  <Layers className="size-3.5" /> Nível
+                </span>
+                <div className="flex rounded-lg border border-hairline bg-surface-2 p-0.5 text-xs">
+                  {Array.from({ length: nivelMax }, (_, i) => i + 1).map((n) => (
+                    <button
+                      key={n}
+                      onClick={() => setNivel(n)}
+                      className={clsx(
+                        "rounded-md px-2.5 py-1 tabular-nums transition-colors",
+                        nivel === n
+                          ? "bg-surface font-medium text-ink shadow-sm"
+                          : "text-muted hover:text-ink"
+                      )}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -116,7 +155,14 @@ export default function BalanceteFiscalPage() {
       {bal.isLoading || !dados ? (
         <div className="skeleton h-96 w-full" />
       ) : linhas.length === 0 ? (
-        <p className="grid h-32 place-items-center text-sm text-muted">Sem movimento no período.</p>
+        soDif ? (
+          <div className="grid h-32 place-items-center gap-2 text-center">
+            <CheckCircle2 className="mx-auto size-6 text-good" />
+            <p className="text-sm text-muted">Tudo bate — nenhuma conta com diferença no período.</p>
+          </div>
+        ) : (
+          <p className="grid h-32 place-items-center text-sm text-muted">Sem movimento no período.</p>
+        )
       ) : (
         <div className={clsx(bal.isFetching && !bal.isLoading && "refetching")}>
           <div className="max-h-[38rem] overflow-auto">
@@ -146,6 +192,7 @@ export default function BalanceteFiscalPage() {
                   <Linha
                     key={`${l.classif}-${l.conta}`}
                     l={l}
+                    flat={soDif}
                     onDrill={(lado, natureza) =>
                       setAlvo({
                         classif: l.classif,
@@ -173,15 +220,17 @@ export default function BalanceteFiscalPage() {
 
 function Linha({
   l,
+  flat,
   onDrill,
   onCulpados,
 }: {
   l: BalanceteLinha;
+  flat?: boolean;
   onDrill: (lado: "real" | "fiscal", natureza: 1 | -1) => void;
   onCulpados: () => void;
 }) {
-  const difNet = l.fiscalDeb - l.fiscalCred - (l.realDeb - l.realCred);
-  const temDif = Math.abs(difNet) > 0.5;
+  const difNet = netDif(l);
+  const temDif = Math.abs(difNet) > TOL;
   const grande = Math.abs(difNet) > 100;
   return (
     <tr
@@ -190,7 +239,7 @@ function Linha({
         l.sintetica ? "bg-surface-2/40 font-medium" : "hover:bg-surface-2/40"
       )}
     >
-      <td className="py-1.5 pr-3" style={{ paddingLeft: `${(l.nivel - 1) * 16 + 4}px` }}>
+      <td className="py-1.5 pr-3" style={{ paddingLeft: flat ? "4px" : `${(l.nivel - 1) * 16 + 4}px` }}>
         <span className="tabular-nums text-muted">{l.conta}</span>{" "}
         <span className={clsx("truncate", l.sintetica ? "text-ink" : "text-ink-2")}>
           {l.descricao}
