@@ -248,6 +248,8 @@ export interface ConformidadeEmpresa {
  * Situação de uma nota na conferência.
  * - `ok`: contabilizada e de acordo com o plano
  * - `divergente`: contabilizada, mas fora do plano
+ * - `consolidada`: sem lançamento individual, mas contabilizada em bloco
+ *   (varejo/cupom → consolidação mensal, origem MOV). Não é pendente.
  * - `pendente`: deveria ter lançamento e não tem
  * - `nao_exige`: CFOP que não gera lançamento (remessa, retorno…)
  * - `cancelada`: fora da conferência
@@ -256,9 +258,21 @@ export type SituacaoNota =
   | "ok"
   | "divergente"
   | "duplicada"
+  | "consolidada"
   | "pendente"
   | "nao_exige"
   | "cancelada";
+
+/**
+ * Nota sem lançamento individual (ME/MS), mas cujas contas principais (o valor
+ * contábil pelo plano) são cobertas por uma consolidação (origem MOV) no período
+ * — varejo/cupom lançado em bloco. Guarda as contas cobertas para o detalhe
+ * apontar onde procurar no razão. Não é pendência.
+ */
+export interface ConsolidacaoInfo {
+  /** Contas principais da nota (receita/contrapartida) cobertas pela consolidação. */
+  contas: { conta: number; descr: string | null }[];
+}
 
 /**
  * Nota contabilizada mais de uma vez: a MESMA partida (débito, crédito, valor)
@@ -290,6 +304,8 @@ export interface NotaConferida {
   divergencias: Divergencia[];
   /** Presente só quando a nota foi contabilizada em duplicidade. */
   duplicidade: Duplicidade | null;
+  /** Presente só quando a nota foi contabilizada em bloco (consolidação MOV). */
+  consolidacao: ConsolidacaoInfo | null;
 }
 
 export interface ConfResumo {
@@ -299,6 +315,8 @@ export interface ConfResumo {
   divergentes: number;
   /** Contabilizadas mais de uma vez (partida idêntica em dias distintos). */
   duplicadas: number;
+  /** Sem lançamento individual, mas cobertas por consolidação (MOV) — em bloco. */
+  consolidadas: number;
   pendentes: number;
   naoExigem: number;
   canceladas: number;
@@ -309,6 +327,8 @@ export interface ConfResumo {
   valorDivergente: number;
   /** Total lançado a mais pelas duplicadas. */
   valorDuplicado: number;
+  /** Valor das notas contabilizadas em bloco (consolidação). */
+  valorConsolidado: number;
 }
 
 /** Valor disponível para filtrar, com quantas notas ele tem. */

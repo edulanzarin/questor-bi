@@ -9,6 +9,7 @@ import { conferirNota, type LancamentoReal, type ValoresNota } from "@/lib/diver
 import type {
   ConferenciaResp,
   ConfResumo,
+  ConsolidacaoInfo,
   Duplicidade,
   Faceta,
   NotaConferida,
@@ -50,6 +51,35 @@ function detectarDuplicidade(
   }
   if (vezes < 2) return null;
   return { vezes, valor: valorNota * (vezes - 1), datas: [...datas].sort() };
+}
+
+/**
+ * Contas FIXAS (não-variáveis) que a nota postaria pelo plano, com natureza e
+ * rótulo. É o que se cruza com as contas tocadas por consolidação (MOV) para
+ * decidir se uma nota sem lançamento individual está, na verdade, lançada em
+ * bloco. Contas variáveis (fornecedor/cliente por pessoa) não entram: a
+ * consolidação não passa por sub-razão de pessoa. Funciona igual para plano do
+ * Questor (componentes por tributo) e override (componente único), porque só
+ * olha as linhas fixas — não depende de id de componente nem de fórmula, que o
+ * override não carrega.
+ */
+function contasFixasDaNota(
+  planoNota: PlanoCfop[]
+): { conta: number; natureza: 1 | -1; descr: string | null }[] {
+  const out: { conta: number; natureza: 1 | -1; descr: string | null }[] = [];
+  const vistas = new Set<string>();
+  for (const p of planoNota) {
+    for (const comp of p.componentes) {
+      for (const l of comp.linhas) {
+        if (l.contaVariavel || l.conta == null) continue;
+        const key = `${l.natureza}:${l.conta}`;
+        if (vistas.has(key)) continue;
+        vistas.add(key);
+        out.push({ conta: l.conta, natureza: l.natureza, descr: l.descrConta });
+      }
+    }
+  }
+  return out;
 }
 
 const POR_PAGINA = 100;
@@ -160,6 +190,7 @@ async function conferir(
       conformes: 0,
       divergentes: 0,
       duplicadas: 0,
+      consolidadas: 0,
       pendentes: 0,
       naoExigem: 0,
       canceladas: 0,
@@ -168,6 +199,7 @@ async function conferir(
       valorPendente: 0,
       valorDivergente: 0,
       valorDuplicado: 0,
+      valorConsolidado: 0,
     },
     notas: [],
     total: 0,
@@ -252,6 +284,26 @@ async function conferir(
     if (p.descricao && !descrCfop.has(p.cfop)) descrCfop.set(p.cfop, p.descricao);
   }
 
+  // Contas tocadas por CONSOLIDAÇÃO (origem MOV) no período: varejo/cupom lançado
+  // em bloco, sem nota individual (ex.: MOVMS...). Uma nota que "deve contabilizar"
+  // e não tem lançamento por chave não está pendente se a receita/contrapartida
+  // dela cai numa dessas contas — está dentro do bloco. Chave "natureza:conta"
+  // (débito = 1, crédito = -1), igual a `observadas`.
+  const movRows = await client.query<{ conta: number; nat: number }>(
+    `select contactbdeb conta, 1 nat from lctoctb
+       where codigoempresa = $1 and codigooriglctoctb = 'FI'
+         and datalctoctb between $2 and $3 and chaveorigem like 'MOV%' and contactbdeb is not null
+      group by contactbdeb
+     union
+     select contactbcred, -1 from lctoctb
+       where codigoempresa = $1 and codigooriglctoctb = 'FI'
+         and datalctoctb between $2 and $3 and chaveorigem like 'MOV%' and contactbcred is not null
+      group by contactbcred`,
+    params
+  );
+  const contasConsolidadas = new Set<string>();
+  for (const r of movRows.rows) contasConsolidadas.add(`${r.nat}:${r.conta}`);
+
   const resumo: ConfResumo = { ...vazio.resumo };
   const conferidas: NotaConferida[] = [];
 
@@ -266,6 +318,7 @@ async function conferir(
     let situacao: SituacaoNota;
     let divergencias: NotaConferida["divergencias"] = [];
     let duplicidade: Duplicidade | null = null;
+    let consolidacao: ConsolidacaoInfo | null = null;
 
     if (n.cancelada) {
       situacao = "cancelada";
@@ -315,13 +368,30 @@ async function conferir(
             }
           }
         }
-      } else if (deveContabilizar) {
-        situacao = "pendente";
-        resumo.pendentes += 1;
-        resumo.valorPendente += valor;
       } else {
-        situacao = "nao_exige";
-        resumo.naoExigem += 1;
+        // Sem lançamento por nota. Antes de pendência, checa consolidação: o
+        // bloco MOV é uma partida (débito clientes/caixa × crédito receita). Se a
+        // nota posta, entre as contas fixas do plano, um débito E um crédito que
+        // o MOV cobre, a partida principal dela coincide com a consolidação — está
+        // lançada em bloco, não pendente. Os impostos (ICMS/IPI) ficam de fora
+        // porque vão para a apuração mensal, não para o MOV.
+        const fixas = deveContabilizar ? contasFixasDaNota(planoNota) : [];
+        const cobertas = fixas.filter((cc) => contasConsolidadas.has(`${cc.natureza}:${cc.conta}`));
+        const consolidada =
+          cobertas.some((cc) => cc.natureza === 1) && cobertas.some((cc) => cc.natureza === -1);
+        if (consolidada) {
+          situacao = "consolidada";
+          resumo.consolidadas += 1;
+          resumo.valorConsolidado += valor;
+          consolidacao = { contas: cobertas.map((cc) => ({ conta: cc.conta, descr: cc.descr })) };
+        } else if (deveContabilizar) {
+          situacao = "pendente";
+          resumo.pendentes += 1;
+          resumo.valorPendente += valor;
+        } else {
+          situacao = "nao_exige";
+          resumo.naoExigem += 1;
+        }
       }
     }
 
@@ -340,6 +410,7 @@ async function conferir(
       lancamentos: lancamentos.length,
       divergencias,
       duplicidade,
+      consolidacao,
     });
   }
 

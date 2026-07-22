@@ -11,6 +11,7 @@ import {
   ChevronRight,
   Copy,
   FileText,
+  Layers,
   Receipt,
   Search,
   ShieldCheck,
@@ -39,6 +40,7 @@ const SITUACOES: { id: FiltroSituacao; rotulo: string }[] = [
   { id: "problema", rotulo: "Com problema" },
   { id: "todas", rotulo: "Todas" },
   { id: "pendente", rotulo: "Não contabilizadas" },
+  { id: "consolidada", rotulo: "Em bloco" },
   { id: "divergente", rotulo: "Conta errada" },
   { id: "duplicada", rotulo: "Duplicadas" },
   { id: "ok", rotulo: "Corretas" },
@@ -169,9 +171,9 @@ export default function ConferenciaPage() {
         <SeletorTipo tipo={tipo} onTipo={setTipo} />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-6">
         {conf.isLoading || !r ? (
-          Array.from({ length: 5 }).map((_, i) => <div key={i} className="skeleton h-36" />)
+          Array.from({ length: 6 }).map((_, i) => <div key={i} className="skeleton h-36" />)
         ) : (
           <>
             <Kpi
@@ -188,6 +190,17 @@ export default function ConferenciaPage() {
               valor={num(r.pendentes)}
               secundario={`${brlCompact(r.valorPendente)} a contabilizar`}
               alerta={r.pendentes > 0}
+            />
+            <Kpi
+              rotulo="Contabilizadas em bloco"
+              icone={<Layers className="size-4 text-ent" />}
+              corIcone="bg-ent/12"
+              valor={num(r.consolidadas)}
+              secundario={
+                r.consolidadas > 0
+                  ? `${brlCompact(r.valorConsolidado)} em consolidação`
+                  : "sem consolidação"
+              }
             />
             <Kpi
               rotulo="Lançadas na conta errada"
@@ -287,13 +300,15 @@ export default function ConferenciaPage() {
                       ? r.conformes
                       : s.id === "pendente"
                         ? r.pendentes
-                        : s.id === "divergente"
-                          ? r.divergentes
-                          : s.id === "duplicada"
-                            ? r.duplicadas
-                            : s.id === "nao_exige"
-                              ? r.naoExigem
-                              : r.canceladas;
+                        : s.id === "consolidada"
+                          ? r.consolidadas
+                          : s.id === "divergente"
+                            ? r.divergentes
+                            : s.id === "duplicada"
+                              ? r.duplicadas
+                              : s.id === "nao_exige"
+                                ? r.naoExigem
+                                : r.canceladas;
               return (
                 <button
                   key={s.id}

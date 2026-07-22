@@ -95,6 +95,34 @@ export function NotaDetalheModal({
           </div>
         )}
 
+        {nota.consolidacao && (
+          <div className="border-b border-hairline bg-ent/8 px-6 py-4">
+            <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-ent">
+              Contabilizada em bloco
+            </p>
+            <p className="text-sm text-ink-2">
+              Sem lançamento individual: o varejo lança as vendas consolidadas (cupom/ECF) num
+              único lançamento no período (origem MOV), não nota a nota. Não é pendência.
+              {nota.consolidacao.contas.length > 0 && (
+                <>
+                  {" "}
+                  Procure no razão em{" "}
+                  {nota.consolidacao.contas.map((c, i) => (
+                    <span key={c.conta}>
+                      {i > 0 && ", "}
+                      <span className="font-semibold text-ink">
+                        {c.conta}
+                        {c.descr ? ` · ${c.descr}` : ""}
+                      </span>
+                    </span>
+                  ))}
+                  .
+                </>
+              )}
+            </p>
+          </div>
+        )}
+
         {nota.divergencias.length > 0 && (
           <div className="border-b border-hairline px-6 py-4">
             <p className="mb-2 text-[10px] font-medium uppercase tracking-wide text-muted">
