@@ -221,6 +221,10 @@ export async function balanceteFiscal(
       const valores = {
         vlrContabil: cont,
         vlrContICMS: cont,
+        // vlrContISS (líquido de ISS) só faz sentido em SERVIÇO (só NFSE tem ISS).
+        // Gateado por espécie: uma NFE de mercadoria pode ter CFOP cujo componente
+        // usa vlrContISS e, sem o gate, o motor gera despesa de serviço pra ela.
+        ...(n.especie === "NFSE" ? { vlrContISS: cont } : {}),
         vlrICMS: vc?.icms ?? 0,
         vlrIPI: vc?.ipi ?? (umCfop ? n.vlripi : 0),
         vlrFunRural: umCfop ? n.vlrfunrural : 0,
