@@ -9,6 +9,7 @@ import {
   BalanceteLancamentosModal,
   type AlvoBalancete,
 } from "@/components/balancete-lancamentos-modal";
+import { CulpadosModal } from "@/components/balancete-culpados-modal";
 import { brl, num } from "@/lib/format";
 import type { BalanceteLinha } from "@/lib/types";
 
@@ -45,6 +46,7 @@ export default function BalanceteFiscalPage() {
   const temEmpresa = filtros.empresas.length === 1;
   const [nivel, setNivel] = useState(3);
   const [alvo, setAlvo] = useState<AlvoBalancete | null>(null);
+  const [culpados, setCulpados] = useState<BalanceteLinha | null>(null);
 
   const bal = useBalanceteFiscal(qs, temEmpresa);
   const dados = bal.data;
@@ -154,6 +156,7 @@ export default function BalanceteFiscalPage() {
                         descricao: `${l.conta} · ${l.descricao}`,
                       })
                     }
+                    onCulpados={() => setCulpados(l)}
                   />
                 ))}
               </tbody>
@@ -163,6 +166,7 @@ export default function BalanceteFiscalPage() {
       )}
 
       <BalanceteLancamentosModal qs={qs} alvo={alvo} onFechar={() => setAlvo(null)} />
+      <CulpadosModal qs={qs} alvo={culpados} onFechar={() => setCulpados(null)} />
     </section>
   );
 }
@@ -170,9 +174,11 @@ export default function BalanceteFiscalPage() {
 function Linha({
   l,
   onDrill,
+  onCulpados,
 }: {
   l: BalanceteLinha;
   onDrill: (lado: "real" | "fiscal", natureza: 1 | -1) => void;
+  onCulpados: () => void;
 }) {
   const difNet = l.fiscalDeb - l.fiscalCred - (l.realDeb - l.realCred);
   const temDif = Math.abs(difNet) > 0.5;
@@ -210,10 +216,14 @@ function Linha({
         )}
       >
         {temDif ? (
-          <span className="inline-flex items-center gap-1">
+          <button
+            onClick={onCulpados}
+            className="inline-flex items-center gap-1 transition-colors hover:underline"
+            title="Ver as notas por trás desta diferença"
+          >
             {grande && <AlertTriangle className="size-3" />}
             {brl(difNet)}
-          </span>
+          </button>
         ) : (
           "ok"
         )}
