@@ -302,7 +302,35 @@ async function conferir(
     params
   );
   const contasConsolidadas = new Set<string>();
-  for (const r of movRows.rows) contasConsolidadas.add(`${r.nat}:${r.conta}`);
+  const contasConsolidadasNums = new Set<number>();
+  for (const r of movRows.rows) {
+    contasConsolidadas.add(`${r.nat}:${r.conta}`);
+    contasConsolidadasNums.add(r.conta);
+  }
+
+  // Os próprios lançamentos MOV que tocam essas contas — a prova que o detalhe
+  // mostra para a nota consolidada, no lugar de um texto afirmando o fato.
+  let movLancamentos: {
+    data: string;
+    origem: string;
+    deb: number | null;
+    cred: number | null;
+    valor: number;
+  }[] = [];
+  if (contasConsolidadasNums.size) {
+    const det = await client.query<(typeof movLancamentos)[number]>(
+      `select coalesce(to_char(l.datalctoctb, 'YYYY-MM-DD'), '') data, l.chaveorigem origem,
+              l.contactbdeb deb, l.contactbcred cred, l.valorlctoctb::float valor
+         from lctoctb l
+        where l.codigoempresa = $1 and l.codigooriglctoctb = 'FI'
+          and l.datalctoctb between $2 and $3 and l.chaveorigem like 'MOV%'
+          and (l.contactbdeb = any($4::bigint[]) or l.contactbcred = any($4::bigint[]))
+        order by l.valorlctoctb desc
+        limit 500`,
+      [...params, [...contasConsolidadasNums]]
+    );
+    movLancamentos = det.rows;
+  }
 
   const resumo: ConfResumo = { ...vazio.resumo };
   const conferidas: NotaConferida[] = [];
@@ -383,7 +411,23 @@ async function conferir(
           situacao = "consolidada";
           resumo.consolidadas += 1;
           resumo.valorConsolidado += valor;
-          consolidacao = { contas: cobertas.map((cc) => ({ conta: cc.conta, descr: cc.descr })) };
+          const contasNota = new Set(cobertas.map((cc) => cc.conta));
+          const cobrindo = movLancamentos.filter(
+            (m) =>
+              (m.deb != null && contasNota.has(m.deb)) ||
+              (m.cred != null && contasNota.has(m.cred))
+          );
+          consolidacao = {
+            contas: cobertas.map((cc) => ({ conta: cc.conta, descr: cc.descr })),
+            lancamentos: cobrindo.slice(0, 50).map((m) => ({
+              data: m.data,
+              origem: m.origem,
+              contaDeb: m.deb,
+              contaCred: m.cred,
+              valor: m.valor,
+            })),
+            qtd: cobrindo.length,
+          };
         } else if (deveContabilizar) {
           situacao = "pendente";
           resumo.pendentes += 1;

@@ -263,15 +263,30 @@ export type SituacaoNota =
   | "nao_exige"
   | "cancelada";
 
+/** Um lançamento de consolidação (origem MOV) — a prova de que a nota entrou no bloco. */
+export interface ConsolidacaoLancamento {
+  data: string;
+  /** chaveorigem do lançamento, ex.: "MOVMS202605000001". */
+  origem: string;
+  contaDeb: number | null;
+  contaCred: number | null;
+  valor: number;
+}
+
 /**
  * Nota sem lançamento individual (ME/MS), mas cujas contas principais (o valor
  * contábil pelo plano) são cobertas por uma consolidação (origem MOV) no período
- * — varejo/cupom lançado em bloco. Guarda as contas cobertas para o detalhe
- * apontar onde procurar no razão. Não é pendência.
+ * — varejo/cupom lançado em bloco. Não é pendência. Guarda as contas cobertas e
+ * os próprios lançamentos MOV que as cobrem, para o detalhe mostrar a prova em
+ * vez de só afirmar.
  */
 export interface ConsolidacaoInfo {
   /** Contas principais da nota (receita/contrapartida) cobertas pela consolidação. */
   contas: { conta: number; descr: string | null }[];
+  /** Lançamentos MOV do período que tocam essas contas (limitado; ver `qtd`). */
+  lancamentos: ConsolidacaoLancamento[];
+  /** Total de lançamentos de consolidação que cobrem as contas (pode passar do que vem em `lancamentos`). */
+  qtd: number;
 }
 
 /**

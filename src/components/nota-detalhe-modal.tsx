@@ -42,6 +42,16 @@ export function NotaDetalheModal({
 }) {
   if (!nota) return null;
 
+  const cons = nota.consolidacao;
+  const nomeConta = new Map((cons?.contas ?? []).map((c) => [c.conta, c.descr]));
+  const partidaConta = (c: number | null, lado: "D" | "C") =>
+    c == null ? null : (
+      <>
+        {lado} <span className="text-ink-2">{c}</span>
+        {nomeConta.get(c) ? ` ${nomeConta.get(c)}` : ""}
+      </>
+    );
+
   const legenda = [
     nota.especie,
     `${num(nota.numero)}${nota.serie ? ` / ${nota.serie}` : ""}`,
@@ -95,31 +105,41 @@ export function NotaDetalheModal({
           </div>
         )}
 
-        {nota.consolidacao && (
+        {cons && (
           <div className="border-b border-hairline bg-ent/8 px-6 py-4">
             <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-ent">
               Contabilizada em bloco
             </p>
             <p className="text-sm text-ink-2">
-              Sem lançamento individual: o varejo lança as vendas consolidadas (cupom/ECF) num
-              único lançamento no período (origem MOV), não nota a nota. Não é pendência.
-              {nota.consolidacao.contas.length > 0 && (
-                <>
-                  {" "}
-                  Procure no razão em{" "}
-                  {nota.consolidacao.contas.map((c, i) => (
-                    <span key={c.conta}>
-                      {i > 0 && ", "}
-                      <span className="font-semibold text-ink">
-                        {c.conta}
-                        {c.descr ? ` · ${c.descr}` : ""}
-                      </span>
-                    </span>
-                  ))}
-                  .
-                </>
-              )}
+              Sem lançamento por nota — a venda entra na consolidação do varejo (origem MOV).
             </p>
+            {cons.lancamentos.length > 0 && (
+              <ul className="mt-2 flex flex-col gap-1">
+                {cons.lancamentos.map((l, i) => (
+                  <li key={i} className="rounded-md bg-surface-2/60 px-3 py-2">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <span className="text-xs text-ink-2">
+                        {dataBR(l.data)} ·{" "}
+                        <span className="font-mono text-[11px] text-muted">{l.origem}</span>
+                      </span>
+                      <span className="text-sm font-semibold tabular-nums text-ink">
+                        {brl(l.valor)}
+                      </span>
+                    </div>
+                    <div className="mt-0.5 text-[11px] text-muted">
+                      {partidaConta(l.contaDeb, "D")}
+                      {l.contaDeb != null && l.contaCred != null && " · "}
+                      {partidaConta(l.contaCred, "C")}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {cons.qtd > cons.lancamentos.length && (
+              <p className="mt-1 text-[11px] text-muted">
+                + {num(cons.qtd - cons.lancamentos.length)} lançamento(s) de consolidação
+              </p>
+            )}
           </div>
         )}
 
