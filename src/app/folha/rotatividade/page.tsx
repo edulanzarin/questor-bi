@@ -1,9 +1,11 @@
 "use client";
 
+import { useMemo } from "react";
 import { Repeat, UserMinus, UserPlus, Users } from "lucide-react";
 import clsx from "clsx";
 import { TurnoverSerieChart } from "@/components/charts/turnover-serie-chart";
-import { RotatividadeOrganogramas } from "@/components/rotatividade-organogramas";
+import { RotatividadeQuebra } from "@/components/rotatividade-quebra";
+import { RotatividadeBarras } from "@/components/rotatividade-barras";
 import { useFiltros } from "@/hooks/use-filters";
 import { useTurnover } from "@/hooks/use-api";
 import { num } from "@/lib/format";
@@ -46,9 +48,19 @@ export default function RotatividadePage() {
   const { qs } = useFiltros();
   const turnover = useTurnover(qs);
 
-  const c = turnover.data?.consolidado;
+  const d = turnover.data;
+  const c = d?.consolidado;
   const carregando = turnover.isLoading;
   const recarregando = turnover.isFetching && !turnover.isLoading;
+
+  const motivos = useMemo(
+    () => d?.motivos.map((m) => ({ rotulo: m.motivo, valor: m.desligamentos })),
+    [d]
+  );
+  const tenure = useMemo(
+    () => d?.tenure.map((t) => ({ rotulo: t.faixa, valor: t.desligamentos })),
+    [d]
+  );
 
   return (
     <>
@@ -91,14 +103,44 @@ export default function RotatividadePage() {
         )}
       </div>
 
-      <TurnoverSerieChart
-        dados={turnover.data?.serie}
+      <TurnoverSerieChart dados={d?.serie} carregando={carregando} recarregando={recarregando} />
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <RotatividadeBarras
+          titulo="Motivo do desligamento"
+          subtitulo="Causa da rescisão de quem saiu no período"
+          dados={motivos}
+          cor="var(--critical)"
+          vazio="Nenhum desligamento no período"
+          carregando={carregando}
+          recarregando={recarregando}
+        />
+        <RotatividadeBarras
+          titulo="Tempo de casa dos desligados"
+          subtitulo="Quanto tempo ficou quem saiu no período"
+          dados={tenure}
+          cor="var(--esp-5)"
+          vazio="Nenhum desligamento no período"
+          carregando={carregando}
+          recarregando={recarregando}
+        />
+      </div>
+
+      <RotatividadeQuebra
+        titulo="Turnover por organograma"
+        subtitulo="Cada setor com seu efetivo e movimentação · clique num cabeçalho para ordenar"
+        rotuloColuna="Organograma"
+        dados={d?.organogramas}
+        total={c}
         carregando={carregando}
         recarregando={recarregando}
       />
 
-      <RotatividadeOrganogramas
-        dados={turnover.data?.organogramas}
+      <RotatividadeQuebra
+        titulo="Turnover por cargo"
+        subtitulo="Cada cargo com seu efetivo e movimentação · clique num cabeçalho para ordenar"
+        rotuloColuna="Cargo"
+        dados={d?.cargos}
         total={c}
         carregando={carregando}
         recarregando={recarregando}
@@ -106,8 +148,9 @@ export default function RotatividadePage() {
 
       <p className="text-[11px] text-muted">
         Turnover = (admissões + desligamentos) ÷ 2, sobre os colaboradores ativos
-        (efetivo no fim do período). Cada setor é o organograma da lotação atual do
-        colaborador. Considera todos os vínculos da empresa.
+        (efetivo no fim do período). Setor e cargo pela lotação/cargo atual do
+        colaborador; motivo pela causa da rescisão. Considera todos os vínculos da
+        empresa.
       </p>
     </>
   );

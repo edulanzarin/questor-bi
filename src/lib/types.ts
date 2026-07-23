@@ -644,13 +644,28 @@ export interface TurnoverPonto {
   turnover: number;
 }
 
-/** Turnover de um organograma (setor) no período — a quebra por departamento. */
-export interface TurnoverOrganograma {
-  setor: string;
+/**
+ * Turnover de um grupo (organograma, cargo…) no período — uma linha da quebra.
+ * O mesmo formato serve para qualquer dimensão que agrupe contratos.
+ */
+export interface TurnoverGrupo {
+  grupo: string;
   ativos: number;
   admissoes: number;
   desligamentos: number;
   turnover: number;
+}
+
+/** Desligamentos por causa da rescisão (só desligamento tem motivo). */
+export interface TurnoverMotivo {
+  motivo: string;
+  desligamentos: number;
+}
+
+/** Desligamentos por faixa de tempo de casa (admissão → desligamento). */
+export interface TurnoverFaixaTempo {
+  faixa: string;
+  desligamentos: number;
 }
 
 export interface TurnoverResp {
@@ -659,5 +674,11 @@ export interface TurnoverResp {
   /** Um ponto por mês, para a série. */
   serie: TurnoverPonto[];
   /** Quebra por setor (organograma), do maior efetivo para o menor. */
-  organogramas: TurnoverOrganograma[];
+  organogramas: TurnoverGrupo[];
+  /** Quebra por cargo. */
+  cargos: TurnoverGrupo[];
+  /** Desligamentos por motivo (causa da rescisão). */
+  motivos: TurnoverMotivo[];
+  /** Desligamentos por tempo de casa. */
+  tenure: TurnoverFaixaTempo[];
 }

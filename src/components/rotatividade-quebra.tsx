@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { ArrowDown, Search } from "lucide-react";
 import clsx from "clsx";
-import type { TurnoverOrganograma } from "@/lib/types";
+import type { TurnoverGrupo } from "@/lib/types";
 import { num } from "@/lib/format";
 
 type Coluna = "ativos" | "admissoes" | "desligamentos" | "turnover";
@@ -12,7 +12,10 @@ type Faixa = "todos" | "movimento" | "alto" | "medio" | "baixo";
 const pct = (v: number) => `${v.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%`;
 
 /** Faixa de turnover → cor do badge. Zero (sem movimento) fica neutro. */
-function nivel(t: number): { classe: string; faixa: Exclude<Faixa, "todos" | "movimento"> | "zero" } {
+function nivel(t: number): {
+  classe: string;
+  faixa: Exclude<Faixa, "todos" | "movimento"> | "zero";
+} {
   if (t > 10) return { classe: "bg-critical/12 text-critical", faixa: "alto" };
   if (t >= 2) return { classe: "bg-warning/15 text-warning", faixa: "medio" };
   if (t > 0) return { classe: "bg-good/12 text-good", faixa: "baixo" };
@@ -27,51 +30,61 @@ const FILTROS: { id: Faixa; rotulo: string }[] = [
   { id: "baixo", rotulo: "Baixo (<2%)" },
 ];
 
-const CABECALHOS: { key: Coluna; rotulo: string }[] = [
-  { key: "ativos", rotulo: "Colab. ativos" },
-  { key: "admissoes", rotulo: "Admissões" },
-  { key: "desligamentos", rotulo: "Desligamentos" },
-  { key: "turnover", rotulo: "Turnover" },
-];
-
 interface Props {
-  dados: TurnoverOrganograma[] | undefined;
+  titulo: string;
+  subtitulo: string;
+  /** Rótulo da 1ª coluna, ex.: "Organograma", "Cargo". */
+  rotuloColuna: string;
+  dados: TurnoverGrupo[] | undefined;
   /** Linha de total (bate com os KPIs) — o consolidado da empresa. */
   total: { ativos: number; admissoes: number; desligamentos: number; turnover: number } | undefined;
   carregando: boolean;
   recarregando: boolean;
 }
 
-export function RotatividadeOrganogramas({ dados, total, carregando, recarregando }: Props) {
+export function RotatividadeQuebra({
+  titulo,
+  subtitulo,
+  rotuloColuna,
+  dados,
+  total,
+  carregando,
+  recarregando,
+}: Props) {
   const [ordenar, setOrdenar] = useState<Coluna>("ativos");
   const [faixa, setFaixa] = useState<Faixa>("todos");
   const [busca, setBusca] = useState("");
+
+  const CABECALHOS: { key: Coluna; rotulo: string }[] = [
+    { key: "ativos", rotulo: "Colab. ativos" },
+    { key: "admissoes", rotulo: "Admissões" },
+    { key: "desligamentos", rotulo: "Desligamentos" },
+    { key: "turnover", rotulo: "Turnover" },
+  ];
 
   const visiveis = useMemo(() => {
     if (!dados) return undefined;
     const q = busca.trim().toLowerCase();
     return [...dados]
       .filter((o) => {
-        if (q && !o.setor.toLowerCase().includes(q)) return false;
+        if (q && !o.grupo.toLowerCase().includes(q)) return false;
         if (faixa === "todos") return true;
         if (faixa === "movimento") return o.admissoes + o.desligamentos > 0;
         return nivel(o.turnover).faixa === faixa;
       })
-      .sort((a, b) => b[ordenar] - a[ordenar] || a.setor.localeCompare(b.setor));
+      .sort((a, b) => b[ordenar] - a[ordenar] || a.grupo.localeCompare(b.grupo));
   }, [dados, busca, faixa, ordenar]);
 
   return (
     <section className="card anim-fade-up p-5">
       <header className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-sm font-semibold">Turnover por organograma</h2>
-          <p className="mt-0.5 text-xs text-muted">
-            Cada setor com seu efetivo e movimentação · clique num cabeçalho para ordenar
-          </p>
+          <h2 className="text-sm font-semibold">{titulo}</h2>
+          <p className="mt-0.5 text-xs text-muted">{subtitulo}</p>
         </div>
         {visiveis && (
           <span className="text-xs text-muted">
-            {num(visiveis.length)} {visiveis.length === 1 ? "setor" : "setores"}
+            {num(visiveis.length)} {visiveis.length === 1 ? "grupo" : "grupos"}
           </span>
         )}
       </header>
@@ -97,7 +110,7 @@ export function RotatividadeOrganogramas({ dados, total, carregando, recarregand
           <input
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
-            placeholder="Buscar setor…"
+            placeholder={`Buscar ${rotuloColuna.toLowerCase()}…`}
             className="w-40 bg-transparent text-xs text-ink outline-none placeholder:text-muted"
           />
         </label>
@@ -106,11 +119,13 @@ export function RotatividadeOrganogramas({ dados, total, carregando, recarregand
       {carregando || !visiveis ? (
         <div className="skeleton h-96 w-full" />
       ) : (
-        <div className={clsx("max-h-[34rem] overflow-y-auto overflow-x-auto", recarregando && "refetching")}>
+        <div
+          className={clsx("max-h-[34rem] overflow-y-auto overflow-x-auto", recarregando && "refetching")}
+        >
           <table className="w-full min-w-[560px] border-collapse text-sm">
             <thead className="sticky top-0 z-10 bg-surface">
               <tr className="border-b border-hairline text-xs text-muted">
-                <th className="py-2 pr-3 text-left font-medium">Organograma</th>
+                <th className="py-2 pr-3 text-left font-medium">{rotuloColuna}</th>
                 {CABECALHOS.map((h) => {
                   const ativo = ordenar === h.key;
                   return (
@@ -134,7 +149,7 @@ export function RotatividadeOrganogramas({ dados, total, carregando, recarregand
               {visiveis.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="py-10 text-center text-sm text-muted">
-                    Nenhum setor nesta faixa
+                    Nenhum grupo nesta faixa
                   </td>
                 </tr>
               ) : (
@@ -142,10 +157,10 @@ export function RotatividadeOrganogramas({ dados, total, carregando, recarregand
                   const n = nivel(o.turnover);
                   return (
                     <tr
-                      key={o.setor}
+                      key={o.grupo}
                       className="border-b border-hairline/60 last:border-0 hover:bg-surface-2/50"
                     >
-                      <td className="py-2.5 pr-3 font-medium text-ink">{o.setor}</td>
+                      <td className="py-2.5 pr-3 font-medium text-ink">{o.grupo}</td>
                       <td className="py-2.5 pl-3 text-right tabular-nums text-ink-2">{num(o.ativos)}</td>
                       <td className="py-2.5 pl-3 text-right tabular-nums">
                         <span className={o.admissoes > 0 ? "text-good" : "text-muted"}>

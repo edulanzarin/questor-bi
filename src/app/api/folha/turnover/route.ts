@@ -1,7 +1,13 @@
 import { query } from "@/lib/db";
 import { apiRoute } from "@/lib/api-route";
 import { parseFilters, FilterError } from "@/lib/fiscal-filters";
-import type { TurnoverOrganograma, TurnoverPonto, TurnoverResp } from "@/lib/types";
+import type {
+  TurnoverFaixaTempo,
+  TurnoverGrupo,
+  TurnoverMotivo,
+  TurnoverPonto,
+  TurnoverResp,
+} from "@/lib/types";
 
 interface SerieRow {
   mes: string;
@@ -14,8 +20,8 @@ interface ConsRow {
   dem: number;
   ativos: number;
 }
-interface OrgRow {
-  setor: string;
+interface GrupoRow {
+  grupo: string;
   ativos: number;
   adm: number;
   dem: number;
@@ -30,11 +36,22 @@ function indice(adm: number, dem: number, ativos: number): number {
   return ativos > 0 ? ((adm + dem) / 2 / ativos) * 100 : 0;
 }
 
+function paraGrupo(r: GrupoRow): TurnoverGrupo {
+  return {
+    grupo: r.grupo,
+    ativos: r.ativos,
+    admissoes: r.adm,
+    desligamentos: r.dem,
+    turnover: indice(r.adm, r.dem, r.ativos),
+  };
+}
+
 /**
  * Rotatividade de pessoal por empresa. Vínculo mora em `funccontrato` (uma linha
  * por contrato), com `dataadm`/`datadem`; o efetivo numa data é "admitido até
- * ela e ainda não desligado". A quebra por setor usa a lotação vigente do
- * contrato (`funclocal`, maior `datatransf`) → `organograma.descrorgan`.
+ * ela e ainda não desligado". As quebras usam a vigência atual do contrato:
+ * lotação (`funclocal.classiforgan` → `organograma`) e cargo (`funccargo` →
+ * `cargo`). Motivo do desligamento vem de `rescisao` → `causademissao`.
  * Ver [[Módulo de folha e eSocial do Questor]].
  */
 export const GET = apiRoute(async (req) => {
@@ -81,7 +98,7 @@ export const GET = apiRoute(async (req) => {
   );
 
   // Quebra por organograma (setor): cada contrato pela sua lotação vigente.
-  const organogramas = query<OrgRow>(
+  const organogramas = query<GrupoRow>(
     `with loc as (
        select distinct on (codigoempresa, codigofunccontr)
               codigoempresa, codigofunccontr, codigoestab, classiforgan
@@ -96,7 +113,7 @@ export const GET = apiRoute(async (req) => {
            on l.codigoempresa = fc.codigoempresa and l.codigofunccontr = fc.codigofunccontr
         where fc.codigoempresa = any($1::int[])
      )
-     select coalesce(nullif(btrim(o.descrorgan), ''), '(sem setor)') as setor,
+     select coalesce(nullif(btrim(o.descrorgan), ''), '(sem setor)') as grupo,
             count(*) filter (where c.dataadm <= $3 and (c.datadem is null or c.datadem >= $3))::int as ativos,
             count(*) filter (where c.dataadm between $2 and $3)::int as adm,
             count(*) filter (where c.datadem between $2 and $3)::int as dem
@@ -106,25 +123,95 @@ export const GET = apiRoute(async (req) => {
         and o.codigoestab = c.codigoestab
         and o.classiforgan = c.classiforgan
       group by 1
-      order by ativos desc, setor`,
+      order by ativos desc, grupo`,
     params
   );
 
-  const [cons, meses, orgs] = await Promise.all([consolidado, serie, organogramas]);
+  // Quebra por cargo: cada contrato pelo seu cargo vigente (maior datainicial).
+  const cargos = query<GrupoRow>(
+    `with cg as (
+       select distinct on (codigoempresa, codigofunccontr) codigoempresa, codigofunccontr, codigocargo
+         from funccargo
+        where codigoempresa = any($1::int[])
+        order by codigoempresa, codigofunccontr, datainicial desc nulls last
+     ),
+     c as (
+       select fc.dataadm, fc.datadem, ca.descrcargo
+         from funccontrato fc
+         left join cg on cg.codigoempresa = fc.codigoempresa and cg.codigofunccontr = fc.codigofunccontr
+         left join cargo ca on ca.codigocargo = cg.codigocargo
+        where fc.codigoempresa = any($1::int[])
+     )
+     select coalesce(nullif(btrim(descrcargo), ''), '(sem cargo)') as grupo,
+            count(*) filter (where dataadm <= $3 and (datadem is null or datadem >= $3))::int as ativos,
+            count(*) filter (where dataadm between $2 and $3)::int as adm,
+            count(*) filter (where datadem between $2 and $3)::int as dem
+       from c
+      group by 1
+      order by ativos desc, grupo`,
+    params
+  );
+
+  // Desligamentos por motivo: a causa da rescisão (uma por contrato; a base usa
+  // complementar=1, então não fixamos o valor — pegamos a de menor complementar).
+  const motivos = query<TurnoverMotivo>(
+    `with resc as (
+       select distinct on (codigoempresa, codigofunccontr) codigoempresa, codigofunccontr, codigocausa
+         from rescisao
+        where codigoempresa = any($1::int[])
+        order by codigoempresa, codigofunccontr, complementar
+     )
+     select coalesce(cd.descrcausa, '(não informado)') as motivo,
+            count(*)::int as desligamentos
+       from funccontrato fc
+       left join resc r on r.codigoempresa = fc.codigoempresa and r.codigofunccontr = fc.codigofunccontr
+       left join causademissao cd on cd.codigocausa = r.codigocausa
+      where fc.codigoempresa = any($1::int[]) and fc.datadem between $2 and $3
+      group by 1
+      order by 2 desc`,
+    params
+  );
+
+  // Desligamentos por tempo de casa (dias entre admissão e desligamento).
+  const tenure = query<TurnoverFaixaTempo>(
+    `select faixa, count(*)::int as desligamentos
+       from (
+         select case
+                  when (datadem - dataadm) < 90 then 'Menos de 3 meses'
+                  when (datadem - dataadm) < 365 then '3 a 12 meses'
+                  when (datadem - dataadm) < 1095 then '1 a 3 anos'
+                  else 'Mais de 3 anos'
+                end as faixa,
+                case
+                  when (datadem - dataadm) < 90 then 1
+                  when (datadem - dataadm) < 365 then 2
+                  when (datadem - dataadm) < 1095 then 3
+                  else 4
+                end as ord
+           from funccontrato
+          where codigoempresa = any($1::int[])
+            and datadem between $2 and $3
+            and dataadm is not null
+       ) t
+      group by faixa, ord
+      order by ord`,
+    params
+  );
+
+  const [cons, meses, orgs, cgs, mots, tens] = await Promise.all([
+    consolidado,
+    serie,
+    organogramas,
+    cargos,
+    motivos,
+    tenure,
+  ]);
 
   const serieResp: TurnoverPonto[] = meses.map((r) => ({
     mes: r.mes,
     admissoes: r.adm,
     desligamentos: r.dem,
     ativos: r.ativos,
-    turnover: indice(r.adm, r.dem, r.ativos),
-  }));
-
-  const organogramasResp: TurnoverOrganograma[] = orgs.map((r) => ({
-    setor: r.setor,
-    ativos: r.ativos,
-    admissoes: r.adm,
-    desligamentos: r.dem,
     turnover: indice(r.adm, r.dem, r.ativos),
   }));
 
@@ -137,7 +224,10 @@ export const GET = apiRoute(async (req) => {
       turnover: indice(c.adm, c.dem, c.ativos),
     },
     serie: serieResp,
-    organogramas: organogramasResp,
+    organogramas: orgs.map(paraGrupo),
+    cargos: cgs.map(paraGrupo),
+    motivos: mots,
+    tenure: tens,
   };
   return resp;
 });
