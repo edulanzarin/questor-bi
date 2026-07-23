@@ -13,7 +13,7 @@ type Handler = (req: NextRequest) => Promise<unknown>;
  * casam: são compartilhados, liberados a qualquer sessão por enquanto.)
  */
 function moduloDaRota(pathname: string): ModuloId | undefined {
-  const m = pathname.match(/^\/api\/(fiscal|contabil)(?:\/|$)/);
+  const m = pathname.match(/^\/api\/(fiscal|contabil|folha)(?:\/|$)/);
   return m ? (m[1] as ModuloId) : undefined;
 }
 

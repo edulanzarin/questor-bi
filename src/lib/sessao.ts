@@ -32,7 +32,7 @@ export interface Sessao {
 export const getSessao = cache(async (): Promise<Sessao> => {
   return {
     usuario: { id: "dev", nome: "Desenvolvimento", setor: "admin" },
-    modulos: { fiscal: "edit", contabil: "edit" },
+    modulos: { fiscal: "edit", contabil: "edit", folha: "edit" },
   };
 });
 

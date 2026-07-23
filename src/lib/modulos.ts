@@ -1,6 +1,7 @@
 import { BookOpen, Landmark, Receipt, Users, type LucideIcon } from "lucide-react";
 import { SECOES_FISCAL, type SecaoFiscal } from "./fiscal-secoes";
 import { SECOES_CONTABIL } from "./contabil-secoes";
+import { SECOES_FOLHA } from "./folha-secoes";
 
 export type ModuloId = "fiscal" | "contabil" | "folha" | "patrimonio";
 
@@ -41,10 +42,10 @@ export const MODULOS: Modulo[] = [
   {
     id: "folha",
     titulo: "Folha",
-    descricao: "Em breve",
+    descricao: "Rotatividade de pessoal (turnover)",
     icone: Users,
-    ativo: false,
-    home: "#",
+    ativo: true,
+    home: "/folha/rotatividade",
   },
   {
     id: "patrimonio",
@@ -63,7 +64,7 @@ export function getModulo(id: string): Modulo | undefined {
 const SECOES: Record<ModuloId, SecaoFiscal[]> = {
   fiscal: SECOES_FISCAL,
   contabil: SECOES_CONTABIL,
-  folha: [],
+  folha: SECOES_FOLHA,
   patrimonio: [],
 };
 
