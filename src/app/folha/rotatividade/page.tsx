@@ -250,6 +250,17 @@ export default function RotatividadePage() {
         dim="cargo"
         onDrill={abrirDrill}
       />
+      <RotatividadeQuebra
+        titulo="Turnover por horário"
+        subtitulo="Rotatividade por escala/horário de trabalho · clique numa linha para ver as pessoas"
+        rotuloColuna="Horário"
+        dados={d?.horarios}
+        total={c}
+        carregando={carregando}
+        recarregando={recarregando}
+        dim="horario"
+        onDrill={abrirDrill}
+      />
 
       {/* Faixa etária ocupa a linha toda; as 4 menores em 2×2 (sem célula vazia). */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">

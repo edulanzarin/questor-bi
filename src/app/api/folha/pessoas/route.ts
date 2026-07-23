@@ -47,6 +47,7 @@ export const GET = apiRoute(async (req) => {
   else if (dim === "cargo") sel.cargos = [...sel.cargos, valor];
   else if (dim === "estab") sel.estabs = [...sel.estabs, valor];
   else if (dim === "vinculo") sel.vinculos = [...sel.vinculos, valor];
+  else if (dim === "horario") sel.horarios = [...sel.horarios, valor];
 
   const { cte, params } = construirBase(f, sel);
 

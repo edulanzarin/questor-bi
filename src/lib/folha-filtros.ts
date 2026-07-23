@@ -7,6 +7,7 @@ export interface FolhaSelecao {
   setores: string[];
   cargos: string[];
   vinculos: string[];
+  horarios: string[];
 }
 
 export const FOLHA_SELECAO_VAZIA: FolhaSelecao = {
@@ -14,6 +15,7 @@ export const FOLHA_SELECAO_VAZIA: FolhaSelecao = {
   setores: [],
   cargos: [],
   vinculos: [],
+  horarios: [],
 };
 
 /** Converte a seleção em query string (parâmetros repetidos) para as rotas. */
@@ -23,10 +25,17 @@ export function serializarFolhaSelecao(sel: FolhaSelecao): string {
   for (const v of sel.setores) p.append("setores", v);
   for (const v of sel.cargos) p.append("cargos", v);
   for (const v of sel.vinculos) p.append("vinculos", v);
+  for (const v of sel.horarios) p.append("horarios", v);
   const s = p.toString();
   return s ? `&${s}` : "";
 }
 
 export function contarFolhaSelecao(sel: FolhaSelecao): number {
-  return sel.estabs.length + sel.setores.length + sel.cargos.length + sel.vinculos.length;
+  return (
+    sel.estabs.length +
+    sel.setores.length +
+    sel.cargos.length +
+    sel.vinculos.length +
+    sel.horarios.length
+  );
 }

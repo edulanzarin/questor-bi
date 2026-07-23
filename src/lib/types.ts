@@ -707,6 +707,8 @@ export interface TurnoverResp {
   escolaridade: TurnoverGrupo[];
   /** Turnover por estado civil. */
   estadoCivil: TurnoverGrupo[];
+  /** Turnover por horário (escala). */
+  horarios: TurnoverGrupo[];
   /** Desligamentos por motivo (causa da rescisão). */
   motivos: TurnoverContagem[];
   /** Desligamentos por tempo de casa. */
@@ -726,6 +728,7 @@ export interface FolhaFiltros {
   setores: FolhaOpcao[];
   cargos: FolhaOpcao[];
   vinculos: FolhaOpcao[];
+  horarios: FolhaOpcao[];
 }
 
 /** Uma linha da lista de movimentações (quem foi admitido/desligado no período). */

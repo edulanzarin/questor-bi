@@ -23,7 +23,7 @@ export const GET = apiRoute(async (req) => {
   // Sem filtros avançados (fbase == base) e sem período (não usa datas).
   const { cte, params } = construirBase(
     f,
-    { estabs: [], setores: [], cargos: [], vinculos: [] },
+    { estabs: [], setores: [], cargos: [], vinculos: [], horarios: [] },
     false
   );
 
@@ -32,6 +32,7 @@ export const GET = apiRoute(async (req) => {
     setores: OpcaoRaw[];
     cargos: OpcaoRaw[];
     vinculos: OpcaoRaw[];
+    horarios: OpcaoRaw[];
   }>(
     `${cte}
      select
@@ -42,7 +43,9 @@ export const GET = apiRoute(async (req) => {
        (select coalesce(json_agg(x order by x.contratos desc, x.valor), '[]'::json) from (
           select cargo as valor, count(*)::int as contratos from base group by cargo) x) as cargos,
        (select coalesce(json_agg(x order by x.contratos desc, x.valor), '[]'::json) from (
-          select vinc as valor, count(*)::int as contratos from base group by vinc) x) as vinculos`,
+          select vinc as valor, count(*)::int as contratos from base group by vinc) x) as vinculos,
+       (select coalesce(json_agg(x order by x.contratos desc, x.valor), '[]'::json) from (
+          select horario as valor, count(*)::int as contratos from base group by horario) x) as horarios`,
     params
   );
 
@@ -61,6 +64,7 @@ export const GET = apiRoute(async (req) => {
       rotulo: rotuloVinculo(o.valor),
       contratos: o.contratos,
     })),
+    horarios: row.horarios.map(simples),
   };
   return resp;
 });

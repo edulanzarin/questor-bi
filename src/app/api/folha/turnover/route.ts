@@ -45,6 +45,7 @@ interface MegaRaw {
   idade: GrupoRaw[];
   escolaridade: GrupoRaw[];
   estadocivil: GrupoRaw[];
+  horarios: GrupoRaw[];
   motivos: TurnoverContagem[];
   tenure: TurnoverContagem[];
 }
@@ -129,6 +130,7 @@ export const GET = apiRoute(async (req) => {
        'idade', ${grupoAgg(EXPR_FAIXA_ETARIA)},
        'escolaridade', ${grupoAgg(EXPR_ESCOLARIDADE)},
        'estadocivil', ${grupoAgg(EXPR_ESTADOCIVIL)},
+       'horarios', ${grupoAgg("horario")},
        'motivos', (select coalesce(json_agg(x order by x.valor desc), '[]'::json) from (
            select coalesce(descrcausa, '(não informado)') as rotulo, count(*)::int as valor
              from fbase where datadem between $2 and $3 group by rotulo
@@ -188,6 +190,7 @@ export const GET = apiRoute(async (req) => {
     faixaEtaria: d.idade.map(paraGrupo),
     escolaridade: d.escolaridade.map(paraGrupo),
     estadoCivil: d.estadocivil.map(paraGrupo),
+    horarios: d.horarios.map(paraGrupo),
     motivos: d.motivos,
     tenure: d.tenure,
   };

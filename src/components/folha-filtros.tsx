@@ -1,11 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Building2, Check, Briefcase, Layers, Search, IdCard, X } from "lucide-react";
+import { Building2, Check, Briefcase, Clock, Layers, Search, IdCard, X } from "lucide-react";
 import { Dropdown, ItemLista } from "@/components/ui/dropdown";
 import type { FolhaFiltros as Opcoes, FolhaOpcao } from "@/lib/types";
 import type { FolhaSelecao } from "@/lib/folha-filtros";
-import { contarFolhaSelecao } from "@/lib/folha-filtros";
+import { contarFolhaSelecao, FOLHA_SELECAO_VAZIA } from "@/lib/folha-filtros";
 import { num } from "@/lib/format";
 
 function MultiSelect({
@@ -136,9 +136,17 @@ export function FolhaFiltros({
         onToggle={(v) => toggle("vinculos", v)}
         onLimpar={() => limpar("vinculos")}
       />
+      <MultiSelect
+        icone={<Clock className="size-4" />}
+        titulo="Horário"
+        opcoes={opcoes.horarios}
+        selecionados={sel.horarios}
+        onToggle={(v) => toggle("horarios", v)}
+        onLimpar={() => limpar("horarios")}
+      />
       {total > 0 && (
         <button
-          onClick={() => onChange({ estabs: [], setores: [], cargos: [], vinculos: [] })}
+          onClick={() => onChange(FOLHA_SELECAO_VAZIA)}
           className="flex items-center gap-1 rounded-lg border border-hairline bg-surface-2 px-2.5 py-1.5 text-xs text-muted transition-colors hover:text-ink"
         >
           <X className="size-3.5" />

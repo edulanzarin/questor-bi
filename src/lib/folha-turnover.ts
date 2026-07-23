@@ -12,6 +12,7 @@ export interface FolhaFiltrosSel {
   setores: string[];
   cargos: string[];
   vinculos: string[];
+  horarios: string[];
 }
 
 export function parseFolhaFiltrosSel(sp: URLSearchParams): FolhaFiltrosSel {
@@ -20,6 +21,7 @@ export function parseFolhaFiltrosSel(sp: URLSearchParams): FolhaFiltrosSel {
     setores: sp.getAll("setores"),
     cargos: sp.getAll("cargos"),
     vinculos: sp.getAll("vinculos"),
+    horarios: sp.getAll("horarios"),
   };
 }
 
@@ -50,6 +52,7 @@ export function construirBase(
   add(sel.setores, "setor");
   add(sel.cargos, "cargo");
   add(sel.vinculos, "vinc");
+  add(sel.horarios, "horario");
   const filtro = conds.length > 0 ? `where ${conds.join(" and ")}` : "";
 
   const ativo = incluirPeriodo
@@ -65,12 +68,14 @@ export function construirBase(
              coalesce(nullif(btrim(o.descrorgan), ''), '(sem setor)') as setor,
              coalesce(nullif(btrim(ca.descrcargo), ''), '(sem cargo)') as cargo,
              coalesce(nullif(btrim(es.apelidoestab), ''), nullif(btrim(es.nomeestab), ''), '(sem estab)') as estab,
+             coalesce(nullif(btrim(esc.descrescala), ''), '(sem horário)') as horario,
              rr.codigocausa as causa, cd.descrcausa
         from funcionario f
         left join organograma o
           on o.codigoempresa = f.codigoempresa and o.codigoestab = f.codigoestab and o.classiforgan = f.classiforgan
         left join cargo ca on ca.codigocargo = f.codigocargo
         left join estab es on es.codigoempresa = f.codigoempresa and es.codigoestab = f.codigoestab
+        left join escala esc on esc.codigoescala = f.codigoescala
         left join lateral (
           select codigocausa from rescisao r
            where r.codigoempresa = f.codigoempresa and r.codigofunccontr = f.codigofunccontr
