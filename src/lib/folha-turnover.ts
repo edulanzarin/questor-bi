@@ -83,6 +83,32 @@ export function construirBase(
   return { cte, params };
 }
 
+/**
+ * Expressão SQL da faixa etária (usa $3 = fim do período como referência da
+ * idade). Compartilhada pela quebra e pelo drill, para o rótulo bater exato.
+ */
+export const EXPR_FAIXA_ETARIA = `case
+    when datanasc is null then '(n/d)'
+    when extract(year from age($3::date, datanasc)) < 25 then 'Até 24 anos'
+    when extract(year from age($3::date, datanasc)) < 35 then '25 a 34 anos'
+    when extract(year from age($3::date, datanasc)) < 45 then '35 a 44 anos'
+    when extract(year from age($3::date, datanasc)) < 55 then '45 a 54 anos'
+    else '55 anos ou mais'
+  end`;
+
+/** Expressão SQL da faixa de tempo de casa (só faz sentido para desligados). */
+export const EXPR_TENURE_FAIXA = `case
+    when (datadem - dataadm) < 90 then 'Menos de 3 meses'
+    when (datadem - dataadm) < 365 then '3 a 12 meses'
+    when (datadem - dataadm) < 1095 then '1 a 3 anos'
+    else 'Mais de 3 anos'
+  end`;
+
+/** Sexo (smallint) → rótulo. */
+export function sexoValor(rotulo: string): number {
+  return rotulo === "Masculino" ? 1 : rotulo === "Feminino" ? 2 : -1;
+}
+
 /** Rótulo amigável do vínculo (categoria|tipovinculo). Sem tabela de domínio na
  *  base, mapeia só o certo (CLT) e mostra o resto cru — honesto. */
 export function rotuloVinculo(vinc: string): string {

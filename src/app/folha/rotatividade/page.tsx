@@ -8,6 +8,7 @@ import { RotatividadeQuebra } from "@/components/rotatividade-quebra";
 import { RotatividadeBarras } from "@/components/rotatividade-barras";
 import { FolhaFiltros } from "@/components/folha-filtros";
 import { FolhaMovimentacoes } from "@/components/folha-movimentacoes";
+import { PessoasModal, type Drill } from "@/components/folha-pessoas-modal";
 import { useFiltros } from "@/hooks/use-filters";
 import { useTurnover, useFolhaFiltros, useMovimentacoes } from "@/hooks/use-api";
 import { num } from "@/lib/format";
@@ -90,6 +91,11 @@ export default function RotatividadePage() {
   const motivos = useMemo(() => d?.motivos, [d]);
   const tenure = useMemo(() => d?.tenure, [d]);
 
+  // Drill: clicar em qualquer quebra abre as pessoas do grupo.
+  const [drill, setDrill] = useState<Drill | null>(null);
+  const abrirDrill = (dim: string, valor: string, rotulo: string) =>
+    setDrill({ dim, valor, rotulo });
+
   return (
     <>
       <FolhaFiltros opcoes={opcoes.data} sel={sel} onChange={setSel} />
@@ -163,81 +169,102 @@ export default function RotatividadePage() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <RotatividadeBarras
           titulo="Motivo do desligamento"
-          subtitulo="Causa da rescisão de quem saiu no período"
+          subtitulo="Causa da rescisão · clique para ver quem saiu"
           dados={motivos}
           cor="var(--critical)"
           vazio="Nenhum desligamento no período"
           carregando={carregando}
           recarregando={recarregando}
+          dim="motivo"
+          onDrill={abrirDrill}
         />
         <RotatividadeBarras
           titulo="Tempo de casa dos desligados"
-          subtitulo="Quanto tempo ficou quem saiu no período"
+          subtitulo="Quanto tempo ficou quem saiu · clique para ver quem"
           dados={tenure}
           cor="var(--esp-5)"
           vazio="Nenhum desligamento no período"
           carregando={carregando}
           recarregando={recarregando}
+          dim="tempoCasa"
+          onDrill={abrirDrill}
         />
       </div>
 
       {/* Quebras por dimensão */}
       <RotatividadeQuebra
         titulo="Turnover por organograma"
-        subtitulo="Cada setor com seu efetivo e movimentação · clique num cabeçalho para ordenar"
+        subtitulo="Cada setor com seu efetivo e movimentação · clique numa linha para ver as pessoas"
         rotuloColuna="Organograma"
         dados={d?.organogramas}
         total={c}
         carregando={carregando}
         recarregando={recarregando}
+        dim="setor"
+        onDrill={abrirDrill}
       />
       <RotatividadeQuebra
         titulo="Turnover por cargo"
-        subtitulo="Cada cargo com seu efetivo e movimentação · clique num cabeçalho para ordenar"
+        subtitulo="Cada cargo com seu efetivo e movimentação · clique numa linha para ver as pessoas"
         rotuloColuna="Cargo"
         dados={d?.cargos}
         total={c}
         carregando={carregando}
         recarregando={recarregando}
+        dim="cargo"
+        onDrill={abrirDrill}
       />
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <RotatividadeQuebra
           titulo="Turnover por estabelecimento"
-          subtitulo="Por filial"
+          subtitulo="Por filial · clique para ver as pessoas"
           rotuloColuna="Estabelecimento"
           dados={d?.estabelecimentos}
           total={c}
           carregando={carregando}
           recarregando={recarregando}
+          dim="estab"
+          onDrill={abrirDrill}
         />
         <RotatividadeQuebra
           titulo="Turnover por sexo"
-          subtitulo="Rotatividade por sexo"
+          subtitulo="Rotatividade por sexo · clique para ver as pessoas"
           rotuloColuna="Sexo"
           dados={d?.sexo}
           total={c}
           carregando={carregando}
           recarregando={recarregando}
+          dim="sexo"
+          onDrill={abrirDrill}
         />
       </div>
 
       <RotatividadeQuebra
         titulo="Turnover por faixa etária"
-        subtitulo="Onde a rotatividade se concentra por idade"
+        subtitulo="Onde a rotatividade se concentra por idade · clique para ver as pessoas"
         rotuloColuna="Faixa etária"
         dados={d?.faixaEtaria}
         total={c}
         carregando={carregando}
         recarregando={recarregando}
+        dim="faixaEtaria"
+        onDrill={abrirDrill}
       />
 
       <p className="text-[11px] text-muted">
         Turnover = (admissões + desligamentos) ÷ 2, sobre os colaboradores ativos
         (efetivo no fim do período). Setor, cargo e estabelecimento pela lotação
         atual; voluntário = iniciativa do empregado. Filtros no topo recortam todo
-        o painel.
+        o painel; clique em qualquer quebra para ver as pessoas.
       </p>
+
+      <PessoasModal
+        empresa={empresa}
+        qsBase={qsCompleto}
+        drill={drill}
+        onFechar={() => setDrill(null)}
+      />
     </>
   );
 }

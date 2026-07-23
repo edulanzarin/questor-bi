@@ -18,6 +18,10 @@ interface Props {
   vazio: string;
   carregando: boolean;
   recarregando: boolean;
+  /** Dimensão do drill (motivo, tempoCasa). Com ela e `onDrill`, cada barra
+   *  vira clicável e abre as pessoas daquele recorte. */
+  dim?: string;
+  onDrill?: (dim: string, valor: string, rotulo: string) => void;
 }
 
 /**
@@ -33,9 +37,12 @@ export function RotatividadeBarras({
   vazio,
   carregando,
   recarregando,
+  dim,
+  onDrill,
 }: Props) {
   const total = dados?.reduce((a, d) => a + d.valor, 0) ?? 0;
   const max = dados?.reduce((a, d) => Math.max(a, d.valor), 0) ?? 0;
+  const clicavel = !!(dim && onDrill);
 
   return (
     <section className="card anim-fade-up flex flex-col p-5">
@@ -54,7 +61,14 @@ export function RotatividadeBarras({
             const largura = max > 0 ? (d.valor / max) * 100 : 0;
             const p = total > 0 ? (d.valor / total) * 100 : 0;
             return (
-              <div key={d.rotulo}>
+              <div
+                key={d.rotulo}
+                onClick={clicavel ? () => onDrill!(dim!, d.rotulo, d.rotulo) : undefined}
+                className={clsx(
+                  "rounded-md",
+                  clicavel && "-mx-2 cursor-pointer px-2 py-1 transition-colors hover:bg-surface-2"
+                )}
+              >
                 <div className="mb-1 flex items-baseline justify-between gap-3 text-xs">
                   <span className="truncate text-ink" title={d.rotulo}>
                     {d.rotulo}

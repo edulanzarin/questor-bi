@@ -1,7 +1,11 @@
 import { query } from "@/lib/db";
 import { apiRoute } from "@/lib/api-route";
 import { parseFilters, FilterError } from "@/lib/fiscal-filters";
-import { construirBase, parseFolhaFiltrosSel } from "@/lib/folha-turnover";
+import {
+  construirBase,
+  parseFolhaFiltrosSel,
+  EXPR_FAIXA_ETARIA,
+} from "@/lib/folha-turnover";
 import type {
   TurnoverContagem,
   TurnoverGrupo,
@@ -82,15 +86,6 @@ export const GET = apiRoute(async (req) => {
           from ativo group by grupo
       ) x)`;
 
-  const faixaEtaria = `case
-      when datanasc is null then '(n/d)'
-      when extract(year from age($3::date, datanasc)) < 25 then 'Até 24 anos'
-      when extract(year from age($3::date, datanasc)) < 35 then '25 a 34 anos'
-      when extract(year from age($3::date, datanasc)) < 45 then '35 a 44 anos'
-      when extract(year from age($3::date, datanasc)) < 55 then '45 a 54 anos'
-      else '55 anos ou mais'
-    end`;
-
   const [row] = await query<{ d: MegaRaw }>(
     `${cte}
      select json_build_object(
@@ -114,7 +109,7 @@ export const GET = apiRoute(async (req) => {
        'cargos', ${grupoAgg("cargo")},
        'estabs', ${grupoAgg("estab")},
        'sexo', ${grupoAgg("case when sexo=1 then 'Masculino' when sexo=2 then 'Feminino' else '(n/d)' end")},
-       'idade', ${grupoAgg(faixaEtaria)},
+       'idade', ${grupoAgg(EXPR_FAIXA_ETARIA)},
        'motivos', (select coalesce(json_agg(x order by x.valor desc), '[]'::json) from (
            select coalesce(descrcausa, '(não informado)') as rotulo, count(*)::int as valor
              from fbase where datadem between $2 and $3 group by rotulo

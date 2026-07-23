@@ -28,6 +28,10 @@ interface Props {
   total: { ativos: number; admissoes: number; desligamentos: number; turnover: number } | undefined;
   carregando: boolean;
   recarregando: boolean;
+  /** Dimensão do drill (setor, cargo, estab, sexo, faixaEtaria). Com ela e
+   *  `onDrill`, cada linha vira clicável e abre as pessoas do grupo. */
+  dim?: string;
+  onDrill?: (dim: string, valor: string, rotulo: string) => void;
 }
 
 export function RotatividadeQuebra({
@@ -38,7 +42,10 @@ export function RotatividadeQuebra({
   total,
   carregando,
   recarregando,
+  dim,
+  onDrill,
 }: Props) {
+  const clicavel = !!(dim && onDrill);
   const [ordenar, setOrdenar] = useState<Coluna>("ativos");
   const [soMovimento, setSoMovimento] = useState(false);
   const [busca, setBusca] = useState("");
@@ -141,7 +148,13 @@ export function RotatividadeQuebra({
                   return (
                     <tr
                       key={o.grupo}
-                      className="border-b border-hairline/60 last:border-0 hover:bg-surface-2/50"
+                      onClick={
+                        clicavel ? () => onDrill!(dim!, o.grupo, `${rotuloColuna}: ${o.grupo}`) : undefined
+                      }
+                      className={clsx(
+                        "border-b border-hairline/60 last:border-0 hover:bg-surface-2/50",
+                        clicavel && "cursor-pointer"
+                      )}
                     >
                       <td className="py-2.5 pr-3 font-medium text-ink">{o.grupo}</td>
                       <td className="py-2.5 pl-3 text-right tabular-nums text-ink-2">{num(o.ativos)}</td>

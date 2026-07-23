@@ -311,6 +311,10 @@ export const useFolhaFiltros = (qs: string, enabled = true) =>
 export const useMovimentacoes = (qs: string, enabled = true) =>
   useApiQuery<FolhaMovimentacao[]>(["movimentacoes", qs], `/api/folha/movimentacoes?${qs}`, enabled);
 
+/** Drill de uma quebra: as pessoas de um grupo (qs já traz dim e valor). */
+export const useFolhaPessoas = (qs: string, enabled = true) =>
+  useApiQuery<FolhaMovimentacao[]>(["folha-pessoas", qs], `/api/folha/pessoas?${qs}`, enabled);
+
 /** Ficha de um colaborador — carregada quando o modal abre. */
 export const useFicha = (empresa: number | null, contrato: number | null) =>
   useApiQuery<FolhaFicha>(
