@@ -29,6 +29,9 @@ import type {
   TributosCargaEmpresa,
   ConferenciaResp,
   TurnoverResp,
+  FolhaFiltros,
+  FolhaMovimentacao,
+  FolhaFicha,
   PlanoResp,
   BalanceteFiscalResp,
   BalanceteLancamentosResp,
@@ -299,6 +302,22 @@ export const useProdutividadeCalendario = (qs: string, enabled = true) =>
 
 export const useTurnover = (qs: string, enabled = true) =>
   useApiQuery<TurnoverResp>(["turnover", qs], `/api/folha/turnover?${qs}`, enabled);
+
+/** Opções dos filtros da Folha para a empresa (não muda com a seleção). */
+export const useFolhaFiltros = (qs: string, enabled = true) =>
+  useApiQuery<FolhaFiltros>(["folha-filtros", qs], `/api/folha/filtros?${qs}`, enabled);
+
+/** Lista de admitidos/desligados no período (respeita os filtros avançados). */
+export const useMovimentacoes = (qs: string, enabled = true) =>
+  useApiQuery<FolhaMovimentacao[]>(["movimentacoes", qs], `/api/folha/movimentacoes?${qs}`, enabled);
+
+/** Ficha de um colaborador — carregada quando o modal abre. */
+export const useFicha = (empresa: number | null, contrato: number | null) =>
+  useApiQuery<FolhaFicha>(
+    ["ficha", empresa, contrato],
+    `/api/folha/funcionario?empresa=${empresa}&contrato=${contrato}`,
+    empresa != null && contrato != null
+  );
 
 export const useConferencia = (qs: string, enabled = true) =>
   useApiQuery<ConferenciaResp>(

@@ -1,16 +1,25 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Repeat, UserMinus, UserPlus, Users } from "lucide-react";
 import clsx from "clsx";
 import { TurnoverSerieChart } from "@/components/charts/turnover-serie-chart";
 import { RotatividadeQuebra } from "@/components/rotatividade-quebra";
 import { RotatividadeBarras } from "@/components/rotatividade-barras";
+import { FolhaFiltros } from "@/components/folha-filtros";
+import { FolhaMovimentacoes } from "@/components/folha-movimentacoes";
 import { useFiltros } from "@/hooks/use-filters";
-import { useTurnover } from "@/hooks/use-api";
+import { useTurnover, useFolhaFiltros, useMovimentacoes } from "@/hooks/use-api";
 import { num } from "@/lib/format";
+import {
+  FOLHA_SELECAO_VAZIA,
+  serializarFolhaSelecao,
+  type FolhaSelecao,
+} from "@/lib/folha-filtros";
 
 const pct = (v: number) => `${v.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%`;
+const anos = (dias: number | null) =>
+  dias == null ? "—" : `${(dias / 365).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} anos`;
 
 function Kpi({
   rotulo,
@@ -44,26 +53,48 @@ function Kpi({
   );
 }
 
+function Stat({ rotulo, valor, cor }: { rotulo: string; valor: string; cor?: string }) {
+  return (
+    <div className="card flex flex-col gap-1 p-4">
+      <p className="text-[11px] uppercase tracking-wide text-muted">{rotulo}</p>
+      <p className={clsx("text-xl font-semibold tracking-tight", cor)}>{valor}</p>
+    </div>
+  );
+}
+
 export default function RotatividadePage() {
-  const { qs } = useFiltros();
-  const turnover = useTurnover(qs);
+  const { qs, filtros } = useFiltros();
+  const empresa = filtros.empresas[0] ?? null;
+
+  // Filtros avançados: resetam quando a empresa muda (são específicos dela).
+  // Ajuste de estado no render (padrão do React p/ derivar de prop) — o mesmo de
+  // useRascunhoFiltros; evita o setState-em-effect.
+  const [sel, setSel] = useState<FolhaSelecao>(FOLHA_SELECAO_VAZIA);
+  const [empresaSel, setEmpresaSel] = useState(empresa);
+  if (empresaSel !== empresa) {
+    setEmpresaSel(empresa);
+    setSel(FOLHA_SELECAO_VAZIA);
+  }
+
+  const qsCompleto = qs + serializarFolhaSelecao(sel);
+
+  const opcoes = useFolhaFiltros(qs);
+  const turnover = useTurnover(qsCompleto);
+  const movimentacoes = useMovimentacoes(qsCompleto);
 
   const d = turnover.data;
   const c = d?.consolidado;
   const carregando = turnover.isLoading;
   const recarregando = turnover.isFetching && !turnover.isLoading;
 
-  const motivos = useMemo(
-    () => d?.motivos.map((m) => ({ rotulo: m.motivo, valor: m.desligamentos })),
-    [d]
-  );
-  const tenure = useMemo(
-    () => d?.tenure.map((t) => ({ rotulo: t.faixa, valor: t.desligamentos })),
-    [d]
-  );
+  const motivos = useMemo(() => d?.motivos, [d]);
+  const tenure = useMemo(() => d?.tenure, [d]);
 
   return (
     <>
+      <FolhaFiltros opcoes={opcoes.data} sel={sel} onChange={setSel} />
+
+      {/* KPIs principais */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {carregando || !c ? (
           Array.from({ length: 4 }).map((_, i) => <div key={i} className="skeleton h-36" />)
@@ -72,9 +103,7 @@ export default function RotatividadePage() {
             <Kpi
               rotulo="Turnover geral"
               icone={<Repeat className="size-4" style={{ color: "var(--esp-5)" }} />}
-              estiloIcone={{
-                backgroundColor: "color-mix(in srgb, var(--esp-5) 12%, transparent)",
-              }}
+              estiloIcone={{ backgroundColor: "color-mix(in srgb, var(--esp-5) 12%, transparent)" }}
               valor={pct(c.turnover)}
               secundario={`sobre ${num(c.ativos)} colaboradores ativos`}
             />
@@ -103,12 +132,34 @@ export default function RotatividadePage() {
         )}
       </div>
 
-      {/* A tendência só faz sentido com 2+ meses; num mês só, o gráfico vira
-          duas barrinhas soltas — melhor não mostrar (os KPIs já têm o número). */}
+      {/* Métricas secundárias */}
+      {!carregando && c && (
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <Stat
+            rotulo="Saldo de pessoal"
+            valor={`${c.saldo > 0 ? "+" : ""}${num(c.saldo)}`}
+            cor={c.saldo > 0 ? "text-good" : c.saldo < 0 ? "text-critical" : undefined}
+          />
+          <Stat rotulo="Deslig. voluntários" valor={num(c.voluntarios)} />
+          <Stat rotulo="Deslig. involuntários" valor={num(c.involuntarios)} />
+          <Stat rotulo="Tempo médio de casa" valor={anos(c.tempoMedioCasaDias)} />
+        </div>
+      )}
+
+      {/* Tendência (só com 2+ meses) */}
       {(carregando || (d && d.serie.length >= 2)) && (
         <TurnoverSerieChart dados={d?.serie} carregando={carregando} recarregando={recarregando} />
       )}
 
+      {/* Movimentações + ficha */}
+      <FolhaMovimentacoes
+        dados={movimentacoes.data}
+        empresa={empresa}
+        carregando={movimentacoes.isLoading}
+        recarregando={movimentacoes.isFetching && !movimentacoes.isLoading}
+      />
+
+      {/* Sobre os desligados */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <RotatividadeBarras
           titulo="Motivo do desligamento"
@@ -130,6 +181,7 @@ export default function RotatividadePage() {
         />
       </div>
 
+      {/* Quebras por dimensão */}
       <RotatividadeQuebra
         titulo="Turnover por organograma"
         subtitulo="Cada setor com seu efetivo e movimentação · clique num cabeçalho para ordenar"
@@ -139,7 +191,6 @@ export default function RotatividadePage() {
         carregando={carregando}
         recarregando={recarregando}
       />
-
       <RotatividadeQuebra
         titulo="Turnover por cargo"
         subtitulo="Cada cargo com seu efetivo e movimentação · clique num cabeçalho para ordenar"
@@ -150,11 +201,42 @@ export default function RotatividadePage() {
         recarregando={recarregando}
       />
 
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <RotatividadeQuebra
+          titulo="Turnover por estabelecimento"
+          subtitulo="Por filial"
+          rotuloColuna="Estabelecimento"
+          dados={d?.estabelecimentos}
+          total={c}
+          carregando={carregando}
+          recarregando={recarregando}
+        />
+        <RotatividadeQuebra
+          titulo="Turnover por sexo"
+          subtitulo="Rotatividade por sexo"
+          rotuloColuna="Sexo"
+          dados={d?.sexo}
+          total={c}
+          carregando={carregando}
+          recarregando={recarregando}
+        />
+      </div>
+
+      <RotatividadeQuebra
+        titulo="Turnover por faixa etária"
+        subtitulo="Onde a rotatividade se concentra por idade"
+        rotuloColuna="Faixa etária"
+        dados={d?.faixaEtaria}
+        total={c}
+        carregando={carregando}
+        recarregando={recarregando}
+      />
+
       <p className="text-[11px] text-muted">
         Turnover = (admissões + desligamentos) ÷ 2, sobre os colaboradores ativos
-        (efetivo no fim do período). Setor e cargo pela lotação/cargo atual do
-        colaborador; motivo pela causa da rescisão. Considera todos os vínculos da
-        empresa.
+        (efetivo no fim do período). Setor, cargo e estabelecimento pela lotação
+        atual; voluntário = iniciativa do empregado. Filtros no topo recortam todo
+        o painel.
       </p>
     </>
   );

@@ -1,0 +1,114 @@
+import type { FiscalFilters } from "./fiscal-filters";
+
+/**
+ * A base da rotatividade: a view `funcionario` (ficha atual por contrato) já traz
+ * datas, vínculo, sexo, nascimento, cargo, setor e salário; aqui só ligamos os
+ * nomes (organograma, cargo, estab) e a causa da rescisão, e aplicamos os filtros
+ * avançados. Três rotas (turnover, filtros, movimentações) partem desta mesma
+ * base — DRY. Ver [[Módulo de folha e eSocial do Questor]].
+ */
+export interface FolhaFiltrosSel {
+  estabs: string[];
+  setores: string[];
+  cargos: string[];
+  vinculos: string[];
+}
+
+export function parseFolhaFiltrosSel(sp: URLSearchParams): FolhaFiltrosSel {
+  return {
+    estabs: sp.getAll("estabs"),
+    setores: sp.getAll("setores"),
+    cargos: sp.getAll("cargos"),
+    vinculos: sp.getAll("vinculos"),
+  };
+}
+
+/**
+ * Monta os CTEs da rotatividade a partir da view `funcionario`, aplicando os
+ * filtros avançados. Sempre gera `base` (empresa) e `fbase` (com filtros); com
+ * `incluirPeriodo` (turnover/movimentações) também gera `ativo` (flag "ativo no
+ * fim") e reserva $2 início / $3 fim — os filtros vêm depois. Sem período
+ * (filtros), não passa data: $2+ são só os filtros, e o Postgres não reclama de
+ * parâmetro de data sem uso.
+ */
+export function construirBase(
+  f: FiscalFilters,
+  sel: FolhaFiltrosSel,
+  incluirPeriodo = true
+): { cte: string; params: unknown[] } {
+  const params: unknown[] = incluirPeriodo
+    ? [f.empresas, f.inicio, f.fim]
+    : [f.empresas];
+  const conds: string[] = [];
+  const add = (arr: string[], col: string) => {
+    if (arr.length > 0) {
+      params.push(arr);
+      conds.push(`${col} = any($${params.length}::text[])`);
+    }
+  };
+  add(sel.estabs, "estab");
+  add(sel.setores, "setor");
+  add(sel.cargos, "cargo");
+  add(sel.vinculos, "vinc");
+  const filtro = conds.length > 0 ? `where ${conds.join(" and ")}` : "";
+
+  const ativo = incluirPeriodo
+    ? `, ativo as (select *, (dataadm <= $3 and (datadem is null or datadem >= $3)) as at_fim from fbase)`
+    : "";
+
+  const cte = `
+    with base as (
+      select f.codigoempresa, f.codigofunccontr, f.dataadm, f.datadem,
+             f.nomefunc as nome, f.sexo, f.datanasc, f.categoria, f.tipovinculo,
+             coalesce(f.categoria, '') || '|' || coalesce(f.tipovinculo, '') as vinc,
+             coalesce(nullif(btrim(o.descrorgan), ''), '(sem setor)') as setor,
+             coalesce(nullif(btrim(ca.descrcargo), ''), '(sem cargo)') as cargo,
+             coalesce(nullif(btrim(es.apelidoestab), ''), nullif(btrim(es.nomeestab), ''), '(sem estab)') as estab,
+             rr.codigocausa as causa, cd.descrcausa
+        from funcionario f
+        left join organograma o
+          on o.codigoempresa = f.codigoempresa and o.codigoestab = f.codigoestab and o.classiforgan = f.classiforgan
+        left join cargo ca on ca.codigocargo = f.codigocargo
+        left join estab es on es.codigoempresa = f.codigoempresa and es.codigoestab = f.codigoestab
+        left join lateral (
+          select codigocausa from rescisao r
+           where r.codigoempresa = f.codigoempresa and r.codigofunccontr = f.codigofunccontr
+           order by complementar limit 1
+        ) rr on true
+        left join causademissao cd on cd.codigocausa = rr.codigocausa
+       where f.codigoempresa = any($1::int[])
+    ),
+    fbase as (select * from base ${filtro})${ativo}
+  `;
+  return { cte, params };
+}
+
+/** Rótulo amigável do vínculo (categoria|tipovinculo). Sem tabela de domínio na
+ *  base, mapeia só o certo (CLT) e mostra o resto cru — honesto. */
+export function rotuloVinculo(vinc: string): string {
+  const [categoria, tipo] = vinc.split("|");
+  if (categoria === "01" && tipo === "10") return "Empregado (CLT)";
+  if (categoria === "01") return `Empregado · tipo ${tipo || "?"}`;
+  return `Categoria ${categoria || "?"} · tipo ${tipo || "?"}`;
+}
+
+/** eSocial tabela 18 — grau de instrução. */
+const ESCOLARIDADE: Record<number, string> = {
+  1: "Analfabeto",
+  2: "Até o 5º ano incompleto",
+  3: "5º ano completo",
+  4: "6º ao 9º ano incompleto",
+  5: "Fundamental completo",
+  6: "Médio incompleto",
+  7: "Médio completo",
+  8: "Superior incompleto",
+  9: "Superior completo",
+  10: "Pós-graduação",
+  11: "Mestrado",
+  12: "Doutorado",
+};
+
+export function rotuloEscolaridade(grau: number | null): string | null {
+  if (grau == null) return null;
+  return ESCOLARIDADE[grau] ?? `Grau ${grau}`;
+}

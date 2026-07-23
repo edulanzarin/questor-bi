@@ -656,29 +656,99 @@ export interface TurnoverGrupo {
   turnover: number;
 }
 
-/** Desligamentos por causa da rescisão (só desligamento tem motivo). */
-export interface TurnoverMotivo {
-  motivo: string;
-  desligamentos: number;
+/** Uma contagem rotulada (motivo, faixa de tempo…) — quebra simples de nº. */
+export interface TurnoverContagem {
+  rotulo: string;
+  valor: number;
 }
 
-/** Desligamentos por faixa de tempo de casa (admissão → desligamento). */
-export interface TurnoverFaixaTempo {
-  faixa: string;
+/** O consolidado do período: os números do topo. */
+export interface TurnoverConsolidado {
+  admissoes: number;
   desligamentos: number;
+  ativos: number;
+  turnover: number;
+  /** Admissões − desligamentos (crescimento líquido do efetivo). */
+  saldo: number;
+  /** Desligamentos por iniciativa do empregado (pedido, indireta…). */
+  voluntarios: number;
+  /** Desligamentos por iniciativa do empregador (sem/com justa causa…). */
+  involuntarios: number;
+  /** Tempo de casa médio de quem saiu, em dias (null se ninguém saiu). */
+  tempoMedioCasaDias: number | null;
 }
 
 export interface TurnoverResp {
-  /** O período inteiro num número só — vira KPI. */
-  consolidado: Omit<TurnoverPonto, "mes">;
+  /** O período inteiro — vira os KPIs. */
+  consolidado: TurnoverConsolidado;
   /** Um ponto por mês, para a série. */
   serie: TurnoverPonto[];
   /** Quebra por setor (organograma), do maior efetivo para o menor. */
   organogramas: TurnoverGrupo[];
   /** Quebra por cargo. */
   cargos: TurnoverGrupo[];
+  /** Quebra por estabelecimento (filial). */
+  estabelecimentos: TurnoverGrupo[];
+  /** Turnover por sexo. */
+  sexo: TurnoverGrupo[];
+  /** Turnover por faixa etária. */
+  faixaEtaria: TurnoverGrupo[];
   /** Desligamentos por motivo (causa da rescisão). */
-  motivos: TurnoverMotivo[];
+  motivos: TurnoverContagem[];
   /** Desligamentos por tempo de casa. */
-  tenure: TurnoverFaixaTempo[];
+  tenure: TurnoverContagem[];
+}
+
+/** Uma opção de filtro (setor, cargo, estabelecimento, vínculo). */
+export interface FolhaOpcao {
+  valor: string;
+  rotulo: string;
+  contratos: number;
+}
+
+/** Opções disponíveis para os filtros da Folha, na empresa selecionada. */
+export interface FolhaFiltros {
+  estabelecimentos: FolhaOpcao[];
+  setores: FolhaOpcao[];
+  cargos: FolhaOpcao[];
+  vinculos: FolhaOpcao[];
+}
+
+/** Uma linha da lista de movimentações (quem foi admitido/desligado no período). */
+export interface FolhaMovimentacao {
+  contrato: number;
+  nome: string;
+  dataadm: string | null;
+  datadem: string | null;
+  cargo: string;
+  setor: string;
+  motivo: string | null;
+  tempoCasaDias: number | null;
+  admitido: boolean;
+  desligado: boolean;
+}
+
+/** Ficha do colaborador — o detalhe do modal. */
+export interface FolhaFicha {
+  contrato: number;
+  nome: string;
+  cpf: string | null;
+  dataadm: string | null;
+  datadem: string | null;
+  tempoCasaDias: number | null;
+  cargo: string | null;
+  funcao: string | null;
+  setor: string | null;
+  estabelecimento: string | null;
+  categoria: string | null;
+  tipoVinculo: string | null;
+  sexo: string;
+  nascimento: string | null;
+  idade: number | null;
+  escolaridade: string | null;
+  salario: number | null;
+  tipoSalario: string | null;
+  motivoDesligamento: string | null;
+  cidade: string | null;
+  uf: string | null;
 }
