@@ -28,6 +28,7 @@ import type {
   ConformidadeEmpresa,
   TributosCargaEmpresa,
   ConferenciaResp,
+  TurnoverResp,
   PlanoResp,
   BalanceteFiscalResp,
   BalanceteLancamentosResp,
@@ -295,6 +296,9 @@ export const useProdutividadeCalendario = (qs: string, enabled = true) =>
     `/api/fiscal/produtividade-calendario?${qs}`,
     enabled
   );
+
+export const useTurnover = (qs: string, enabled = true) =>
+  useApiQuery<TurnoverResp>(["turnover", qs], `/api/folha/turnover?${qs}`, enabled);
 
 export const useConferencia = (qs: string, enabled = true) =>
   useApiQuery<ConferenciaResp>(

@@ -625,3 +625,29 @@ export interface NotaItem {
   icms: number;
   ipi: number;
 }
+
+/**
+ * Rotatividade (turnover) do módulo Folha. Índice clássico de RH:
+ * ((admissões + desligamentos) / 2) ÷ efetivo médio × 100. Um ponto por mês
+ * do período, mais o consolidado do período inteiro no topo.
+ */
+export interface TurnoverPonto {
+  /** Primeiro dia do mês, "YYYY-MM-DD" — o mesmo formato dos buckets do Fiscal. */
+  mes: string;
+  admissoes: number;
+  desligamentos: number;
+  /** Efetivo no primeiro e no último dia do intervalo (mês, ou período no consolidado). */
+  efetivoInicio: number;
+  efetivoFim: number;
+  /** (efetivoInicio + efetivoFim) / 2. */
+  efetivoMedio: number;
+  /** Índice em %. Zero quando não há efetivo (evita dividir por zero). */
+  turnover: number;
+}
+
+export interface TurnoverResp {
+  /** O período inteiro num número só — vira KPI. */
+  consolidado: Omit<TurnoverPonto, "mes">;
+  /** Um ponto por mês, para a série. */
+  serie: TurnoverPonto[];
+}
