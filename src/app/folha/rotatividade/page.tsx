@@ -3,11 +3,12 @@
 import { Repeat, UserMinus, UserPlus, Users } from "lucide-react";
 import clsx from "clsx";
 import { TurnoverSerieChart } from "@/components/charts/turnover-serie-chart";
+import { RotatividadeOrganogramas } from "@/components/rotatividade-organogramas";
 import { useFiltros } from "@/hooks/use-filters";
 import { useTurnover } from "@/hooks/use-api";
 import { num } from "@/lib/format";
 
-const pct = (v: number) => `${v.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`;
+const pct = (v: number) => `${v.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%`;
 
 function Kpi({
   rotulo,
@@ -57,13 +58,13 @@ export default function RotatividadePage() {
         ) : (
           <>
             <Kpi
-              rotulo="Turnover no período"
+              rotulo="Turnover geral"
               icone={<Repeat className="size-4" style={{ color: "var(--esp-5)" }} />}
               estiloIcone={{
                 backgroundColor: "color-mix(in srgb, var(--esp-5) 12%, transparent)",
               }}
               valor={pct(c.turnover)}
-              secundario={`efetivo médio de ${num(Math.round(c.efetivoMedio))} pessoas`}
+              secundario={`sobre ${num(c.ativos)} colaboradores ativos`}
             />
             <Kpi
               rotulo="Admissões"
@@ -80,11 +81,11 @@ export default function RotatividadePage() {
               secundario="rescisões no período"
             />
             <Kpi
-              rotulo="Efetivo médio"
+              rotulo="Colaboradores ativos"
               icone={<Users className="size-4 text-ink-2" />}
               corIcone="bg-surface-2"
-              valor={num(Math.round(c.efetivoMedio))}
-              secundario={`${num(c.efetivoInicio)} no início → ${num(c.efetivoFim)} no fim`}
+              valor={num(c.ativos)}
+              secundario="efetivo no fim do período"
             />
           </>
         )}
@@ -96,9 +97,17 @@ export default function RotatividadePage() {
         recarregando={recarregando}
       />
 
+      <RotatividadeOrganogramas
+        dados={turnover.data?.organogramas}
+        total={c}
+        carregando={carregando}
+        recarregando={recarregando}
+      />
+
       <p className="text-[11px] text-muted">
-        Índice clássico: (admissões + desligamentos) ÷ 2, sobre o efetivo médio do
-        período. Considera todos os vínculos da empresa (funccontrato).
+        Turnover = (admissões + desligamentos) ÷ 2, sobre os colaboradores ativos
+        (efetivo no fim do período). Cada setor é o organograma da lotação atual do
+        colaborador. Considera todos os vínculos da empresa.
       </p>
     </>
   );

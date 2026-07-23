@@ -38,7 +38,7 @@ function Tip({ active, label, payload }: TipProps) {
       <TooltipLinha cor="var(--good)" nome="Admissões" valor={`${num(p.admissoes)}`} />
       <TooltipLinha cor="var(--critical)" nome="Desligamentos" valor={`${num(p.desligamentos)}`} />
       <p className="mt-1 border-t border-hairline pt-1 text-[11px] text-muted">
-        efetivo médio {num(Math.round(p.efetivoMedio))} ({num(p.efetivoInicio)} → {num(p.efetivoFim)})
+        {num(p.ativos)} colaboradores ativos no fim do mês
       </p>
     </TooltipContainer>
   );

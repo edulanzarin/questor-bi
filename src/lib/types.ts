@@ -627,21 +627,29 @@ export interface NotaItem {
 }
 
 /**
- * Rotatividade (turnover) do módulo Folha. Índice clássico de RH:
- * ((admissões + desligamentos) / 2) ÷ efetivo médio × 100. Um ponto por mês
- * do período, mais o consolidado do período inteiro no topo.
+ * Rotatividade (turnover) do módulo Folha. Índice de RH:
+ * ((admissões + desligamentos) / 2) ÷ colaboradores ativos × 100, onde
+ * "ativos" é o efetivo no fim do intervalo (o denominador que o DP usa — bate
+ * com o relatório de referência). Um ponto por mês, mais o consolidado do
+ * período inteiro e a quebra por organograma (setor).
  */
 export interface TurnoverPonto {
   /** Primeiro dia do mês, "YYYY-MM-DD" — o mesmo formato dos buckets do Fiscal. */
   mes: string;
   admissoes: number;
   desligamentos: number;
-  /** Efetivo no primeiro e no último dia do intervalo (mês, ou período no consolidado). */
-  efetivoInicio: number;
-  efetivoFim: number;
-  /** (efetivoInicio + efetivoFim) / 2. */
-  efetivoMedio: number;
-  /** Índice em %. Zero quando não há efetivo (evita dividir por zero). */
+  /** Colaboradores ativos no fim do intervalo (denominador do índice). */
+  ativos: number;
+  /** Índice em %. Zero quando não há ativos (evita dividir por zero). */
+  turnover: number;
+}
+
+/** Turnover de um organograma (setor) no período — a quebra por departamento. */
+export interface TurnoverOrganograma {
+  setor: string;
+  ativos: number;
+  admissoes: number;
+  desligamentos: number;
   turnover: number;
 }
 
@@ -650,4 +658,6 @@ export interface TurnoverResp {
   consolidado: Omit<TurnoverPonto, "mes">;
   /** Um ponto por mês, para a série. */
   serie: TurnoverPonto[];
+  /** Quebra por setor (organograma), do maior efetivo para o menor. */
+  organogramas: TurnoverOrganograma[];
 }

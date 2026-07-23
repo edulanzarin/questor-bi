@@ -1,39 +1,41 @@
 import { query } from "@/lib/db";
 import { apiRoute } from "@/lib/api-route";
 import { parseFilters, FilterError } from "@/lib/fiscal-filters";
-import type { TurnoverPonto, TurnoverResp } from "@/lib/types";
+import type { TurnoverOrganograma, TurnoverPonto, TurnoverResp } from "@/lib/types";
 
 interface SerieRow {
   mes: string;
   adm: number;
   dem: number;
-  hc_ini: number;
-  hc_fim: number;
+  ativos: number;
 }
-
 interface ConsRow {
   adm: number;
   dem: number;
-  hc_ini: number;
-  hc_fim: number;
+  ativos: number;
+}
+interface OrgRow {
+  setor: string;
+  ativos: number;
+  adm: number;
+  dem: number;
 }
 
 /**
- * Turnover clássico = ((admissões + desligamentos) / 2) ÷ efetivo médio × 100,
- * onde efetivo médio = (efetivo no início + efetivo no fim) / 2. Quando não há
- * efetivo, o índice é 0 (não faz sentido, e evita dividir por zero).
+ * Turnover = ((admissões + desligamentos) / 2) ÷ colaboradores ativos × 100.
+ * "Ativos" é o efetivo no fim do intervalo — o denominador do relatório de RH
+ * de referência (bate com ele). Zero quando não há ativos (evita dividir por 0).
  */
-function indicar(adm: number, dem: number, hcIni: number, hcFim: number) {
-  const efetivoMedio = (hcIni + hcFim) / 2;
-  const turnover = efetivoMedio > 0 ? ((adm + dem) / 2 / efetivoMedio) * 100 : 0;
-  return { efetivoMedio, turnover };
+function indice(adm: number, dem: number, ativos: number): number {
+  return ativos > 0 ? ((adm + dem) / 2 / ativos) * 100 : 0;
 }
 
 /**
- * Rotatividade de pessoal por empresa. A folha guarda vínculo em `funccontrato`
- * (uma linha por contrato), com `dataadm`/`datadem`; admissão e desligamento
- * saem dessas datas e o efetivo numa data é "admitido até ela e ainda não
- * desligado". Conta no nível de contrato — o padrão de RH.
+ * Rotatividade de pessoal por empresa. Vínculo mora em `funccontrato` (uma linha
+ * por contrato), com `dataadm`/`datadem`; o efetivo numa data é "admitido até
+ * ela e ainda não desligado". A quebra por setor usa a lotação vigente do
+ * contrato (`funclocal`, maior `datatransf`) → `organograma.descrorgan`.
+ * Ver [[Módulo de folha e eSocial do Questor]].
  */
 export const GET = apiRoute(async (req) => {
   const f = parseFilters(req.nextUrl.searchParams);
@@ -41,69 +43,101 @@ export const GET = apiRoute(async (req) => {
     throw new FilterError("Selecione a empresa para calcular a rotatividade");
   }
 
-  // $1 empresas[], $2 inicio, $3 fim — compartilhados pelas duas consultas.
+  // $1 empresas[], $2 inicio, $3 fim — compartilhados pelas consultas.
   const params: unknown[] = [f.empresas, f.inicio, f.fim];
 
-  // Consolidado do período inteiro: um registro só.
+  // Consolidado do período inteiro: um registro só (ativos = efetivo no fim).
   const consolidado = query<ConsRow>(
     `select
        count(*) filter (where dataadm between $2 and $3)::int as adm,
        count(*) filter (where datadem between $2 and $3)::int as dem,
-       count(*) filter (where dataadm <= $2 and (datadem is null or datadem >= $2))::int as hc_ini,
-       count(*) filter (where dataadm <= $3 and (datadem is null or datadem >= $3))::int as hc_fim
+       count(*) filter (where dataadm <= $3 and (datadem is null or datadem >= $3))::int as ativos
      from funccontrato
      where codigoempresa = any($1::int[])`,
     params
   );
 
-  // Série mensal: gera os meses do intervalo e cruza com os contratos (a tabela
-  // é pequena — ~21k linhas —, então o produto cartesiano é barato). O left join
-  // "on true" garante que todo mês apareça mesmo sem contratos.
+  // Série mensal: gera os meses e cruza com os contratos (tabela pequena, ~21k;
+  // o produto cartesiano é barato). Left join "on true" mantém mês vazio.
   const serie = query<SerieRow>(
     `with m as (
-       select gs::date as mstart,
-              (gs + interval '1 month' - interval '1 day')::date as mend
+       select gs::date as ini,
+              (gs + interval '1 month' - interval '1 day')::date as fim
          from generate_series(date_trunc('month', $2::date),
                               date_trunc('month', $3::date),
                               interval '1 month') gs
      ),
      c as (
-       select dataadm, datadem
-         from funccontrato
-        where codigoempresa = any($1::int[])
+       select dataadm, datadem from funccontrato where codigoempresa = any($1::int[])
      )
-     select to_char(m.mstart, 'YYYY-MM-DD') as mes,
-            count(*) filter (where c.dataadm between m.mstart and m.mend)::int as adm,
-            count(*) filter (where c.datadem between m.mstart and m.mend)::int as dem,
-            count(*) filter (where c.dataadm <= m.mstart and (c.datadem is null or c.datadem >= m.mstart))::int as hc_ini,
-            count(*) filter (where c.dataadm <= m.mend   and (c.datadem is null or c.datadem >= m.mend))::int   as hc_fim
+     select to_char(m.ini, 'YYYY-MM-DD') as mes,
+            count(*) filter (where c.dataadm between m.ini and m.fim)::int as adm,
+            count(*) filter (where c.datadem between m.ini and m.fim)::int as dem,
+            count(*) filter (where c.dataadm <= m.fim and (c.datadem is null or c.datadem >= m.fim))::int as ativos
        from m left join c on true
-      group by m.mstart
-      order by m.mstart`,
+      group by m.ini
+      order by m.ini`,
     params
   );
 
-  const [cons, meses] = await Promise.all([consolidado, serie]);
+  // Quebra por organograma (setor): cada contrato pela sua lotação vigente.
+  const organogramas = query<OrgRow>(
+    `with loc as (
+       select distinct on (codigoempresa, codigofunccontr)
+              codigoempresa, codigofunccontr, codigoestab, classiforgan
+         from funclocal
+        where codigoempresa = any($1::int[])
+        order by codigoempresa, codigofunccontr, datatransf desc nulls last
+     ),
+     c as (
+       select fc.codigoempresa, fc.dataadm, fc.datadem, l.codigoestab, l.classiforgan
+         from funccontrato fc
+         left join loc l
+           on l.codigoempresa = fc.codigoempresa and l.codigofunccontr = fc.codigofunccontr
+        where fc.codigoempresa = any($1::int[])
+     )
+     select coalesce(nullif(btrim(o.descrorgan), ''), '(sem setor)') as setor,
+            count(*) filter (where c.dataadm <= $3 and (c.datadem is null or c.datadem >= $3))::int as ativos,
+            count(*) filter (where c.dataadm between $2 and $3)::int as adm,
+            count(*) filter (where c.datadem between $2 and $3)::int as dem
+       from c
+       left join organograma o
+         on o.codigoempresa = c.codigoempresa
+        and o.codigoestab = c.codigoestab
+        and o.classiforgan = c.classiforgan
+      group by 1
+      order by ativos desc, setor`,
+    params
+  );
 
-  const pontos: TurnoverPonto[] = meses.map((r) => ({
+  const [cons, meses, orgs] = await Promise.all([consolidado, serie, organogramas]);
+
+  const serieResp: TurnoverPonto[] = meses.map((r) => ({
     mes: r.mes,
     admissoes: r.adm,
     desligamentos: r.dem,
-    efetivoInicio: r.hc_ini,
-    efetivoFim: r.hc_fim,
-    ...indicar(r.adm, r.dem, r.hc_ini, r.hc_fim),
+    ativos: r.ativos,
+    turnover: indice(r.adm, r.dem, r.ativos),
   }));
 
-  const c = cons[0] ?? { adm: 0, dem: 0, hc_ini: 0, hc_fim: 0 };
+  const organogramasResp: TurnoverOrganograma[] = orgs.map((r) => ({
+    setor: r.setor,
+    ativos: r.ativos,
+    admissoes: r.adm,
+    desligamentos: r.dem,
+    turnover: indice(r.adm, r.dem, r.ativos),
+  }));
+
+  const c = cons[0] ?? { adm: 0, dem: 0, ativos: 0 };
   const resp: TurnoverResp = {
     consolidado: {
       admissoes: c.adm,
       desligamentos: c.dem,
-      efetivoInicio: c.hc_ini,
-      efetivoFim: c.hc_fim,
-      ...indicar(c.adm, c.dem, c.hc_ini, c.hc_fim),
+      ativos: c.ativos,
+      turnover: indice(c.adm, c.dem, c.ativos),
     },
-    serie: pontos,
+    serie: serieResp,
+    organogramas: organogramasResp,
   };
   return resp;
 });
