@@ -7,28 +7,16 @@ import type { TurnoverGrupo } from "@/lib/types";
 import { num } from "@/lib/format";
 
 type Coluna = "ativos" | "admissoes" | "desligamentos" | "turnover";
-type Faixa = "todos" | "movimento" | "alto" | "medio" | "baixo";
 
 const pct = (v: number) => `${v.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%`;
 
 /** Faixa de turnover → cor do badge. Zero (sem movimento) fica neutro. */
-function nivel(t: number): {
-  classe: string;
-  faixa: Exclude<Faixa, "todos" | "movimento"> | "zero";
-} {
-  if (t > 10) return { classe: "bg-critical/12 text-critical", faixa: "alto" };
-  if (t >= 2) return { classe: "bg-warning/15 text-warning", faixa: "medio" };
-  if (t > 0) return { classe: "bg-good/12 text-good", faixa: "baixo" };
-  return { classe: "text-muted", faixa: "zero" };
+function corBadge(t: number): string {
+  if (t > 10) return "bg-critical/12 text-critical";
+  if (t >= 2) return "bg-warning/15 text-warning";
+  if (t > 0) return "bg-good/12 text-good";
+  return "text-muted";
 }
-
-const FILTROS: { id: Faixa; rotulo: string }[] = [
-  { id: "todos", rotulo: "Todos" },
-  { id: "movimento", rotulo: "Com movimentação" },
-  { id: "alto", rotulo: "Alto (>10%)" },
-  { id: "medio", rotulo: "Médio (2–10%)" },
-  { id: "baixo", rotulo: "Baixo (<2%)" },
-];
 
 interface Props {
   titulo: string;
@@ -52,7 +40,7 @@ export function RotatividadeQuebra({
   recarregando,
 }: Props) {
   const [ordenar, setOrdenar] = useState<Coluna>("ativos");
-  const [faixa, setFaixa] = useState<Faixa>("todos");
+  const [soMovimento, setSoMovimento] = useState(false);
   const [busca, setBusca] = useState("");
 
   const CABECALHOS: { key: Coluna; rotulo: string }[] = [
@@ -68,12 +56,11 @@ export function RotatividadeQuebra({
     return [...dados]
       .filter((o) => {
         if (q && !o.grupo.toLowerCase().includes(q)) return false;
-        if (faixa === "todos") return true;
-        if (faixa === "movimento") return o.admissoes + o.desligamentos > 0;
-        return nivel(o.turnover).faixa === faixa;
+        if (soMovimento && o.admissoes + o.desligamentos === 0) return false;
+        return true;
       })
       .sort((a, b) => b[ordenar] - a[ordenar] || a.grupo.localeCompare(b.grupo));
-  }, [dados, busca, faixa, ordenar]);
+  }, [dados, busca, soMovimento, ordenar]);
 
   return (
     <section className="card anim-fade-up p-5">
@@ -89,22 +76,19 @@ export function RotatividadeQuebra({
         )}
       </header>
 
-      {/* Filtros por faixa + busca */}
+      {/* Só um toggle útil (esconde setores parados) + busca */}
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        {FILTROS.map((ff) => (
-          <button
-            key={ff.id}
-            onClick={() => setFaixa(ff.id)}
-            className={clsx(
-              "rounded-lg border px-3 py-1.5 text-xs transition-colors",
-              faixa === ff.id
-                ? "border-ent/30 bg-ent/12 font-medium text-ent"
-                : "border-hairline bg-surface-2 text-muted hover:text-ink"
-            )}
-          >
-            {ff.rotulo}
-          </button>
-        ))}
+        <button
+          onClick={() => setSoMovimento((v) => !v)}
+          className={clsx(
+            "rounded-lg border px-3 py-1.5 text-xs transition-colors",
+            soMovimento
+              ? "border-ent/30 bg-ent/12 font-medium text-ent"
+              : "border-hairline bg-surface-2 text-muted hover:text-ink"
+          )}
+        >
+          Só com movimentação
+        </button>
         <label className="ml-auto flex items-center gap-2 rounded-lg border border-hairline bg-surface-2 px-3 py-1.5">
           <Search className="size-3.5 text-muted" />
           <input
@@ -154,7 +138,6 @@ export function RotatividadeQuebra({
                 </tr>
               ) : (
                 visiveis.map((o) => {
-                  const n = nivel(o.turnover);
                   return (
                     <tr
                       key={o.grupo}
@@ -176,7 +159,7 @@ export function RotatividadeQuebra({
                         <span
                           className={clsx(
                             "inline-block rounded px-1.5 py-0.5 text-xs font-medium tabular-nums",
-                            n.classe
+                            corBadge(o.turnover)
                           )}
                         >
                           {pct(o.turnover)}
@@ -187,7 +170,7 @@ export function RotatividadeQuebra({
                 })
               )}
             </tbody>
-            {total && faixa === "todos" && !busca && (
+            {total && !soMovimento && !busca && (
               <tfoot className="sticky bottom-0 bg-surface">
                 <tr className="border-t border-hairline text-sm font-semibold">
                   <td className="py-2.5 pr-3">Total da empresa</td>

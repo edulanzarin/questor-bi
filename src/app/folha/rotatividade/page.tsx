@@ -103,7 +103,11 @@ export default function RotatividadePage() {
         )}
       </div>
 
-      <TurnoverSerieChart dados={d?.serie} carregando={carregando} recarregando={recarregando} />
+      {/* A tendência só faz sentido com 2+ meses; num mês só, o gráfico vira
+          duas barrinhas soltas — melhor não mostrar (os KPIs já têm o número). */}
+      {(carregando || (d && d.serie.length >= 2)) && (
+        <TurnoverSerieChart dados={d?.serie} carregando={carregando} recarregando={recarregando} />
+      )}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <RotatividadeBarras
