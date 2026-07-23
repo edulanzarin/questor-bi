@@ -7,6 +7,8 @@ import {
   sexoValor,
   EXPR_FAIXA_ETARIA,
   EXPR_TENURE_FAIXA,
+  EXPR_ESCOLARIDADE,
+  EXPR_ESTADOCIVIL,
 } from "@/lib/folha-turnover";
 import type { FolhaMovimentacao } from "@/lib/types";
 
@@ -55,6 +57,12 @@ export const GET = apiRoute(async (req) => {
   } else if (dim === "faixaEtaria") {
     params.push(valor);
     conds.push(`(${EXPR_FAIXA_ETARIA}) = $${params.length}`);
+  } else if (dim === "escolaridade") {
+    params.push(valor);
+    conds.push(`(${EXPR_ESCOLARIDADE}) = $${params.length}`);
+  } else if (dim === "estadoCivil") {
+    params.push(valor);
+    conds.push(`(${EXPR_ESTADOCIVIL}) = $${params.length}`);
   } else if (dim === "motivo") {
     params.push(valor);
     conds.push(`datadem between $2 and $3`);

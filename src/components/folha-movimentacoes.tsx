@@ -1,12 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import { Download, Search } from "lucide-react";
 import clsx from "clsx";
 import { FichaModal } from "@/components/folha-ficha-modal";
 import { PessoasTabela } from "@/components/folha-pessoas-tabela";
 import type { FolhaMovimentacao } from "@/lib/types";
-import { num } from "@/lib/format";
+import { baixarCSV } from "@/lib/csv";
+import { dataBR, num } from "@/lib/format";
 
 type Filtro = "todos" | "admitidos" | "desligados";
 
@@ -43,6 +44,25 @@ export function FolhaMovimentacoes({ dados, empresa, carregando, recarregando }:
     { id: "desligados", rotulo: `Desligados (${num(nDes)})` },
   ];
 
+  const exportar = () => {
+    const linhas = (visiveis ?? []).map((m) => [
+      m.nome,
+      m.admitido ? "Admitido" : "",
+      m.desligado ? "Desligado" : "",
+      m.cargo,
+      m.setor,
+      dataBR(m.dataadm),
+      m.datadem ? dataBR(m.datadem) : "",
+      m.motivo ?? "",
+      m.tempoCasaDias ?? "",
+    ]);
+    baixarCSV(
+      "movimentacoes-folha",
+      ["Nome", "Admitido", "Desligado", "Cargo", "Setor", "Admissão", "Desligamento", "Motivo", "Tempo de casa (dias)"],
+      linhas
+    );
+  };
+
   return (
     <section className="card anim-fade-up p-5">
       <header className="mb-4 flex flex-wrap items-start justify-between gap-3">
@@ -52,6 +72,14 @@ export function FolhaMovimentacoes({ dados, empresa, carregando, recarregando }:
             Quem foi admitido ou desligado · clique numa linha para a ficha
           </p>
         </div>
+        <button
+          onClick={exportar}
+          disabled={!visiveis || visiveis.length === 0}
+          className="flex items-center gap-1.5 rounded-lg border border-hairline bg-surface-2 px-3 py-1.5 text-xs text-ink-2 transition-colors hover:text-ink disabled:opacity-40"
+        >
+          <Download className="size-3.5" />
+          Exportar CSV
+        </button>
       </header>
 
       <div className="mb-3 flex flex-wrap items-center gap-2">

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Repeat, UserMinus, UserPlus, Users } from "lucide-react";
+import { ArrowDown, ArrowUp, Repeat, UserMinus, UserPlus, Users } from "lucide-react";
 import clsx from "clsx";
 import { TurnoverSerieChart } from "@/components/charts/turnover-serie-chart";
 import { RotatividadeQuebra } from "@/components/rotatividade-quebra";
@@ -11,7 +11,7 @@ import { FolhaMovimentacoes } from "@/components/folha-movimentacoes";
 import { PessoasModal, type Drill } from "@/components/folha-pessoas-modal";
 import { useFiltros } from "@/hooks/use-filters";
 import { useTurnover, useFolhaFiltros, useMovimentacoes } from "@/hooks/use-api";
-import { num } from "@/lib/format";
+import { deltaPct, num } from "@/lib/format";
 import {
   FOLHA_SELECAO_VAZIA,
   serializarFolhaSelecao,
@@ -21,6 +21,36 @@ import {
 const pct = (v: number) => `${v.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%`;
 const anos = (dias: number | null) =>
   dias == null ? "—" : `${(dias / 365).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} anos`;
+
+/** Delta vs período anterior. `sentido` diz qual direção é boa (cor). */
+function Delta({
+  atual,
+  anterior,
+  sentido,
+}: {
+  atual: number;
+  anterior: number;
+  sentido: "menorMelhor" | "maiorMelhor" | "neutro";
+}) {
+  const d = deltaPct(atual, anterior);
+  if (d === null || Math.abs(d) < 0.05) {
+    return <span className="text-muted">estável vs. anterior</span>;
+  }
+  const subiu = d > 0;
+  const bom = sentido === "neutro" ? null : sentido === "menorMelhor" ? !subiu : subiu;
+  const Icone = subiu ? ArrowUp : ArrowDown;
+  return (
+    <span
+      className={clsx(
+        "inline-flex items-center gap-0.5 font-medium",
+        bom === null ? "text-ink-2" : bom ? "text-good" : "text-critical"
+      )}
+    >
+      <Icone className="size-3" />
+      {Math.abs(d).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% vs. anterior
+    </span>
+  );
+}
 
 function Kpi({
   rotulo,
@@ -35,7 +65,7 @@ function Kpi({
   corIcone?: string;
   estiloIcone?: React.CSSProperties;
   valor: string;
-  secundario: string;
+  secundario: React.ReactNode;
 }) {
   return (
     <div className="card anim-fade-up flex flex-col gap-2 p-5">
@@ -111,28 +141,40 @@ export default function RotatividadePage() {
               icone={<Repeat className="size-4" style={{ color: "var(--esp-5)" }} />}
               estiloIcone={{ backgroundColor: "color-mix(in srgb, var(--esp-5) 12%, transparent)" }}
               valor={pct(c.turnover)}
-              secundario={`sobre ${num(c.ativos)} colaboradores ativos`}
+              secundario={
+                <Delta atual={c.turnover} anterior={d!.anterior.turnover} sentido="menorMelhor" />
+              }
             />
             <Kpi
               rotulo="Admissões"
               icone={<UserPlus className="size-4 text-good" />}
               corIcone="bg-good/12"
               valor={num(c.admissoes)}
-              secundario="contratações no período"
+              secundario={
+                <Delta atual={c.admissoes} anterior={d!.anterior.admissoes} sentido="neutro" />
+              }
             />
             <Kpi
               rotulo="Desligamentos"
               icone={<UserMinus className="size-4 text-critical" />}
               corIcone="bg-critical/12"
               valor={num(c.desligamentos)}
-              secundario="rescisões no período"
+              secundario={
+                <Delta
+                  atual={c.desligamentos}
+                  anterior={d!.anterior.desligamentos}
+                  sentido="menorMelhor"
+                />
+              }
             />
             <Kpi
               rotulo="Colaboradores ativos"
               icone={<Users className="size-4 text-ink-2" />}
               corIcone="bg-surface-2"
               valor={num(c.ativos)}
-              secundario="efetivo no fim do período"
+              secundario={
+                <Delta atual={c.ativos} anterior={d!.anterior.ativos} sentido="maiorMelhor" />
+              }
             />
           </>
         )}
@@ -238,19 +280,40 @@ export default function RotatividadePage() {
           dim="sexo"
           onDrill={abrirDrill}
         />
+        <RotatividadeQuebra
+          titulo="Turnover por faixa etária"
+          subtitulo="Onde a rotatividade se concentra por idade · clique para ver as pessoas"
+          rotuloColuna="Faixa etária"
+          dados={d?.faixaEtaria}
+          total={c}
+          carregando={carregando}
+          recarregando={recarregando}
+          dim="faixaEtaria"
+          onDrill={abrirDrill}
+        />
+        <RotatividadeQuebra
+          titulo="Turnover por escolaridade"
+          subtitulo="Rotatividade por grau de instrução · clique para ver as pessoas"
+          rotuloColuna="Escolaridade"
+          dados={d?.escolaridade}
+          total={c}
+          carregando={carregando}
+          recarregando={recarregando}
+          dim="escolaridade"
+          onDrill={abrirDrill}
+        />
+        <RotatividadeQuebra
+          titulo="Turnover por estado civil"
+          subtitulo="Rotatividade por estado civil · clique para ver as pessoas"
+          rotuloColuna="Estado civil"
+          dados={d?.estadoCivil}
+          total={c}
+          carregando={carregando}
+          recarregando={recarregando}
+          dim="estadoCivil"
+          onDrill={abrirDrill}
+        />
       </div>
-
-      <RotatividadeQuebra
-        titulo="Turnover por faixa etária"
-        subtitulo="Onde a rotatividade se concentra por idade · clique para ver as pessoas"
-        rotuloColuna="Faixa etária"
-        dados={d?.faixaEtaria}
-        total={c}
-        carregando={carregando}
-        recarregando={recarregando}
-        dim="faixaEtaria"
-        onDrill={abrirDrill}
-      />
 
       <p className="text-[11px] text-muted">
         Turnover = (admissões + desligamentos) ÷ 2, sobre os colaboradores ativos

@@ -1,10 +1,12 @@
 import { query } from "@/lib/db";
 import { apiRoute } from "@/lib/api-route";
-import { parseFilters, FilterError } from "@/lib/fiscal-filters";
+import { parseFilters, FilterError, periodoAnterior } from "@/lib/fiscal-filters";
 import {
   construirBase,
   parseFolhaFiltrosSel,
   EXPR_FAIXA_ETARIA,
+  EXPR_ESCOLARIDADE,
+  EXPR_ESTADOCIVIL,
 } from "@/lib/folha-turnover";
 import type {
   TurnoverContagem,
@@ -32,12 +34,17 @@ interface MegaRaw {
   voluntarios: number;
   involuntarios: number;
   tempomedio: number | null;
+  prevadm: number;
+  prevdem: number;
+  prevativos: number;
   serie: SerieRaw[];
   organogramas: GrupoRaw[];
   cargos: GrupoRaw[];
   estabs: GrupoRaw[];
   sexo: GrupoRaw[];
   idade: GrupoRaw[];
+  escolaridade: GrupoRaw[];
+  estadocivil: GrupoRaw[];
   motivos: TurnoverContagem[];
   tenure: TurnoverContagem[];
 }
@@ -76,6 +83,13 @@ export const GET = apiRoute(async (req) => {
   const sel = parseFolhaFiltrosSel(req.nextUrl.searchParams);
   const { cte, params } = construirBase(f, sel);
 
+  // Período anterior (mesma duração) para os deltas — nos mesmos parâmetros.
+  const prev = periodoAnterior(f);
+  params.push(prev.inicio);
+  const pIni = `$${params.length}`;
+  params.push(prev.fim);
+  const pFim = `$${params.length}`;
+
   // Agregado de grupo reutilizado por setor/cargo/estab/sexo/idade.
   const grupoAgg = (dim: string) =>
     `(select coalesce(json_agg(x order by x.ativos desc, x.grupo), '[]'::json) from (
@@ -95,6 +109,9 @@ export const GET = apiRoute(async (req) => {
        'voluntarios', (select count(*) filter (where datadem between $2 and $3 and causa in (3,4,7,14))::int from fbase),
        'involuntarios', (select count(*) filter (where datadem between $2 and $3 and causa in (1,2,5,11,13))::int from fbase),
        'tempomedio', (select round(avg(datadem - dataadm) filter (where datadem between $2 and $3 and dataadm is not null))::int from fbase),
+       'prevadm', (select count(*) filter (where dataadm between ${pIni} and ${pFim})::int from fbase),
+       'prevdem', (select count(*) filter (where datadem between ${pIni} and ${pFim})::int from fbase),
+       'prevativos', (select count(*) filter (where dataadm <= ${pFim} and (datadem is null or datadem >= ${pFim}))::int from fbase),
        'serie', (select coalesce(json_agg(s order by s.mes), '[]'::json) from (
            select to_char(m.ini, 'YYYY-MM-DD') as mes,
                   count(*) filter (where fb.dataadm between m.ini and m.fim)::int as adm,
@@ -110,6 +127,8 @@ export const GET = apiRoute(async (req) => {
        'estabs', ${grupoAgg("estab")},
        'sexo', ${grupoAgg("case when sexo=1 then 'Masculino' when sexo=2 then 'Feminino' else '(n/d)' end")},
        'idade', ${grupoAgg(EXPR_FAIXA_ETARIA)},
+       'escolaridade', ${grupoAgg(EXPR_ESCOLARIDADE)},
+       'estadocivil', ${grupoAgg(EXPR_ESTADOCIVIL)},
        'motivos', (select coalesce(json_agg(x order by x.valor desc), '[]'::json) from (
            select coalesce(descrcausa, '(não informado)') as rotulo, count(*)::int as valor
              from fbase where datadem between $2 and $3 group by rotulo
@@ -147,6 +166,12 @@ export const GET = apiRoute(async (req) => {
       involuntarios: d.involuntarios,
       tempoMedioCasaDias: d.tempomedio,
     },
+    anterior: {
+      turnover: indice(d.prevadm, d.prevdem, d.prevativos),
+      admissoes: d.prevadm,
+      desligamentos: d.prevdem,
+      ativos: d.prevativos,
+    },
     serie: d.serie.map(
       (r): TurnoverPonto => ({
         mes: r.mes,
@@ -161,6 +186,8 @@ export const GET = apiRoute(async (req) => {
     estabelecimentos: d.estabs.map(paraGrupo),
     sexo: d.sexo.map(paraGrupo),
     faixaEtaria: d.idade.map(paraGrupo),
+    escolaridade: d.escolaridade.map(paraGrupo),
+    estadoCivil: d.estadocivil.map(paraGrupo),
     motivos: d.motivos,
     tenure: d.tenure,
   };

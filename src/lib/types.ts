@@ -678,9 +678,19 @@ export interface TurnoverConsolidado {
   tempoMedioCasaDias: number | null;
 }
 
+/** O período imediatamente anterior (mesma duração) — para os deltas dos KPIs. */
+export interface TurnoverAnterior {
+  turnover: number;
+  admissoes: number;
+  desligamentos: number;
+  ativos: number;
+}
+
 export interface TurnoverResp {
   /** O período inteiro — vira os KPIs. */
   consolidado: TurnoverConsolidado;
+  /** O período anterior, para comparar (deltas). */
+  anterior: TurnoverAnterior;
   /** Um ponto por mês, para a série. */
   serie: TurnoverPonto[];
   /** Quebra por setor (organograma), do maior efetivo para o menor. */
@@ -693,6 +703,10 @@ export interface TurnoverResp {
   sexo: TurnoverGrupo[];
   /** Turnover por faixa etária. */
   faixaEtaria: TurnoverGrupo[];
+  /** Turnover por escolaridade. */
+  escolaridade: TurnoverGrupo[];
+  /** Turnover por estado civil. */
+  estadoCivil: TurnoverGrupo[];
   /** Desligamentos por motivo (causa da rescisão). */
   motivos: TurnoverContagem[];
   /** Desligamentos por tempo de casa. */

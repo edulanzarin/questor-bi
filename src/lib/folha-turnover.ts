@@ -59,7 +59,8 @@ export function construirBase(
   const cte = `
     with base as (
       select f.codigoempresa, f.codigofunccontr, f.dataadm, f.datadem,
-             f.nomefunc as nome, f.sexo, f.datanasc, f.categoria, f.tipovinculo,
+             f.nomefunc as nome, f.sexo, f.datanasc, f.grauinstr, f.estadocivil,
+             f.categoria, f.tipovinculo,
              coalesce(f.categoria, '') || '|' || coalesce(f.tipovinculo, '') as vinc,
              coalesce(nullif(btrim(o.descrorgan), ''), '(sem setor)') as setor,
              coalesce(nullif(btrim(ca.descrcargo), ''), '(sem cargo)') as cargo,
@@ -108,6 +109,34 @@ export const EXPR_TENURE_FAIXA = `case
 export function sexoValor(rotulo: string): number {
   return rotulo === "Masculino" ? 1 : rotulo === "Feminino" ? 2 : -1;
 }
+
+/** Escolaridade (grauinstr, eSocial tabela 18) como expressão SQL. */
+export const EXPR_ESCOLARIDADE = `case coalesce(grauinstr, 0)
+    when 1 then 'Analfabeto'
+    when 2 then 'Até o 5º ano incompleto'
+    when 3 then '5º ano completo'
+    when 4 then '6º ao 9º ano incompleto'
+    when 5 then 'Fundamental completo'
+    when 6 then 'Médio incompleto'
+    when 7 then 'Médio completo'
+    when 8 then 'Superior incompleto'
+    when 9 then 'Superior completo'
+    when 10 then 'Pós-graduação'
+    when 11 then 'Mestrado'
+    when 12 then 'Doutorado'
+    else '(n/d)'
+  end`;
+
+/** Estado civil (smallint) como expressão SQL. */
+export const EXPR_ESTADOCIVIL = `case coalesce(estadocivil, 0)
+    when 1 then 'Solteiro(a)'
+    when 2 then 'Casado(a)'
+    when 3 then 'Divorciado(a)'
+    when 4 then 'Separado(a)'
+    when 5 then 'Viúvo(a)'
+    when 6 then 'União estável'
+    else '(n/d)'
+  end`;
 
 /** Rótulo amigável do vínculo (categoria|tipovinculo). Sem tabela de domínio na
  *  base, mapeia só o certo (CLT) e mostra o resto cru — honesto. */
