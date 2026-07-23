@@ -10,7 +10,7 @@ import { FolhaFiltros } from "@/components/folha-filtros";
 import { FolhaMovimentacoes } from "@/components/folha-movimentacoes";
 import { PessoasModal, type Drill } from "@/components/folha-pessoas-modal";
 import { useFiltros } from "@/hooks/use-filters";
-import { useTurnover, useFolhaFiltros, useMovimentacoes } from "@/hooks/use-api";
+import { useTurnover, useFolhaFiltros } from "@/hooks/use-api";
 import { deltaPct, num } from "@/lib/format";
 import {
   FOLHA_SELECAO_VAZIA,
@@ -111,7 +111,6 @@ export default function RotatividadePage() {
 
   const opcoes = useFolhaFiltros(qs);
   const turnover = useTurnover(qsCompleto);
-  const movimentacoes = useMovimentacoes(qsCompleto);
 
   const d = turnover.data;
   const c = d?.consolidado;
@@ -199,13 +198,8 @@ export default function RotatividadePage() {
         <TurnoverSerieChart dados={d?.serie} carregando={carregando} recarregando={recarregando} />
       )}
 
-      {/* Movimentações + ficha */}
-      <FolhaMovimentacoes
-        dados={movimentacoes.data}
-        empresa={empresa}
-        carregando={movimentacoes.isLoading}
-        recarregando={movimentacoes.isFetching && !movimentacoes.isLoading}
-      />
+      {/* Movimentações / efetivo + ficha */}
+      <FolhaMovimentacoes qs={qsCompleto} empresa={empresa} />
 
       {/* Sobre os desligados */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -257,7 +251,22 @@ export default function RotatividadePage() {
         onDrill={abrirDrill}
       />
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+      {/* Faixa etária ocupa a linha toda; as 4 menores em 2×2 (sem célula vazia). */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div className="md:col-span-2">
+          <RotatividadeQuebra
+            titulo="Turnover por faixa etária"
+            subtitulo="Onde a rotatividade se concentra por idade · clique para ver as pessoas"
+            rotuloColuna="Faixa etária"
+            dados={d?.faixaEtaria}
+            total={c}
+            carregando={carregando}
+            recarregando={recarregando}
+            dim="faixaEtaria"
+            onDrill={abrirDrill}
+            compacto
+          />
+        </div>
         <RotatividadeQuebra
           titulo="Turnover por estabelecimento"
           subtitulo="Por filial · clique para ver as pessoas"
@@ -268,6 +277,7 @@ export default function RotatividadePage() {
           recarregando={recarregando}
           dim="estab"
           onDrill={abrirDrill}
+          compacto
         />
         <RotatividadeQuebra
           titulo="Turnover por sexo"
@@ -279,17 +289,7 @@ export default function RotatividadePage() {
           recarregando={recarregando}
           dim="sexo"
           onDrill={abrirDrill}
-        />
-        <RotatividadeQuebra
-          titulo="Turnover por faixa etária"
-          subtitulo="Onde a rotatividade se concentra por idade · clique para ver as pessoas"
-          rotuloColuna="Faixa etária"
-          dados={d?.faixaEtaria}
-          total={c}
-          carregando={carregando}
-          recarregando={recarregando}
-          dim="faixaEtaria"
-          onDrill={abrirDrill}
+          compacto
         />
         <RotatividadeQuebra
           titulo="Turnover por escolaridade"
@@ -301,6 +301,7 @@ export default function RotatividadePage() {
           recarregando={recarregando}
           dim="escolaridade"
           onDrill={abrirDrill}
+          compacto
         />
         <RotatividadeQuebra
           titulo="Turnover por estado civil"
@@ -312,6 +313,7 @@ export default function RotatividadePage() {
           recarregando={recarregando}
           dim="estadoCivil"
           onDrill={abrirDrill}
+          compacto
         />
       </div>
 

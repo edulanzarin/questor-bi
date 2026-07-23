@@ -5,41 +5,51 @@ import { Download, Search } from "lucide-react";
 import clsx from "clsx";
 import { FichaModal } from "@/components/folha-ficha-modal";
 import { PessoasTabela } from "@/components/folha-pessoas-tabela";
-import type { FolhaMovimentacao } from "@/lib/types";
+import { useMovimentacoes } from "@/hooks/use-api";
 import { baixarCSV } from "@/lib/csv";
 import { dataBR, num } from "@/lib/format";
 
+type Escopo = "movimentacoes" | "efetivo";
 type Filtro = "todos" | "admitidos" | "desligados";
 
 interface Props {
-  dados: FolhaMovimentacao[] | undefined;
+  /** qs com período + filtros avançados. */
+  qs: string;
   empresa: number | null;
-  carregando: boolean;
-  recarregando: boolean;
 }
 
-/** Lista de quem foi admitido/desligado no período; clicar abre a ficha. */
-export function FolhaMovimentacoes({ dados, empresa, carregando, recarregando }: Props) {
+/**
+ * Duas visões da mesma equipe: **Movimentações** (quem entrou/saiu no período) e
+ * **Efetivo atual** (todos os ativos no fim do período). Em ambas, clicar numa
+ * linha abre a ficha; dá para exportar a lista visível em CSV.
+ */
+export function FolhaMovimentacoes({ qs, empresa }: Props) {
+  const [escopo, setEscopo] = useState<Escopo>("movimentacoes");
   const [filtro, setFiltro] = useState<Filtro>("todos");
   const [busca, setBusca] = useState("");
   const [aberto, setAberto] = useState<number | null>(null);
 
+  const q = escopo === "efetivo" ? `${qs}&escopo=efetivo` : qs;
+  const { data, isLoading, isFetching } = useMovimentacoes(q);
+
   const visiveis = useMemo(() => {
-    if (!dados) return undefined;
-    const q = busca.trim().toLowerCase();
-    return dados.filter((m) => {
-      if (filtro === "admitidos" && !m.admitido) return false;
-      if (filtro === "desligados" && !m.desligado) return false;
-      if (q && !m.nome.toLowerCase().includes(q) && !m.cargo.toLowerCase().includes(q)) return false;
+    if (!data) return undefined;
+    const s = busca.trim().toLowerCase();
+    return data.filter((m) => {
+      if (escopo === "movimentacoes") {
+        if (filtro === "admitidos" && !m.admitido) return false;
+        if (filtro === "desligados" && !m.desligado) return false;
+      }
+      if (s && !m.nome.toLowerCase().includes(s) && !m.cargo.toLowerCase().includes(s)) return false;
       return true;
     });
-  }, [dados, filtro, busca]);
+  }, [data, escopo, filtro, busca]);
 
-  const nAdm = dados?.filter((m) => m.admitido).length ?? 0;
-  const nDes = dados?.filter((m) => m.desligado).length ?? 0;
+  const nAdm = data?.filter((m) => m.admitido).length ?? 0;
+  const nDes = data?.filter((m) => m.desligado).length ?? 0;
 
   const chips: { id: Filtro; rotulo: string }[] = [
-    { id: "todos", rotulo: `Todos (${num(dados?.length ?? 0)})` },
+    { id: "todos", rotulo: `Todos (${num(data?.length ?? 0)})` },
     { id: "admitidos", rotulo: `Admitidos (${num(nAdm)})` },
     { id: "desligados", rotulo: `Desligados (${num(nDes)})` },
   ];
@@ -47,7 +57,7 @@ export function FolhaMovimentacoes({ dados, empresa, carregando, recarregando }:
   const exportar = () => {
     const linhas = (visiveis ?? []).map((m) => [
       m.nome,
-      m.admitido ? "Admitido" : "",
+      m.admitido ? "Admitido" : m.desligado ? "" : "Ativo",
       m.desligado ? "Desligado" : "",
       m.cargo,
       m.setor,
@@ -57,8 +67,8 @@ export function FolhaMovimentacoes({ dados, empresa, carregando, recarregando }:
       m.tempoCasaDias ?? "",
     ]);
     baixarCSV(
-      "movimentacoes-folha",
-      ["Nome", "Admitido", "Desligado", "Cargo", "Setor", "Admissão", "Desligamento", "Motivo", "Tempo de casa (dias)"],
+      escopo === "efetivo" ? "efetivo-folha" : "movimentacoes-folha",
+      ["Nome", "Situação", "Desligado", "Cargo", "Setor", "Admissão", "Desligamento", "Motivo", "Tempo de casa (dias)"],
       linhas
     );
   };
@@ -67,9 +77,13 @@ export function FolhaMovimentacoes({ dados, empresa, carregando, recarregando }:
     <section className="card anim-fade-up p-5">
       <header className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-sm font-semibold">Movimentações no período</h2>
+          <h2 className="text-sm font-semibold">
+            {escopo === "efetivo" ? "Efetivo atual" : "Movimentações no período"}
+          </h2>
           <p className="mt-0.5 text-xs text-muted">
-            Quem foi admitido ou desligado · clique numa linha para a ficha
+            {escopo === "efetivo"
+              ? "Todos os colaboradores ativos no fim do período · clique numa linha para a ficha"
+              : "Quem foi admitido ou desligado · clique numa linha para a ficha"}
           </p>
         </div>
         <button
@@ -82,21 +96,38 @@ export function FolhaMovimentacoes({ dados, empresa, carregando, recarregando }:
         </button>
       </header>
 
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        {chips.map((c) => (
+      {/* Alternador de visão */}
+      <div className="mb-3 inline-flex rounded-lg border border-hairline bg-surface-2 p-0.5">
+        {(["movimentacoes", "efetivo"] as Escopo[]).map((e) => (
           <button
-            key={c.id}
-            onClick={() => setFiltro(c.id)}
+            key={e}
+            onClick={() => setEscopo(e)}
             className={clsx(
-              "rounded-lg border px-3 py-1.5 text-xs transition-colors",
-              filtro === c.id
-                ? "border-ent/30 bg-ent/12 font-medium text-ent"
-                : "border-hairline bg-surface-2 text-muted hover:text-ink"
+              "rounded-md px-3 py-1.5 text-xs transition-colors",
+              escopo === e ? "bg-surface font-medium text-ink shadow-sm" : "text-muted hover:text-ink"
             )}
           >
-            {c.rotulo}
+            {e === "movimentacoes" ? "Movimentações" : "Efetivo atual"}
           </button>
         ))}
+      </div>
+
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        {escopo === "movimentacoes" &&
+          chips.map((c) => (
+            <button
+              key={c.id}
+              onClick={() => setFiltro(c.id)}
+              className={clsx(
+                "rounded-lg border px-3 py-1.5 text-xs transition-colors",
+                filtro === c.id
+                  ? "border-ent/30 bg-ent/12 font-medium text-ent"
+                  : "border-hairline bg-surface-2 text-muted hover:text-ink"
+              )}
+            >
+              {c.rotulo}
+            </button>
+          ))}
         <label className="ml-auto flex items-center gap-2 rounded-lg border border-hairline bg-surface-2 px-3 py-1.5">
           <Search className="size-3.5 text-muted" />
           <input
@@ -108,14 +139,18 @@ export function FolhaMovimentacoes({ dados, empresa, carregando, recarregando }:
         </label>
       </div>
 
-      {carregando || !visiveis ? (
+      {isLoading || !visiveis ? (
         <div className="skeleton h-80 w-full" />
       ) : visiveis.length === 0 ? (
         <p className="grid h-32 place-items-center text-sm text-muted">
-          Nenhuma movimentação no período
+          {escopo === "efetivo" ? "Nenhum colaborador ativo" : "Nenhuma movimentação no período"}
         </p>
       ) : (
-        <PessoasTabela dados={visiveis} onAbrir={setAberto} recarregando={recarregando} />
+        <PessoasTabela
+          dados={visiveis}
+          onAbrir={setAberto}
+          recarregando={isFetching && !isLoading}
+        />
       )}
 
       <FichaModal empresa={empresa} contrato={aberto} onFechar={() => setAberto(null)} />

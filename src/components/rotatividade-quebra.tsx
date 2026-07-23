@@ -32,6 +32,8 @@ interface Props {
    *  `onDrill`, cada linha vira clicável e abre as pessoas do grupo. */
   dim?: string;
   onDrill?: (dim: string, valor: string, rotulo: string) => void;
+  /** Quebra pequena (poucos grupos): esconde a barra de filtro/busca. */
+  compacto?: boolean;
 }
 
 export function RotatividadeQuebra({
@@ -44,6 +46,7 @@ export function RotatividadeQuebra({
   recarregando,
   dim,
   onDrill,
+  compacto = false,
 }: Props) {
   const clicavel = !!(dim && onDrill);
   const [ordenar, setOrdenar] = useState<Coluna>("ativos");
@@ -83,7 +86,8 @@ export function RotatividadeQuebra({
         )}
       </header>
 
-      {/* Só um toggle útil (esconde setores parados) + busca */}
+      {/* Só um toggle útil (esconde setores parados) + busca — some no compacto */}
+      {!compacto && (
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <button
           onClick={() => setSoMovimento((v) => !v)}
@@ -106,6 +110,7 @@ export function RotatividadeQuebra({
           />
         </label>
       </div>
+      )}
 
       {carregando || !visiveis ? (
         <div className="skeleton h-96 w-full" />
