@@ -2,6 +2,7 @@ import { pool } from "@/lib/db";
 import { apiRoute } from "@/lib/api-route";
 import { parseFilters, FilterError } from "@/lib/fiscal-filters";
 import { balanceteFiscal, CONTA_CONTRAPARTIDA } from "@/lib/balancete-fiscal";
+import { pendentesNfse } from "@/lib/balancete-pendentes";
 import type { BalanceteFiscalResp, BalanceteLinha } from "@/lib/types";
 
 /**
@@ -106,6 +107,19 @@ export const GET = apiRoute(async (req) => {
       fiscalPorConta.set(r.conta, a);
     }
 
+    // NFSE obrigada mas NÃO contabilizada: o motor não a reproduz (sem CFOP) e
+    // não há real pra espelhar, então ela sumiria. Injeta o valor no esperado na
+    // conta prevista pela história do fornecedor — cria a divergência que o real
+    // não tem (só onde falta lançamento, então sem falso positivo).
+    const pendentes = await pendentesNfse(client, empresa, f.inicio, f.fim);
+    for (const pd of pendentes) {
+      if (pd.conta == null) continue; // sem histórico: fica só no painel, não na árvore
+      const a = fiscalPorConta.get(pd.conta) ?? { deb: 0, cred: 0 };
+      if (pd.natureza === 1) a.deb += pd.valor;
+      else a.cred += pd.valor;
+      fiscalPorConta.set(pd.conta, a);
+    }
+
     // Plano de contas (para nome, classificação e sintética × analítica).
     const contasEnvolvidas = new Set<number>([...fiscalPorConta.keys(), ...realPorConta.keys()]);
     const plano = await client.query<{
@@ -196,6 +210,16 @@ export const GET = apiRoute(async (req) => {
         componentesPulados: ent.pulados + sai.pulados,
       },
       nivelMax: linhas.reduce((mx, l) => Math.max(mx, l.nivel), 1),
+      pendentes: pendentes.map((pd) => ({
+        chave: pd.chave,
+        numero: pd.numero,
+        data: pd.data,
+        contraparte: pd.contraparte,
+        origem: pd.origem,
+        valor: pd.valor,
+        conta: pd.conta,
+        contaDescr: pd.contaDescr,
+      })),
     } satisfies BalanceteFiscalResp;
   } finally {
     client.release();

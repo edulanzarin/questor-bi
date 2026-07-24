@@ -458,11 +458,30 @@ export interface BalanceteLinha {
   realCred: number;
 }
 
+/**
+ * NFSE obrigada a contabilizar que NÃO foi lançada — some do balancete comum
+ * (sem CFOP pro motor reproduzir, sem real pra espelhar). Entra no esperado na
+ * conta prevista pela história do fornecedor, e é listada aqui como prova.
+ */
+export interface BalancetePendente {
+  chave: number;
+  numero: number | null;
+  data: string;
+  contraparte: string | null;
+  origem: "ME" | "MS";
+  valor: number;
+  /** Conta prevista (moda do histórico do fornecedor); null se ele não tem histórico. */
+  conta: number | null;
+  contaDescr: string | null;
+}
+
 export interface BalanceteFiscalResp {
   /** Todas as contas com movimento, ordenadas por classificação (a tela corta por nível). */
   linhas: BalanceteLinha[];
   cobertura: { notas: number; componentesPulados: number };
   nivelMax: number;
+  /** NFSE a contabilizar não refletidas no real (ver BalancetePendente). */
+  pendentes: BalancetePendente[];
 }
 
 /** Um lançamento que compõe o movimento de uma conta (drill-down). */
