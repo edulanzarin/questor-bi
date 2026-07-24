@@ -61,10 +61,10 @@ export function apiRoute(handler: Handler) {
       if (err instanceof FilterError) {
         return NextResponse.json({ error: err.message }, { status: 400 });
       }
-      // Falha no banco do BI tem causa e solução próprias — não confundir com o
+      // Falha no banco do app tem causa e solução próprias — não confundir com o
       // Questor, senão a mensagem manda investigar o banco errado.
       if (err instanceof AppDbError) {
-        console.error("[api][bi]", err.message);
+        console.error("[api][app]", err.message);
         return NextResponse.json({ error: err.message }, { status: 503 });
       }
       // Erro de conexão do pg pode ter mensagem vazia (AggregateError): sem o

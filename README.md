@@ -1,12 +1,12 @@
-# Questor BI
+# Navetech Hub
 
 Dashboard de Business Intelligence sobre a base PostgreSQL do Questor (Navecon).
 Next.js 16 + React Query + Recharts + Tailwind v4, lendo o banco **em modo somente leitura**.
 
 ## Os dois bancos
 
-- **Questor** (`Navecon`) — produção, **somente leitura**. O BI nunca escreve nele.
-- **Banco do BI** — Postgres próprio, gravável, sobe junto no Docker. Guarda os
+- **Questor** (`Navecon`) — produção, **somente leitura**. O app nunca escreve nele.
+- **Banco do app** — Postgres próprio, gravável, sobe junto no Docker. Guarda os
   overrides do plano de contabilização (e, adiante, usuários e permissões).
   Migrations em `migrations/`, aplicadas automaticamente no boot do container.
 
@@ -14,9 +14,9 @@ Toda a configuração fica em **`.env`** (modelo em `.env.example`), que é
 gitignored — nenhuma senha vai para o repositório. É o arquivo que o Docker
 Compose lê nativamente e que o Next também usa em desenvolvimento.
 
-> A senha do banco do BI (`APP_DB_PASSWORD`) só é aplicada na **primeira**
+> A senha do banco do app (`APP_DB_PASSWORD`) só é aplicada na **primeira**
 > subida, quando o volume é criado. Para trocar depois: `docker compose down -v`
-> (apaga os dados do BI) ou um `ALTER USER` no banco.
+> (apaga os dados do app) ou um `ALTER USER` no banco.
 
 ## Rodando em produção (rede local)
 
@@ -36,11 +36,11 @@ Comandos úteis:
 
 ```bash
 docker compose logs -f app     # acompanhar
-docker compose down            # parar (dados do BI ficam no volume)
+docker compose down            # parar (dados do app ficam no volume)
 docker compose up -d --build   # atualizar depois de mudar o código
 ```
 
-Em produção o Postgres do BI **não publica porta nenhuma** — o app fala com ele
+Em produção o Postgres do app **não publica porta nenhuma** — o app fala com ele
 pela rede interna do compose, então nada além da 4022 é exposto. O volume
 `app-db-data` guarda os dados; `docker compose down -v` apaga tudo.
 
@@ -51,7 +51,7 @@ máquina, com hot reload:
 
 ```bash
 npm install
-npm run db:up      # sobe só o Postgres do BI (publica em 127.0.0.1:5433)
+npm run db:up      # sobe só o Postgres do app (publica em 127.0.0.1:5433)
 npm run migrate    # aplica as migrations
 npm run dev        # porta 3000, hot reload
 ```
@@ -62,7 +62,7 @@ Quando a mudança estiver pronta, aí sim se builda no computador de produção.
 
 > **Pegadinha:** rodar `docker compose up -d` (sem o arquivo de dev) nesta
 > máquina recria o banco **sem** publicar a 5433, e aí o `npm run dev` perde o
-> acesso ao banco do BI — as telas do Contábil passam a responder 503. É só
+> acesso ao banco do app — as telas do Contábil passam a responder 503. É só
 > rodar `npm run db:up` de novo. A mensagem de erro na tela já diz isso.
 
 Por que o banco em Docker mesmo no dev: é o mesmo Postgres 17 da produção,
@@ -105,4 +105,4 @@ mesmas migrations, sem instalar nada na máquina.
 - UF: colunas do cabeçalho vêm mal preenchidas; usamos `pessoa.siglaestado` via join (cobertura maior)
 - Índice usado: `(codigoempresa, codigoestab, datalctofis)` — consultas sem filtro de empresa varrem por data (600k notas/mês ≈ 0,5s)
 - `codigopessoa` → `pessoa` é a contraparte da nota. Verificado: em notas de entrada com `emitentenf = 'T'` (terceiros), 97% dos CNPJs embutidos na chave NFe batem com `pessoa.inscrfederal` — é o fornecedor mesmo. Com `emitentenf = 'P'` a nota foi emitida pela própria empresa (devoluções) e a pessoa é o cliente
-- `grupoprocessam`/`grupoempresa` **não** são grupos de empresas para BI (são grupos de processamento internos do Questor) — por isso os grupos aqui são criados no app
+- `grupoprocessam`/`grupoempresa` **não** são grupos de empresas para app (são grupos de processamento internos do Questor) — por isso os grupos aqui são criados no app

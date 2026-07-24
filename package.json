@@ -1,5 +1,5 @@
 {
-  "name": "questor-hub",
+  "name": "navetech-hub",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -10,6 +10,7 @@
     "migrate": "node scripts/migrate.mjs",
     "seed:admin": "node scripts/seed-admin.mjs",
     "seed:grupo-padrao": "node scripts/seed-grupo-padrao.mjs",
+    "setup": "npm run migrate && npm run seed:admin && npm run seed:grupo-padrao",
     "db:up": "docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d app-db"
   },
   "dependencies": {

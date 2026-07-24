@@ -20,7 +20,7 @@ export const pool =
     max: 10,
     idleTimeoutMillis: 30_000,
     connectionTimeoutMillis: 10_000,
-    // BI é somente leitura: nenhuma query consegue alterar o Questor
+    // app é somente leitura: nenhuma query consegue alterar o Questor
     options: "-c default_transaction_read_only=on -c statement_timeout=60000",
   });
 

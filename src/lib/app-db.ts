@@ -10,7 +10,7 @@ declare global {
 }
 
 /**
- * Banco PRÓPRIO do BI (gravável) — não confundir com o pool do Questor, que é
+ * Banco PRÓPRIO do app (gravável) — não confundir com o pool do Questor, que é
  * produção e somente leitura. Aqui moram os overrides do plano de
  * contabilização e, futuramente, usuários e permissões.
  */
@@ -18,7 +18,7 @@ export const appPool =
   global._appPool ??
   new Pool({
     connectionString:
-      process.env.APP_DB_URL ?? "postgres://questorbi:questorbi@localhost:5022/questorbi",
+      process.env.APP_DB_URL ?? "postgres://navetechhub:navetechhub@localhost:5022/navetechhub",
     max: 10,
     idleTimeoutMillis: 30_000,
     connectionTimeoutMillis: 10_000,
@@ -27,7 +27,7 @@ export const appPool =
 
 if (process.env.NODE_ENV !== "production") global._appPool = appPool;
 
-/** Falha no banco do BI — distinta de falha no Questor, que tem outra causa. */
+/** Falha no banco do app — distinta de falha no Questor, que tem outra causa. */
 export class AppDbError extends Error {}
 
 /**
@@ -45,11 +45,11 @@ export function erroAppDb(err: unknown): AppDbError {
 
   if (codigos.has("ECONNREFUSED") || codigos.has("ENOTFOUND") || codigos.has("ETIMEDOUT")) {
     return new AppDbError(
-      "Banco do BI fora do ar — suba com `npm run db:up` (desenvolvimento) ou `docker compose up -d` (produção)"
+      "Banco do app fora do ar — suba com `npm run db:up` (desenvolvimento) ou `docker compose up -d` (produção)"
     );
   }
   const msg = err instanceof Error && err.message ? err.message : String(err);
-  return new AppDbError(`Falha no banco do BI: ${msg}`);
+  return new AppDbError(`Falha no banco do app: ${msg}`);
 }
 
 export async function appQuery<T = Record<string, unknown>>(

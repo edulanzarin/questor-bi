@@ -3,7 +3,7 @@
 import { useCallback, useSyncExternalStore } from "react";
 import type { GrupoLocal } from "@/lib/types";
 
-const CHAVE = "questor-hub-grupos";
+const CHAVE = "navetech-hub-grupos";
 const ouvintes = new Set<() => void>();
 let cache: GrupoLocal[] | null = null;
 

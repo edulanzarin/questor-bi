@@ -27,7 +27,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <Image src="/logo.png" alt="" width={36} height={36} className="size-9" />
           <div className="leading-tight">
             <p className="text-sm font-semibold tracking-tight">Administração</p>
-            <p className="text-[11px] text-muted">Questor Hub</p>
+            <p className="text-[11px] text-muted">Navetech Hub</p>
           </div>
         </div>
 

@@ -1,4 +1,4 @@
-// Runner de migrations do banco PRÓPRIO do BI (não toca no Questor).
+// Runner de migrations do banco PRÓPRIO do app (não toca no Questor).
 // Uso: node scripts/migrate.mjs
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -20,7 +20,7 @@ for (const arquivo of [".env.local", ".env"]) {
 
 const client = new pg.Client({
   connectionString:
-    process.env.APP_DB_URL ?? "postgres://questorbi:questorbi@localhost:5433/questorbi",
+    process.env.APP_DB_URL ?? "postgres://navetechhub:navetechhub@localhost:5433/navetechhub",
 });
 
 await client.connect();
