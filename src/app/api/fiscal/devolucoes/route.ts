@@ -16,7 +16,7 @@ export const GET = apiRoute(async (req) => {
   const tabela = tipo === "ent" ? "lctofisentproduto" : "lctofissaiproduto";
   const chave = tipo === "ent" ? "chavelctofisent" : "chavelctofissai";
 
-  const { sql, params } = buildWhere(
+  const { sql, params } = await buildWhere(
     { ...filters, especies: [] },
     { alias: "f", incluirCanceladas: true }
   );

@@ -49,7 +49,7 @@ export const GET = apiRoute(async (req) => {
   else if (dim === "vinculo") sel.vinculos = [...sel.vinculos, valor];
   else if (dim === "horario") sel.horarios = [...sel.horarios, valor];
 
-  const { cte, params } = construirBase(f, sel);
+  const { cte, params } = await construirBase(f, sel);
 
   const conds = ["(dataadm between $2 and $3 or datadem between $2 and $3)"];
   if (dim === "sexo") {

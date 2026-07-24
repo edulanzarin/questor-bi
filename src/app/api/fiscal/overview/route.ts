@@ -18,8 +18,8 @@ async function lado(
   tabela: "lctofisent" | "lctofissai",
   filters: ReturnType<typeof parseFilters>
 ): Promise<LadoResumo> {
-  const atual = buildWhere(filters, { incluirCanceladas: true });
-  const anterior = buildWhere(periodoAnterior(filters));
+  const atual = await buildWhere(filters, { incluirCanceladas: true });
+  const anterior = await buildWhere(periodoAnterior(filters));
 
   const [[a], [p]] = await Promise.all([
     query<AtualRow>(
@@ -50,7 +50,7 @@ async function lado(
 async function empresasComMovimento(
   filters: ReturnType<typeof parseFilters>
 ): Promise<number> {
-  const w = buildWhere(filters);
+  const w = await buildWhere(filters);
   const [r] = await query<{ n: number }>(
     `select count(distinct codigoempresa)::int as n
        from (select codigoempresa from lctofisent where ${w.sql}

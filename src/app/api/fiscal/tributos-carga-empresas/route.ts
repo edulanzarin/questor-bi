@@ -6,7 +6,7 @@ import type { TributosCargaEmpresa } from "@/lib/types";
 /** Carga tributária efetiva por empresa: (ICMS+IPI+ST+ISS) ÷ faturamento das saídas. */
 export const GET = apiRoute(async (req) => {
   const filters = parseFilters(req.nextUrl.searchParams);
-  const w = buildWhere({ ...filters, especies: [] }, { alias: "f", incluirCanceladas: true });
+  const w = await buildWhere({ ...filters, especies: [] }, { alias: "f", incluirCanceladas: true });
 
   const rows = await query<{ codigo: number; nome: string; fat: number; trib: number }>(
     `with base as (

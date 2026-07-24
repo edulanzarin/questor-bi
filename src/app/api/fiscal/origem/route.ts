@@ -16,7 +16,7 @@ export const GET = apiRoute(async (req) => {
   const tipo = req.nextUrl.searchParams.get("tipo") === "ent" ? "ent" : "sai";
   const metrica = req.nextUrl.searchParams.get("metrica") === "qtd" ? "qtd" : "valor";
   const tabela = tipo === "ent" ? "lctofisent" : "lctofissai";
-  const w = buildWhere(filters, { alias: "f", incluirCanceladas: true });
+  const w = await buildWhere(filters, { alias: "f", incluirCanceladas: true });
 
   const rows = await query<{ origem: number | null; valor: number; qtd: number }>(
     `select f.origemdado as origem,

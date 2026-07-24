@@ -24,7 +24,7 @@ export async function buscarNotasLista(sp: URLSearchParams): Promise<NotasListaR
   const situacao = sp.get("situacao"); // "canceladas" | "normais" | null (todas)
   const pessoa = Number.parseInt(sp.get("pessoa") ?? "", 10);
 
-  const w = buildWhere(filters, { incluirCanceladas: true, alias: "f" });
+  const w = await buildWhere(filters, { incluirCanceladas: true, alias: "f" });
   const conds = [w.sql];
   const params = [...w.params];
 

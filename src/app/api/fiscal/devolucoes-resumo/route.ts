@@ -10,8 +10,8 @@ import type { DevolucoesResumo, LadoQtdValor } from "@/lib/types";
  */
 export const GET = apiRoute(async (req) => {
   const filters = parseFilters(req.nextUrl.searchParams);
-  const wItem = buildWhere({ ...filters, especies: [] }, { alias: "f", incluirCanceladas: true });
-  const wHead = buildWhere({ ...filters, especies: [] }, { alias: "f" });
+  const wItem = await buildWhere({ ...filters, especies: [] }, { alias: "f", incluirCanceladas: true });
+  const wHead = await buildWhere({ ...filters, especies: [] }, { alias: "f" });
 
   const dev = (lado: "ent" | "sai") =>
     query<LadoQtdValor>(

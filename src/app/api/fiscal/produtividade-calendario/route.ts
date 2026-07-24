@@ -16,7 +16,7 @@ interface CelulaRow {
  */
 export const GET = apiRoute(async (req) => {
   const filters = parseFilters(req.nextUrl.searchParams);
-  const w = buildWhere(filters, { incluirCanceladas: true });
+  const w = await buildWhere(filters, { incluirCanceladas: true });
   const celulas = await query<CelulaRow>(
     `select to_char(datalctofis, 'YYYY-MM-DD') as d, count(*)::int as n
        from (

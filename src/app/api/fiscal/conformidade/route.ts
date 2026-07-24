@@ -37,9 +37,9 @@ interface SitRow {
 /** Resumo de conformidade fiscal das saídas no período. */
 export const GET = apiRoute(async (req) => {
   const filters = parseFilters(req.nextUrl.searchParams);
-  const wNotas = buildWhere(filters, { alias: "f", incluirCanceladas: true });
+  const wNotas = await buildWhere(filters, { alias: "f", incluirCanceladas: true });
   // itens não têm especienf nem cancelada — dropar espécie e não filtrar cancelada
-  const wItens = buildWhere({ ...filters, especies: [] }, { alias: "i", incluirCanceladas: true });
+  const wItens = await buildWhere({ ...filters, especies: [] }, { alias: "i", incluirCanceladas: true });
 
   const [[notas], [totItens], [ncm], situacoes] = await Promise.all([
     query<NotasRow>(

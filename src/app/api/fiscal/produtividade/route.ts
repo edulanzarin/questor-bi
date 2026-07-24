@@ -23,7 +23,7 @@ interface Row {
  */
 export const GET = apiRoute(async (req) => {
   const filters = parseFilters(req.nextUrl.searchParams);
-  const w = buildWhere(filters, { alias: "f", incluirCanceladas: true });
+  const w = await buildWhere(filters, { alias: "f", incluirCanceladas: true });
 
   const rows = await query<Row>(
     `with mov as (

@@ -18,7 +18,7 @@ export const GET = apiRoute(async (req) => {
       ? `to_char(date_trunc('month', datalctofis), 'YYYY-MM-DD')`
       : `to_char(datalctofis, 'YYYY-MM-DD')`;
 
-  const { sql, params } = buildWhere(filters, { incluirCanceladas: true });
+  const { sql, params } = await buildWhere(filters, { incluirCanceladas: true });
   const serie = (tabela: string) =>
     query<BucketRow>(
       `select ${bucketExpr} as bucket, count(*)::int as qtd

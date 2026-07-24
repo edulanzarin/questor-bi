@@ -17,7 +17,7 @@ export const GET = apiRoute(async (req) => {
   const filters = parseFilters(req.nextUrl.searchParams);
   const tipo = req.nextUrl.searchParams.get("tipo") === "ent" ? "ent" : "sai";
   const tabela = tipo === "ent" ? "lctofisent" : "lctofissai";
-  const w = buildWhere(filters, { alias: "f" });
+  const w = await buildWhere(filters, { alias: "f" });
 
   const rows = await query<{ idx: number; qtd: number; valor: number }>(
     `select case

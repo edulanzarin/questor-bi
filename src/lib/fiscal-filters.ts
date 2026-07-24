@@ -1,3 +1,5 @@
+import { getSessaoOpcional, empresasPermitidas } from "./sessao";
+
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /** Teto de período: no máximo 1 ano (evita consultas pesadas nas tabelas gigantes). */
@@ -42,19 +44,35 @@ export function parseFilters(searchParams: URLSearchParams): FiscalFilters {
 }
 
 /**
- * Monta o WHERE compartilhado por todas as consultas fiscais.
+ * Monta o WHERE compartilhado por todas as consultas fiscais/contábeis.
  * Retorna o SQL (sem a palavra WHERE) e os parâmetros posicionais.
+ *
+ * É AQUI que o escopo de empresa do usuário é aplicado — num lugar só, para
+ * nenhuma consulta escapar (doutrina: "nunca confiar na lista de empresas
+ * vinda do cliente; clampar no funil da query"). A sessão é lida do request
+ * (server-only, memoizada), então o call site não precisa passar nada.
  */
-export function buildWhere(
+export async function buildWhere(
   f: FiscalFilters,
   opts: { incluirCanceladas?: boolean; alias?: string } = {}
-): { sql: string; params: unknown[] } {
+): Promise<{ sql: string; params: unknown[] }> {
   const a = opts.alias ? `${opts.alias}.` : "";
   const params: unknown[] = [f.inicio, f.fim];
   const conds = [`${a}datalctofis between $1 and $2`];
 
-  if (f.empresas.length > 0) {
-    params.push(f.empresas);
+  // Escopo de empresa: "todas" não restringe (só o filtro que o cliente pediu);
+  // caso contrário, SEMPRE limita ao permitido — interseção com o pedido, e
+  // lista vazia (any('{}')) não casa nada (usuário sem empresa não vê nada).
+  const sessao = await getSessaoOpcional();
+  const escopo: number[] | "todas" = sessao ? empresasPermitidas(sessao) : [];
+  if (escopo === "todas") {
+    if (f.empresas.length > 0) {
+      params.push(f.empresas);
+      conds.push(`${a}codigoempresa = any($${params.length}::int[])`);
+    }
+  } else {
+    const efetivas = f.empresas.length > 0 ? f.empresas.filter((e) => escopo.includes(e)) : escopo;
+    params.push(efetivas);
     conds.push(`${a}codigoempresa = any($${params.length}::int[])`);
   }
 

@@ -10,7 +10,7 @@ export const GET = apiRoute(async (req) => {
   const metrica = req.nextUrl.searchParams.get("metrica") === "qtd" ? "qtd" : "valor";
   const tabela = tipo === "ent" ? "lctofisent" : "lctofissai";
 
-  const { sql, params } = buildWhere(filters, { alias: "f" });
+  const { sql, params } = await buildWhere(filters, { alias: "f" });
   const rows = await query<TopItem>(
     `select f.codigopessoa as codigo,
             coalesce(max(p.nomepessoa), 'Pessoa ' || f.codigopessoa) as nome,

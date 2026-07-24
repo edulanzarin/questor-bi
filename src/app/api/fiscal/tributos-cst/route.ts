@@ -21,7 +21,7 @@ const CST_PIS: Record<number, string> = {
 /** Distribuição das saídas por CST de PIS/COFINS (tributado × desonerado). */
 export const GET = apiRoute(async (req) => {
   const filters = parseFilters(req.nextUrl.searchParams);
-  const w = buildWhere({ ...filters, especies: [] }, { alias: "f", incluirCanceladas: true });
+  const w = await buildWhere({ ...filters, especies: [] }, { alias: "f", incluirCanceladas: true });
 
   const rows = await query<{ cst: number | null; itens: number; pis: number }>(
     `select f.cdsituatributpis as cst, count(*)::int as itens,

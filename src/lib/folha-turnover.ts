@@ -1,4 +1,5 @@
 import type { FiscalFilters } from "./fiscal-filters";
+import { getSessaoOpcional, empresasPermitidas } from "./sessao";
 
 /**
  * A base da rotatividade: a view `funcionario` (ficha atual por contrato) já traz
@@ -33,14 +34,25 @@ export function parseFolhaFiltrosSel(sp: URLSearchParams): FolhaFiltrosSel {
  * (filtros), não passa data: $2+ são só os filtros, e o Postgres não reclama de
  * parâmetro de data sem uso.
  */
-export function construirBase(
+export async function construirBase(
   f: FiscalFilters,
   sel: FolhaFiltrosSel,
   incluirPeriodo = true
-): { cte: string; params: unknown[] } {
+): Promise<{ cte: string; params: unknown[] }> {
+  // Escopo de empresa aplicado aqui (mesmo funil da Folha que o buildWhere é do
+  // Fiscal/Contábil): "todas" usa o que o cliente pediu; senão limita ao
+  // permitido (interseção), e vazio não casa nenhuma empresa.
+  const sessao = await getSessaoOpcional();
+  const escopo: number[] | "todas" = sessao ? empresasPermitidas(sessao) : [];
+  const empresas =
+    escopo === "todas"
+      ? f.empresas
+      : f.empresas.length > 0
+        ? f.empresas.filter((e) => escopo.includes(e))
+        : escopo;
   const params: unknown[] = incluirPeriodo
-    ? [f.empresas, f.inicio, f.fim]
-    : [f.empresas];
+    ? [empresas, f.inicio, f.fim]
+    : [empresas];
   const conds: string[] = [];
   const add = (arr: string[], col: string) => {
     if (arr.length > 0) {

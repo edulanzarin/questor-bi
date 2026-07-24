@@ -11,7 +11,7 @@ export const GET = apiRoute(async (req) => {
   const ordem = req.nextUrl.searchParams.get("metrica") === "qtd" ? "itens" : "valor";
   const tabela = tipo === "ent" ? "lctofisentproduto" : "lctofissaiproduto";
 
-  const { sql, params } = buildWhere(
+  const { sql, params } = await buildWhere(
     { ...filters, especies: [] },
     { alias: "f", incluirCanceladas: true }
   );

@@ -17,7 +17,7 @@ export const GET = apiRoute(async (req) => {
 
   // As tabelas de item não têm 'cancelada'; o filtro replica só datas/empresas/espécie
   // não se aplica aqui (espécie é do cabeçalho), então usamos apenas datas e empresas.
-  const { sql, params } = buildWhere(
+  const { sql, params } = await buildWhere(
     { ...filters, especies: [] },
     { alias: "f", incluirCanceladas: true }
   );

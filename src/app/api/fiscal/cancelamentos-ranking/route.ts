@@ -12,7 +12,7 @@ export const GET = apiRoute(async (req) => {
   const tipo = req.nextUrl.searchParams.get("tipo") === "ent" ? "ent" : "sai";
   const por = req.nextUrl.searchParams.get("por") === "especie" ? "especie" : "empresa";
   const tabela = tipo === "ent" ? "lctofisent" : "lctofissai";
-  const w = buildWhere(filters, { alias: "f", incluirCanceladas: true });
+  const w = await buildWhere(filters, { alias: "f", incluirCanceladas: true });
 
   const sql =
     por === "empresa"

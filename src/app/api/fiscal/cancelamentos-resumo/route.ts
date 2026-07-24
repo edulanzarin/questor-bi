@@ -6,7 +6,7 @@ import type { CancelamentosResumo } from "@/lib/types";
 /** Total e taxa de cancelamento por lado (cabeçalho, `cancelada='1'`). */
 export const GET = apiRoute(async (req) => {
   const filters = parseFilters(req.nextUrl.searchParams);
-  const w = buildWhere(filters, { alias: "f", incluirCanceladas: true });
+  const w = await buildWhere(filters, { alias: "f", incluirCanceladas: true });
 
   const lado = (t: "ent" | "sai") =>
     query<{ canceladas: number; total: number }>(

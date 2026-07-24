@@ -1,16 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { FilterError } from "./fiscal-filters";
 import { AppDbError } from "./app-db";
-import { podeAcessar } from "./sessao";
+import { getSessaoOpcional, nivelSecao, satisfaz, podeAcessarModuloSync } from "./sessao";
+import { secoesDoEndpoint } from "./api-secoes";
 import type { ModuloId } from "./modulos";
 
 type Handler = (req: NextRequest) => Promise<unknown>;
 
 /**
- * A rota declara o módulo pelo próprio caminho: /api/fiscal/... e
- * /api/contabil/... Assim o gate mora num lugar só e nenhuma rota nasce
- * desprotegida — não há como esquecer de checar. (/api/empresas e afins não
- * casam: são compartilhados, liberados a qualquer sessão por enquanto.)
+ * A rota declara o módulo pelo próprio caminho: /api/fiscal/..., /api/contabil/...
+ * e /api/folha/... Assim o gate mora num lugar só e nenhuma rota nasce
+ * desprotegida. (/api/empresas é compartilhado — basta estar logado; /api/admin
+ * exige admin.)
  */
 function moduloDaRota(pathname: string): ModuloId | undefined {
   const m = pathname.match(/^\/api\/(fiscal|contabil|folha)(?:\/|$)/);
@@ -20,18 +21,40 @@ function moduloDaRota(pathname: string): ModuloId | undefined {
 export function apiRoute(handler: Handler) {
   return async (req: NextRequest) => {
     try {
-      // Permissão se valida no servidor, sempre. Ler exige view; escrever
-      // (POST/PUT/DELETE/PATCH) exige edit.
-      const modulo = moduloDaRota(req.nextUrl.pathname);
+      const { pathname } = req.nextUrl;
+
+      // 1) Autenticação: toda rota do app exige sessão válida.
+      const sessao = await getSessaoOpcional();
+      if (!sessao) {
+        return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+      }
+
+      // 2) Área administrativa: só admin.
+      if (pathname.startsWith("/api/admin/")) {
+        if (!sessao.usuario.admin) {
+          return NextResponse.json({ error: "Acesso restrito" }, { status: 403 });
+        }
+      }
+
+      // 3) Autorização por SEÇÃO. Ler exige view; escrever exige edit. A seção
+      //    vem do registro único (endpoint -> seções donas); libera se ALGUMA
+      //    seção dona satisfaz. Endpoint não mapeado cai no gate de módulo.
+      const modulo = moduloDaRota(pathname);
       if (modulo) {
         const nivel = req.method === "GET" ? "view" : "edit";
-        if (!(await podeAcessar(modulo, nivel))) {
+        const resto = pathname.slice(`/api/${modulo}/`.length);
+        const secoes = secoesDoEndpoint(modulo, resto);
+        const ok = secoes
+          ? secoes.some((s) => satisfaz(nivelSecao(sessao, modulo, s), nivel))
+          : podeAcessarModuloSync(sessao, modulo, nivel);
+        if (!ok) {
           return NextResponse.json(
-            { error: "Você não tem acesso a este módulo" },
+            { error: "Você não tem acesso a esta função" },
             { status: 403 }
           );
         }
       }
+
       const data = await handler(req);
       return NextResponse.json(data);
     } catch (err) {

@@ -22,7 +22,7 @@ export const GET = apiRoute(async (req) => {
       ? `to_char(date_trunc('month', f.datalctofis), 'YYYY-MM-DD')`
       : `to_char(f.datalctofis, 'YYYY-MM-DD')`;
 
-  const w = buildWhere(
+  const w = await buildWhere(
     { ...filters, especies: [] },
     { alias: "f", incluirCanceladas: true }
   );

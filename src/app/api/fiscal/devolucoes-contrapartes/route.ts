@@ -10,7 +10,7 @@ export const GET = apiRoute(async (req) => {
   const metrica = req.nextUrl.searchParams.get("metrica") === "qtd" ? "qtd" : "valor";
   const cabecalho = tipo === "ent" ? "lctofisent" : "lctofissai";
   const chave = tipo === "ent" ? "chavelctofisent" : "chavelctofissai";
-  const w = buildWhere({ ...filters, especies: [] }, { alias: "f", incluirCanceladas: true });
+  const w = await buildWhere({ ...filters, especies: [] }, { alias: "f", incluirCanceladas: true });
 
   const rows = await query<TopItem>(
     `select p.codigopessoa as codigo,

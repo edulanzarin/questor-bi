@@ -20,8 +20,8 @@ interface ItensEmpRow {
 /** Ranking de empresas por pendências de conformidade (saídas). */
 export const GET = apiRoute(async (req) => {
   const filters = parseFilters(req.nextUrl.searchParams);
-  const wNotas = buildWhere(filters, { alias: "f", incluirCanceladas: true });
-  const wItens = buildWhere({ ...filters, especies: [] }, { alias: "i", incluirCanceladas: true });
+  const wNotas = await buildWhere(filters, { alias: "f", incluirCanceladas: true });
+  const wItens = await buildWhere({ ...filters, especies: [] }, { alias: "i", incluirCanceladas: true });
 
   const [notasEmp, itensEmp] = await Promise.all([
     query<NotasEmpRow>(

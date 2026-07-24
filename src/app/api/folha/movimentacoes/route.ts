@@ -27,7 +27,7 @@ export const GET = apiRoute(async (req) => {
     throw new FilterError("Selecione a empresa");
   }
   const sel = parseFolhaFiltrosSel(req.nextUrl.searchParams);
-  const { cte, params } = construirBase(f, sel);
+  const { cte, params } = await construirBase(f, sel);
 
   // escopo=efetivo → todos os ativos no fim do período; senão, quem se moveu.
   const efetivo = req.nextUrl.searchParams.get("escopo") === "efetivo";

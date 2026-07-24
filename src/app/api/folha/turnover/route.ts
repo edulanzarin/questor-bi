@@ -82,7 +82,7 @@ export const GET = apiRoute(async (req) => {
     throw new FilterError("Selecione a empresa para calcular a rotatividade");
   }
   const sel = parseFolhaFiltrosSel(req.nextUrl.searchParams);
-  const { cte, params } = construirBase(f, sel);
+  const { cte, params } = await construirBase(f, sel);
 
   // Período anterior (mesma duração) para os deltas — nos mesmos parâmetros.
   const prev = periodoAnterior(f);

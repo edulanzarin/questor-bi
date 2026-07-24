@@ -21,7 +21,7 @@ export const GET = apiRoute(async (req) => {
     throw new FilterError("Selecione a empresa");
   }
   // Sem filtros avançados (fbase == base) e sem período (não usa datas).
-  const { cte, params } = construirBase(
+  const { cte, params } = await construirBase(
     f,
     { estabs: [], setores: [], cargos: [], vinculos: [], horarios: [] },
     false

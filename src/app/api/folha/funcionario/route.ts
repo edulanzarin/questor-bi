@@ -1,6 +1,7 @@
 import { query } from "@/lib/db";
 import { apiRoute } from "@/lib/api-route";
 import { FilterError } from "@/lib/fiscal-filters";
+import { getSessao, podeVerEmpresa } from "@/lib/sessao";
 import { rotuloEscolaridade } from "@/lib/folha-turnover";
 import type { FolhaFicha } from "@/lib/types";
 
@@ -35,6 +36,12 @@ export const GET = apiRoute(async (req) => {
   const contrato = Number(req.nextUrl.searchParams.get("contrato"));
   if (!Number.isInteger(empresa) || !Number.isInteger(contrato)) {
     throw new FilterError("Informe empresa e contrato");
+  }
+
+  // Escopo de empresa: sem acesso à empresa, a ficha nem é buscada (não vaza
+  // nem a existência do contrato).
+  if (!podeVerEmpresa(await getSessao(), empresa)) {
+    throw new FilterError("Colaborador não encontrado");
   }
 
   const [r] = await query<Row>(

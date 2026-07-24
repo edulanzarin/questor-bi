@@ -14,7 +14,7 @@ export const GET = apiRoute(async (req) => {
   if (tipo !== "ent" && tipo !== "sai") throw new FilterError("tipo deve ser ent ou sai");
   const tabela = tipo === "ent" ? "lctofisent" : "lctofissai";
 
-  const { sql, params } = buildWhere(filters, { alias: "f" });
+  const { sql, params } = await buildWhere(filters, { alias: "f" });
   const rows = await query<EstadoResumo>(
     `select coalesce(p.siglaestado, '—') as uf,
             e.nomeestado as nome,

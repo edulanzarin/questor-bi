@@ -19,7 +19,7 @@ export async function buscarContrapartes(sp: URLSearchParams): Promise<Contrapar
   const page = Math.max(1, Number.parseInt(sp.get("page") ?? "1", 10) || 1);
   const tabela = tipo === "ent" ? "lctofisent" : "lctofissai";
 
-  const w = buildWhere(filters, { alias: "f", incluirCanceladas: true });
+  const w = await buildWhere(filters, { alias: "f", incluirCanceladas: true });
   const conds = [w.sql];
   const params = [...w.params];
   if (q) {

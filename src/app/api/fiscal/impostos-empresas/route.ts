@@ -7,7 +7,7 @@ import type { TopItem } from "@/lib/types";
 export const GET = apiRoute(async (req) => {
   const filters = parseFilters(req.nextUrl.searchParams);
   const tipo = req.nextUrl.searchParams.get("tipo") === "ent" ? "ent" : "sai";
-  const w = buildWhere({ ...filters, especies: [] }, { alias: "f", incluirCanceladas: true });
+  const w = await buildWhere({ ...filters, especies: [] }, { alias: "f", incluirCanceladas: true });
 
   const rows = await query<TopItem>(
     `with topn as (

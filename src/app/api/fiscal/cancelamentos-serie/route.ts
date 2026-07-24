@@ -14,7 +14,7 @@ export const GET = apiRoute(async (req) => {
     granularidade === "mes"
       ? `to_char(date_trunc('month', f.datalctofis), 'YYYY-MM-DD')`
       : `to_char(f.datalctofis, 'YYYY-MM-DD')`;
-  const w = buildWhere(filters, { alias: "f", incluirCanceladas: true });
+  const w = await buildWhere(filters, { alias: "f", incluirCanceladas: true });
 
   const pontos = await query<{ bucket: string; valor: number }>(
     `select ${bucketExpr} as bucket, count(*)::int as valor

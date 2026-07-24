@@ -6,7 +6,7 @@ import type { TopItem } from "@/lib/types";
 /** DIFAL + FCP a recolher por UF de destino (só saídas interestaduais). */
 export const GET = apiRoute(async (req) => {
   const filters = parseFilters(req.nextUrl.searchParams);
-  const w = buildWhere({ ...filters, especies: [] }, { alias: "f", incluirCanceladas: true });
+  const w = await buildWhere({ ...filters, especies: [] }, { alias: "f", incluirCanceladas: true });
 
   const rows = await query<{ uf: string; nome: string | null; valor: number; qtd: number }>(
     `select f.siglaestadodest as uf, e.nomeestado as nome,

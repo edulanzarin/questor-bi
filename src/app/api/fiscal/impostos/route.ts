@@ -18,7 +18,7 @@ export const GET = apiRoute(async (req) => {
   const sufixo = tipo === "ent" ? "ent" : "sai";
 
   const semEspecie = { ...filters, especies: [] };
-  const w = buildWhere(semEspecie, { alias: "f", incluirCanceladas: true });
+  const w = await buildWhere(semEspecie, { alias: "f", incluirCanceladas: true });
 
   // DIFAL/FCP/FUNRURAL só existem nas saídas
   const difalQ =

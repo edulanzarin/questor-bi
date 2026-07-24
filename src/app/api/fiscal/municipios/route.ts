@@ -9,7 +9,7 @@ export const GET = apiRoute(async (req) => {
   const tipo = req.nextUrl.searchParams.get("tipo") === "ent" ? "ent" : "sai";
   const metrica = req.nextUrl.searchParams.get("metrica") === "qtd" ? "qtd" : "valor";
   const tabela = tipo === "ent" ? "lctofisent" : "lctofissai";
-  const w = buildWhere(filters, { alias: "f" });
+  const w = await buildWhere(filters, { alias: "f" });
 
   const rows = await query<TopItem>(
     `select coalesce(m.nomemunic, 'Sem município')::text as nome,

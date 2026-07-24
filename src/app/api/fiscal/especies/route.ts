@@ -13,7 +13,7 @@ const MAX_FATIAS = 5;
 
 export const GET = apiRoute(async (req) => {
   const filters = parseFilters(req.nextUrl.searchParams);
-  const { sql, params } = buildWhere(filters);
+  const { sql, params } = await buildWhere(filters);
 
   const porTabela = (tabela: string) =>
     query<EspecieRow>(
