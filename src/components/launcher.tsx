@@ -1,13 +1,16 @@
 import Link from "next/link";
 import Image from "next/image";
+import { LogOut, ShieldCheck } from "lucide-react";
 import { MODULOS, type ModuloId } from "@/lib/modulos";
+import { sair } from "@/app/login/actions";
 import { ThemeToggle } from "./theme-toggle";
 
 /**
  * Primeira tela depois do login: escolher o módulo. É também a primeira porta
  * de permissão — só entram na grade os módulos que a sessão libera (`acessiveis`
  * vem do perfil no servidor). Módulo ainda por vir aparece como "em breve", pra
- * sinalizar o roteiro sem prometer o que não abre.
+ * sinalizar o roteiro sem prometer o que não abre. Admin ganha um card extra de
+ * administração; os demais nem o veem.
  *
  * Card icônico: o ícone grande é o foco, o título vem abaixo. A descrição não
  * ocupa espaço — fica só no tooltip (title), pra tela respirar.
@@ -15,9 +18,11 @@ import { ThemeToggle } from "./theme-toggle";
 export function Launcher({
   usuario,
   acessiveis,
+  admin,
 }: {
   usuario: string;
   acessiveis: ModuloId[];
+  admin: boolean;
 }) {
   const acesso = new Set(acessiveis);
   // Ativo e liberado vira card clicável; inativo vira "em breve"; ativo sem
@@ -31,7 +36,18 @@ export function Launcher({
           <Image src="/logo.png" alt="Questor Hub" width={36} height={36} className="size-9" />
           <p className="text-sm font-semibold tracking-tight">Questor Hub</p>
         </div>
-        <ThemeToggle label={false} />
+        <div className="flex items-center gap-1.5">
+          <ThemeToggle label={false} />
+          <form action={sair}>
+            <button
+              type="submit"
+              title="Sair"
+              className="flex size-9 items-center justify-center rounded-lg border border-hairline text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink"
+            >
+              <LogOut className="size-4" />
+            </button>
+          </form>
+        </div>
       </header>
 
       <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-6 pb-16">
@@ -83,6 +99,17 @@ export function Launcher({
               </Link>
             );
           })}
+
+          {admin && (
+            <Link
+              href="/admin"
+              title="Usuários, permissões e grupos de empresa"
+              className="card anim-scale-in group flex flex-col items-center gap-4 px-6 py-8 text-center transition-colors hover:border-ent/40 hover:bg-surface-2"
+            >
+              <ShieldCheck className="size-16 text-muted transition-colors group-hover:text-ent" strokeWidth={1.25} />
+              <p className="text-base font-semibold">Administração</p>
+            </Link>
+          )}
         </div>
       </main>
     </div>

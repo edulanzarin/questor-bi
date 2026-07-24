@@ -1,9 +1,9 @@
-"use client";
+import { assertSecao } from "@/lib/sessao";
+import Conteudo from "./conteudo";
 
-import { NotasTabela } from "@/components/notas-tabela";
-import { useFiltros } from "@/hooks/use-filters";
-
-export default function DadosPage() {
-  const { filtros, qs } = useFiltros();
-  return <NotasTabela qs={qs} enabled mostraEmpresa={filtros.empresas.length !== 1} />;
+// Guard real da seção: navegação client-side não re-roda o layout, então a
+// tranca por seção mora aqui (server). Nega redirecionando para o launcher.
+export default async function Page() {
+  await assertSecao("fiscal", "dados");
+  return <Conteudo />;
 }

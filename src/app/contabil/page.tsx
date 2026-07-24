@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { getSessao, primeiraSecaoPath } from "@/lib/sessao";
 
 export default async function ContabilIndex({
   searchParams,
@@ -11,5 +12,6 @@ export default async function ContabilIndex({
     if (typeof v === "string") usp.set(k, v);
   }
   const qs = usp.toString();
-  redirect(`/contabil/conferencia${qs ? `?${qs}` : ""}`);
+  const home = primeiraSecaoPath(await getSessao(), "contabil") ?? "/";
+  redirect(`${home}${qs ? `?${qs}` : ""}`);
 }

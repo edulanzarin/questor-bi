@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { getSessao, primeiraSecaoPath } from "@/lib/sessao";
 
 export default async function FiscalIndex({
   searchParams,
@@ -11,5 +12,6 @@ export default async function FiscalIndex({
     if (typeof v === "string") usp.set(k, v);
   }
   const qs = usp.toString();
-  redirect(`/fiscal/painel${qs ? `?${qs}` : ""}`);
+  const home = primeiraSecaoPath(await getSessao(), "fiscal") ?? "/";
+  redirect(`${home}${qs ? `?${qs}` : ""}`);
 }

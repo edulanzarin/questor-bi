@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { ModuloSidebar } from "@/components/sidebar";
-import { assertAcesso } from "@/lib/sessao";
+import { assertAcesso, secoesVisiveis } from "@/lib/sessao";
 import { ContabilShell } from "./shell";
 
 function Fallback() {
@@ -19,11 +19,11 @@ function Fallback() {
 
 export default async function ContabilLayout({ children }: { children: React.ReactNode }) {
   // Gate otimista do módulo (a tranca de verdade é o apiRoute). Nega redirecionando.
-  await assertAcesso("contabil");
+  const sessao = await assertAcesso("contabil");
   return (
     <div className="flex min-h-screen">
       <Suspense fallback={<aside className="w-60 shrink-0 border-r border-hairline bg-surface" />}>
-        <ModuloSidebar moduloId="contabil" />
+        <ModuloSidebar moduloId="contabil" visiveis={[...secoesVisiveis(sessao, "contabil")]} usuario={sessao.usuario.nome} />
       </Suspense>
       <main className="min-w-0 flex-1">
         <Suspense fallback={<Fallback />}>

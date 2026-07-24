@@ -3,9 +3,10 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useSearchParams } from "next/navigation";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, LogOut } from "lucide-react";
 import clsx from "clsx";
 import { getModulo, secoesDoModulo, type ModuloId } from "@/lib/modulos";
+import { sair } from "@/app/login/actions";
 import { ThemeToggle } from "./theme-toggle";
 
 /**
@@ -14,14 +15,24 @@ import { ThemeToggle } from "./theme-toggle";
  * "Trocar módulo", que volta ao launcher. Escala para muitos módulos sem virar
  * paredão de links, porque cada módulo tem sua própria sidebar enxuta.
  */
-export function ModuloSidebar({ moduloId }: { moduloId: ModuloId }) {
+export function ModuloSidebar({
+  moduloId,
+  visiveis,
+  usuario,
+}: {
+  moduloId: ModuloId;
+  /** Ids das seções que a sessão pode ver. Ausente = todas (retrocompat). */
+  visiveis?: string[];
+  usuario?: string;
+}) {
   const pathname = usePathname();
   const sp = useSearchParams();
   const qs = sp.toString();
   const suffix = qs ? `?${qs}` : "";
 
   const modulo = getModulo(moduloId);
-  const secoes = secoesDoModulo(moduloId);
+  const permitidas = visiveis ? new Set(visiveis) : null;
+  const secoes = secoesDoModulo(moduloId).filter((s) => !permitidas || permitidas.has(s.id));
   if (!modulo) return null;
 
   return (
@@ -64,7 +75,23 @@ export function ModuloSidebar({ moduloId }: { moduloId: ModuloId }) {
         })}
       </nav>
 
-      <ThemeToggle className="mt-2" />
+      <div className="mt-2 flex flex-col gap-0.5 border-t border-hairline pt-2">
+        {usuario && (
+          <p className="truncate px-3 pb-0.5 text-[11px] text-muted" title={usuario}>
+            {usuario}
+          </p>
+        )}
+        <ThemeToggle />
+        <form action={sair}>
+          <button
+            type="submit"
+            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink"
+          >
+            <LogOut className="size-4 shrink-0" />
+            Sair
+          </button>
+        </form>
+      </div>
     </aside>
   );
 }

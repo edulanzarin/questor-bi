@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { getSessao, primeiraSecaoPath } from "@/lib/sessao";
 
 export default async function FolhaIndex({
   searchParams,
@@ -11,5 +12,6 @@ export default async function FolhaIndex({
     if (typeof v === "string") usp.set(k, v);
   }
   const qs = usp.toString();
-  redirect(`/folha/rotatividade${qs ? `?${qs}` : ""}`);
+  const home = primeiraSecaoPath(await getSessao(), "folha") ?? "/";
+  redirect(`${home}${qs ? `?${qs}` : ""}`);
 }
