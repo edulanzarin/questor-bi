@@ -7,8 +7,10 @@ import { COOKIE_SESSAO } from "@/lib/cookie-nome";
  * A tranca de verdade é `getSessao` (páginas/layouts) e `apiRoute` (rotas). As
  * rotas /api ficam de fora: quem não tem sessão recebe 401 em JSON, não um
  * redirect para uma página de login.
+ *
+ * `proxy` é a convenção nova do Next 16 (o antigo `middleware` foi renomeado).
  */
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   if (req.cookies.get(COOKIE_SESSAO)) return NextResponse.next();
   const url = req.nextUrl.clone();
   url.pathname = "/login";
