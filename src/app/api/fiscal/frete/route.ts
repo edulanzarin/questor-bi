@@ -1,7 +1,6 @@
 import { query } from "@/lib/db";
 import { apiRoute } from "@/lib/api-route";
 import { parseFilters, buildWhere } from "@/lib/fiscal-filters";
-import type { TopItem } from "@/lib/types";
 
 const MODALIDADE: Record<number, string> = {
   0: "Por conta do emitente (CIF)",

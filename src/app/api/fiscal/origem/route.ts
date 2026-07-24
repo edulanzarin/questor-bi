@@ -1,7 +1,6 @@
 import { query } from "@/lib/db";
 import { apiRoute } from "@/lib/api-route";
 import { parseFilters, buildWhere } from "@/lib/fiscal-filters";
-import type { TopItem } from "@/lib/types";
 
 // Rótulos best-effort dos códigos de origem do dado no Questor.
 const ORIGEM: Record<number, string> = {

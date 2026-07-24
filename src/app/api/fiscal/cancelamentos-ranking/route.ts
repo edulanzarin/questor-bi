@@ -1,7 +1,6 @@
 import { query } from "@/lib/db";
 import { apiRoute } from "@/lib/api-route";
 import { parseFilters, buildWhere } from "@/lib/fiscal-filters";
-import type { TopItem } from "@/lib/types";
 
 /**
  * Ranking de canceladas por empresa (por=empresa) ou por espécie (por=especie).
