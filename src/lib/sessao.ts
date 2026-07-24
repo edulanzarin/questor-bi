@@ -23,7 +23,7 @@ import { MODULOS, secoesDoModulo, type ModuloId } from "./modulos";
 export type Nivel = "view" | "edit";
 
 export interface Sessao {
-  usuario: { id: string; nome: string; email: string; admin: boolean };
+  usuario: { id: string; nome: string; email: string; admin: boolean; temAvatar: boolean };
   /** Nível por seção. Chave "modulo/secao". Ausente = sem acesso. */
   secoes: Record<string, Nivel>;
   /**
@@ -49,8 +49,10 @@ export const getSessaoOpcional = cache(async (): Promise<Sessao | null> => {
     email: string;
     admin: boolean;
     todas_empresas: boolean;
+    tem_avatar: boolean;
   }>(
-    `select u.id, u.nome, u.email, u.admin, u.todas_empresas
+    `select u.id, u.nome, u.email, u.admin, u.todas_empresas,
+            exists (select 1 from usuario_avatar a where a.usuario_id = u.id) as tem_avatar
        from sessao s
        join usuario u on u.id = s.usuario_id
       where s.token = $1 and s.expira_em > now() and u.ativo`,
@@ -80,7 +82,7 @@ export const getSessaoOpcional = cache(async (): Promise<Sessao | null> => {
   }
 
   return {
-    usuario: { id: u.id, nome: u.nome, email: u.email, admin: u.admin },
+    usuario: { id: u.id, nome: u.nome, email: u.email, admin: u.admin, temAvatar: u.tem_avatar },
     secoes,
     empresas: { todas: u.todas_empresas, permitidas },
   };

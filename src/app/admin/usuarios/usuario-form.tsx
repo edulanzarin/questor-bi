@@ -1,6 +1,7 @@
 import { MODULOS, secoesDoModulo } from "@/lib/modulos";
 import { salvarUsuario, excluirUsuario } from "../actions";
 import type { UsuarioDetalhe, GrupoResumo, EmpresaOpcao } from "../dados";
+import { AvatarCampo } from "./avatar-campo";
 
 const input =
   "h-10 rounded-lg border border-hairline bg-surface px-3 text-sm text-ink outline-none placeholder:text-muted focus:border-ent/50";
@@ -24,8 +25,15 @@ export function UsuarioForm({
   const modulos = MODULOS.filter((m) => m.ativo);
 
   return (
-    <form action={salvarUsuario} className="flex flex-col gap-6">
+    <form action={salvarUsuario} encType="multipart/form-data" className="flex flex-col gap-6">
       {usuario && <input type="hidden" name="id" value={usuario.id} />}
+
+      <AvatarCampo
+        id={usuario?.id ?? "novo"}
+        nome={usuario?.nome ?? ""}
+        temFoto={usuario ? usuario.avatarVersao != null : false}
+        versao={usuario?.avatarVersao ?? null}
+      />
 
       <section className="grid gap-4 sm:grid-cols-2">
         <label className="flex flex-col gap-1.5">
@@ -42,7 +50,19 @@ export function UsuarioForm({
             className={input}
           />
         </label>
-        <label className="flex flex-col gap-1.5 sm:col-span-2">
+        <label className="flex flex-col gap-1.5">
+          <span className="text-xs font-medium text-ink-2">Cargo</span>
+          <input name="cargo" defaultValue={usuario?.cargo ?? ""} className={input} placeholder="Ex.: Analista Fiscal" />
+        </label>
+        <label className="flex flex-col gap-1.5">
+          <span className="text-xs font-medium text-ink-2">Setor</span>
+          <input name="setor" defaultValue={usuario?.setor ?? ""} className={input} placeholder="Ex.: Fiscal" />
+        </label>
+        <label className="flex flex-col gap-1.5">
+          <span className="text-xs font-medium text-ink-2">Telefone</span>
+          <input name="telefone" defaultValue={usuario?.telefone ?? ""} className={input} placeholder="(00) 00000-0000" />
+        </label>
+        <label className="flex flex-col gap-1.5">
           <span className="text-xs font-medium text-ink-2">
             Senha {usuario && <span className="text-muted">(deixe em branco para manter)</span>}
           </span>

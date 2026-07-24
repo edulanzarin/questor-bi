@@ -23,7 +23,7 @@ export default async function FolhaLayout({ children }: { children: React.ReactN
   return (
     <div className="flex min-h-screen">
       <Suspense fallback={<aside className="w-60 shrink-0 border-r border-hairline bg-surface" />}>
-        <ModuloSidebar moduloId="folha" visiveis={[...secoesVisiveis(sessao, "folha")]} usuario={sessao.usuario.nome} />
+        <ModuloSidebar moduloId="folha" visiveis={[...secoesVisiveis(sessao, "folha")]} usuario={{ id: sessao.usuario.id, nome: sessao.usuario.nome, temFoto: sessao.usuario.temAvatar }} />
       </Suspense>
       <main className="min-w-0 flex-1">
         <Suspense fallback={<Fallback />}>

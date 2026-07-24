@@ -40,12 +40,30 @@ export async function salvarUsuario(formData: FormData): Promise<void> {
   const nome = String(formData.get("nome") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim();
   const senha = String(formData.get("senha") ?? "");
+  const limpo = (v: FormDataEntryValue | null) => {
+    const s = String(v ?? "").trim();
+    return s || null;
+  };
+  const cargo = limpo(formData.get("cargo"));
+  const setor = limpo(formData.get("setor"));
+  const telefone = limpo(formData.get("telefone"));
   const ativo = formData.get("ativo") === "on";
   const admin = formData.get("admin") === "on";
   const todasEmpresas = admin || formData.get("todas_empresas") === "on";
 
   if (!nome || !email) throw new Error("Nome e email são obrigatórios");
   if (!id && !senha) throw new Error("Defina uma senha para o novo usuário");
+
+  // Foto de perfil: arquivo novo (substitui) ou pedido de remoção. Valida tipo e
+  // tamanho no servidor — nunca confiar no accept do input.
+  const removerFoto = formData.get("remover_foto") === "on";
+  const arquivo = formData.get("avatar");
+  let avatar: { mime: string; bytes: Buffer } | null = null;
+  if (arquivo instanceof File && arquivo.size > 0) {
+    if (!arquivo.type.startsWith("image/")) throw new Error("A foto precisa ser uma imagem");
+    if (arquivo.size > 2 * 1024 * 1024) throw new Error("A foto deve ter no máximo 2 MB");
+    avatar = { mime: arquivo.type, bytes: Buffer.from(await arquivo.arrayBuffer()) };
+  }
 
   // Perfil por seção: chaves "sec:<modulo>:<secao>" com valor view|edit (none
   // = ausente). Só as chaves válidas entram.
@@ -68,18 +86,35 @@ export async function salvarUsuario(formData: FormData): Promise<void> {
     let usuarioId = id;
     if (id) {
       await q(
-        `update usuario set nome = $2, email = $3, ativo = $4, admin = $5, todas_empresas = $6
-           ${senhaHash ? ", senha_hash = $7" : ""}
+        `update usuario set nome = $2, email = $3, cargo = $4, setor = $5, telefone = $6,
+                ativo = $7, admin = $8, todas_empresas = $9
+           ${senhaHash ? ", senha_hash = $10" : ""}
          where id = $1`,
-        senhaHash ? [id, nome, email, ativo, admin, todasEmpresas, senhaHash] : [id, nome, email, ativo, admin, todasEmpresas]
+        senhaHash
+          ? [id, nome, email, cargo, setor, telefone, ativo, admin, todasEmpresas, senhaHash]
+          : [id, nome, email, cargo, setor, telefone, ativo, admin, todasEmpresas]
       );
     } else {
       const { rows } = await q(
-        `insert into usuario (nome, email, senha_hash, ativo, admin, todas_empresas)
-         values ($1, $2, $3, $4, $5, $6) returning id`,
-        [nome, email, senhaHash, ativo, admin, todasEmpresas]
+        `insert into usuario (nome, email, cargo, setor, telefone, senha_hash, ativo, admin, todas_empresas)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9) returning id`,
+        [nome, email, cargo, setor, telefone, senhaHash, ativo, admin, todasEmpresas]
       );
       usuarioId = rows[0].id as string;
+    }
+
+    // Foto: remoção explícita ou upsert do arquivo novo (mantém a atual se nada
+    // veio no form).
+    if (removerFoto) {
+      await q(`delete from usuario_avatar where usuario_id = $1`, [usuarioId]);
+    } else if (avatar) {
+      await q(
+        `insert into usuario_avatar (usuario_id, mime, bytes, atualizado_em)
+         values ($1, $2, $3, now())
+         on conflict (usuario_id) do update
+           set mime = excluded.mime, bytes = excluded.bytes, atualizado_em = now()`,
+        [usuarioId, avatar.mime, avatar.bytes]
+      );
     }
 
     // Perfil, grupos e empresas: recria do zero (o form é a verdade completa).

@@ -4,6 +4,7 @@ import { LogOut, ShieldCheck } from "lucide-react";
 import { MODULOS, type ModuloId } from "@/lib/modulos";
 import { sair } from "@/app/login/actions";
 import { ThemeToggle } from "./theme-toggle";
+import { Avatar } from "./avatar";
 
 /**
  * Primeira tela depois do login: escolher o módulo. É também a primeira porta
@@ -17,10 +18,14 @@ import { ThemeToggle } from "./theme-toggle";
  */
 export function Launcher({
   usuario,
+  usuarioId,
+  usuarioTemFoto,
   acessiveis,
   admin,
 }: {
   usuario: string;
+  usuarioId: string;
+  usuarioTemFoto: boolean;
   acessiveis: ModuloId[];
   admin: boolean;
 }) {
@@ -51,8 +56,14 @@ export function Launcher({
       </header>
 
       <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-6 pb-16">
-        <p className="text-sm text-muted">Bem-vindo, {usuario}</p>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight">Escolha um módulo</h1>
+        <div className="flex items-center gap-3">
+          <Avatar id={usuarioId} nome={usuario} temFoto={usuarioTemFoto} size={44} />
+          <div>
+            <p className="text-sm text-muted">Bem-vindo,</p>
+            <p className="text-sm font-semibold">{usuario}</p>
+          </div>
+        </div>
+        <h1 className="mt-6 text-2xl font-semibold tracking-tight">Escolha um módulo</h1>
 
         <div className="mt-8 grid gap-5 sm:grid-cols-2">
           {visiveis.map((m) => {

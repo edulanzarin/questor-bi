@@ -7,6 +7,8 @@ export default async function Home() {
   return (
     <Launcher
       usuario={sessao.usuario.nome}
+      usuarioId={sessao.usuario.id}
+      usuarioTemFoto={sessao.usuario.temAvatar}
       acessiveis={modulosAcessiveis(sessao)}
       admin={sessao.usuario.admin}
     />

@@ -60,6 +60,8 @@ export async function criarSessao(usuarioId: string): Promise<string> {
     `insert into sessao (token, usuario_id, expira_em) values ($1, $2, $3)`,
     [token, usuarioId, expira]
   );
+  // Marca o acesso — alimenta a coluna "último acesso" da lista de usuários.
+  await appQuery(`update usuario set ultimo_acesso = now() where id = $1`, [usuarioId]);
   const jar = await cookies();
   jar.set(COOKIE, token, {
     httpOnly: true,

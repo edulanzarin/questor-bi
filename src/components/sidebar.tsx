@@ -8,6 +8,7 @@ import clsx from "clsx";
 import { getModulo, secoesDoModulo, type ModuloId } from "@/lib/modulos";
 import { sair } from "@/app/login/actions";
 import { ThemeToggle } from "./theme-toggle";
+import { Avatar } from "./avatar";
 
 /**
  * Sidebar escopada a um módulo: mostra só as seções dele. A escolha do módulo
@@ -23,7 +24,7 @@ export function ModuloSidebar({
   moduloId: ModuloId;
   /** Ids das seções que a sessão pode ver. Ausente = todas (retrocompat). */
   visiveis?: string[];
-  usuario?: string;
+  usuario?: { id: string; nome: string; temFoto: boolean };
 }) {
   const pathname = usePathname();
   const sp = useSearchParams();
@@ -77,9 +78,12 @@ export function ModuloSidebar({
 
       <div className="mt-2 flex flex-col gap-0.5 border-t border-hairline pt-2">
         {usuario && (
-          <p className="truncate px-3 pb-0.5 text-[11px] text-muted" title={usuario}>
-            {usuario}
-          </p>
+          <div className="flex items-center gap-2 px-2 pb-1.5 pt-1">
+            <Avatar id={usuario.id} nome={usuario.nome} temFoto={usuario.temFoto} size={28} />
+            <p className="truncate text-xs text-ink-2" title={usuario.nome}>
+              {usuario.nome}
+            </p>
+          </div>
         )}
         <ThemeToggle />
         <form action={sair}>
