@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "migrate": "node scripts/migrate.mjs",
+    "seed:admin": "node scripts/seed-admin.mjs",
     "db:up": "docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d app-db"
   },
   "dependencies": {
