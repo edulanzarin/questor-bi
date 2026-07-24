@@ -14,7 +14,9 @@ function secoesValidas(): Set<string> {
   return s;
 }
 
-async function comTransacao<T>(fn: (q: (sql: string, p?: unknown[]) => Promise<{ rows: any[] }>) => Promise<T>): Promise<T> {
+type Q = (sql: string, p?: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>;
+
+async function comTransacao<T>(fn: (q: Q) => Promise<T>): Promise<T> {
   const client = await appPool.connect();
   try {
     await client.query("begin");
@@ -77,7 +79,7 @@ export async function salvarUsuario(formData: FormData): Promise<void> {
          values ($1, $2, $3, $4, $5, $6) returning id`,
         [nome, email, senhaHash, ativo, admin, todasEmpresas]
       );
-      usuarioId = rows[0].id;
+      usuarioId = rows[0].id as string;
     }
 
     // Perfil, grupos e empresas: recria do zero (o form é a verdade completa).
@@ -131,7 +133,7 @@ export async function salvarGrupo(formData: FormData): Promise<void> {
         `insert into empresa_grupo (nome) values ($1) returning id`,
         [nome]
       );
-      grupoId = rows[0].id;
+      grupoId = rows[0].id as number;
     }
     await q(`delete from empresa_grupo_item where grupo_id = $1`, [grupoId]);
     for (const e of empresas) {
